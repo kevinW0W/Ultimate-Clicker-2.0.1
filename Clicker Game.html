@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Clicker V2.0.1</title>
+    <!-- Load Tailwind for quick, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Tone.js for audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script> 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-dark': '#1a1a2e',
+                        'secondary-dark': '#2c2c54',
+                        'accent-purple': '#90a0ff',
+                        'accent-cyan': '#a8ffee',
+                        'score-gold': '#ffeea8',
+                        'btn-red': '#ff6b6b',
+                        'btn-purple': '#7c7ce3',
+                        'achievement-green': '#6cff8a',
+                        'ach-bg-dark-green': '#1f4037',
+                        'autosave-blue': '#00bfff',
+                        'buy-button-enabled': '#6cff8a',
+                        'buy-button-disabled': '#4a4a8a',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* --- Base Styles --- */
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            display: flex;
+            flex-direction: column; 
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a2e;
+            color: #e4e4f0;
+            padding: 20px;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 60;
+        }
+        .modal-content {
+            background-color: #2c2c54;
+            padding: 25px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Achievement Notification Styling */
+        #achievement-notification {
+            position: fixed;
+            top: -200px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background-color: #1f4037;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 55;
+            transition: top 0.5s ease-out;
+            border: 2px solid #6cff8a;
+        }
+
+        #achievement-notification.show {
+            top: 20px; 
+        }
+
+        /* Click Feedback Animation */
+        @keyframes floatUp {
+            from { opacity: 1; transform: translate(-50%, 0); }
+            to { opacity: 0; transform: translate(-50%, -50px); }
+        }
+
+        /* Upgrade Item Styling */
+        .upgrade-item {
+            margin-bottom: 12px;
+            background-color: #3b3b6b;
+            border: 1px solid #4a4a8a;
+        }
+        .upgrade-item:hover {
+            background-color: #4a4a8a;
+        }
+        /* Style for disabled items */
+        .disabled-buy {
+            opacity: 0.8;
+            cursor: not-allowed;
+            background-color: #2c2c54;
+        }
+        .disabled-buy:hover {
+            background-color: #2c2c54; /* Prevent hover background change on disabled */
+        }
+
+        /* Click Button Styling */
+        #click-button {
+            background-color: #90a0ff;
+            padding: 30px 0;
+            font-size: 1.8em;
+            box-shadow: 0 6px #4a4a8a;
+            transform: translateY(0);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        #click-button:active {
+            transform: translateY(3px);
+            box-shadow: 0 3px #4a4a8a;
+        }
+
+
+        /* Responsive Container */
+        #game-container {
+            display: flex;
+            width: 95%;
+            max-width: 1400px;
+            gap: 24px;
+            /* Default: stacked column (mobile/tablet) */
+            flex-direction: column;
+        }
+
+        /* --- Panel Styling --- */
+        #clicker-area {
+            /* Desktop: takes 1 part of the space */
+            @apply lg:flex-1;
+            padding: 24px;
+            background-color: #2c2c54;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            border: 1px solid #4a4a8a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Mobile Upgrade Panel (Default: Hidden, Fixed Position for Slide-Up) */
+        #upgrades-area {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            background-color: #1a1a2e;
+            transform: translateY(100%);
+            transition: transform 0.4s ease-in-out;
+            padding: 0;
+            overflow-y: auto;
+            display: none; /* Mobile default: Hidden */
+        }
+
+        /* Mobile Upgrade Panel - Active/Slide Up State */
+        #upgrades-area.slide-in {
+            transform: translateY(0%);
+            display: block;
+        }
+
+        /* Inner Content of the Upgrades Panel */
+        #upgrades-content {
+            padding: 24px;
+            background-color: #2c2c54;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            border: 1px solid #4a4a8a;
+            min-height: 100%;
+        }
+
+        /* Mobile-only button to trigger the slide-up */
+        #mobile-upgrade-button {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            z-index: 40;
+            padding: 18px 0;
+            font-size: 1.2em;
+            background-color: #90a0ff;
+            box-shadow: 0 4px #4a4a8a;
+            /* Mobile default: Visible, Desktop: Hidden via media query below */
+            display: block; 
+        }
+
+        /* Mobile Close Button/Handle inside the upgrade panel */
+        .upgrade-close-handle {
+            @apply block text-center py-4 text-xl font-bold text-accent-cyan cursor-pointer sticky top-0 bg-secondary-dark/90 z-20;
+            border-bottom: 2px solid #90a0ff;
+        }
+
+
+        /* --- DESKTOP LAYOUT (>= 1024px) --- */
+        @media (min-width: 1024px) {
+            body { align-items: flex-start; }
+            #game-container {
+                flex-direction: row;
+                align-items: flex-start;
+                gap: 24px;
+            }
+            
+            /* Reset mobile styles */
+            #clicker-area {
+                padding-bottom: 24px; 
+            }
+
+            /* Upgrades area is relative and visible on desktop */
+            #upgrades-area {
+                position: relative !important;
+                display: block !important;
+                flex: 2;
+                transform: translateY(0%) !important; /* Critical to reset mobile transform */
+                height: auto; 
+            }
+
+            /* Reset inner content for desktop */
+            #upgrades-content {
+                min-height: auto; 
+            }
+
+            /* Hide mobile-only elements */
+            #mobile-upgrade-button {
+                display: none !important;
+            }
+            .upgrade-close-handle {
+                display: none !important;
+            }
+        }
+
+
+        /* --- MOBILE/TABLET LAYOUT ADJUSTMENTS (<= 1024px) --- */
+        @media (max-width: 1024px) {
+            body { padding: 10px; }
+            #game-container { gap: 15px; width: 100%; }
+            
+            /* CRITICAL FIX: Add substantial bottom padding to clicker-area to make space for the fixed 'View Upgrades' button */
+            #clicker-area { 
+                flex: none; 
+                width: 100%; 
+                padding-bottom: 120px; /* Ensures Achievement Status and Click Button are visible above the fixed button */
+            }
+            
+            .modal-content { padding: 15px; }
+        }
+        
+        /* General Score/FPS Styling */
+        #score-display {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: #ffeea8;
+            margin-bottom: 8px;
+        }
+
+        #per-second-display {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #a8ffee;
+            margin-bottom: 24px;
+        }
+
+        /* Settings Modal Specific Styles */
+        .achievement-item.earned {
+            background-color: #1f4037;
+            border: 1px solid #6cff8a;
+            color: #6cff8a;
+        }
+    </style>
+</head>
+<body class="bg-primary-dark">
+
+    <!-- Achievement Notification -->
+    <div id="achievement-notification" class="text-center">
+        <div class="text-xl font-bold">ACHIEVEMENT UNLOCKED!</div>
+        <div id="ach-name" class="text-lg"></div>
+        <div id="ach-desc" class="text-sm text-white opacity-80"></div>
+    </div>
+
+    <!-- Settings Modal (Hidden by Default) -->
+    <div id="settings-modal" class="modal-overlay hidden" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4 border-b pb-2 border-accent-purple">
+                <h3 class="text-2xl font-bold text-accent-purple">Game Settings & Manager</h3>
+                <button id="hide-settings-button" class="text-xl font-bold text-btn-red hover:text-red-400">&times;</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex mb-4">
+                <button id="tab-btn-general" class="tab-button px-4 py-2 mr-2 bg-btn-purple rounded-t-lg font-semibold">General</button>
+                <button id="tab-btn-save" class="tab-button px-4 py-2 bg-secondary-dark rounded-t-lg font-semibold">Save/Load Slots</button>
+                <button id="tab-btn-achievements" class="tab-button px-4 py-2 bg-secondary-dark rounded-t-lg font-semibold">Achievements</button>
+            </div>
+
+            <!-- Tab Content: General -->
+            <div id="content-general" class="tab-content">
+                <p class="mb-4 text-sm text-center text-accent-cyan">Current Version: <span id="game-version-display" class="font-bold"></span></p>
+
+                <!-- Auto Clicker Control -->
+                <div class="p-4 rounded-lg border border-autosave-blue mb-6">
+                    <h4 class="text-xl font-bold text-autosave-blue mb-2">Temporary Auto Clicker</h4>
+                    <p class="text-sm mb-3">Activate a temporary click boost using currency.</p>
+                    <button id="ac-modal-button" class="w-full py-3 font-bold rounded-lg text-white hover:opacity-90 transition util-button bg-accent-cyan text-primary-dark">
+                        Activate Auto Clicker
+                    </button>
+                </div>
+
+
+                <div class="mb-6">
+                    <label for="sfx-volume-slider" class="block mb-2 font-semibold">SFX Volume</label>
+                    <input type="range" id="sfx-volume-slider" min="0" max="1" step="0.05" value="0.5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg">
+                </div>
+                <button id="clear-game-button" class="w-full py-3 mt-4 bg-btn-red text-white font-bold rounded-lg hover:bg-red-700 transition">Wipe ALL Progress (Hard Reset)</button>
+            </div>
+
+            <!-- Tab Content: Save/Load Slots -->
+            <div id="content-save" class="tab-content hidden">
+                <p class="text-sm mb-4 text-center">Manage your game progress in 5 manual slots and 1 automatic slot.</p>
+                <div id="slot-manager" class="grid grid-cols-1 gap-4">
+                    <!-- Slots will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Tab Content: Achievements -->
+            <div id="content-achievements" class="tab-content hidden">
+                 <p class="text-sm mb-4 text-center text-accent-cyan">Track your progress and unlock special rewards! (Total: <span id="ach-total-count">212</span>)</p>
+                 <div id="achievement-list-display" class="grid grid-cols-1 gap-3">
+                     <!-- Achievements will be rendered here -->
+                 </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="game-container">
+        <!-- Left Side: Clicker Area -->
+        <div id="clicker-area" class="flex flex-col lg:flex-1 items-center">
+            <h1>Ultimate Clicker V2.0.1</h1>
+            <!-- Message Log at the top of the main area -->
+            <p style="margin-bottom: 10px;" id="message-log" class="text-sm font-semibold h-5"></p>
+
+            <div id="score-display">0</div>
+            <div id="per-second-display">0/sec</div>
+
+            <button id="click-button" class="w-[90%] max-w-[400px] font-bold rounded-lg mb-4 text-white hover:opacity-90 transition">Tap to Earn!</button>
+            
+            <div class="settings-container flex justify-center mt-6 w-[90%] max-w-[400px]">
+                <button id="settings-button" class="w-full py-2 px-4 text-lg bg-accent-purple text-white rounded-lg hover:bg-btn-purple transition font-bold">Settings & Save Manager</button>
+            </div>
+
+            <!-- Achievement status in clicker area -->
+            <div id="achievement-status" class="mt-4 text-left p-3 bg-secondary-dark rounded-lg border border-gray-600 w-[90%] max-w-[400px]">
+                <h3 class="text-lg font-bold text-achievement-green mb-2">Achievements Status</h3>
+                <div id="ach-summary" class="text-sm"></div>
+            </div>
+        </div>
+
+        <!-- Right Side: Upgrades Area (Slides up on mobile, Fixed on desktop) -->
+        <div id="upgrades-area" class="lg:flex-2 lg:max-h-[90vh] lg:overflow-y-auto">
+             <div id="upgrade-close-handle" class="upgrade-close-handle">
+                &#9660; Close Upgrades
+             </div>
+            <div id="upgrades-content" class="lg:p-6 lg:bg-secondary-dark lg:rounded-xl">
+                <h2>Upgrades & Buildings</h2>
+                <div id="upgrade-list" class="upgrade-list">
+                    <!-- Upgrade items will be inserted here by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile-only Button to View Upgrades -->
+    <button id="mobile-upgrade-button" class="font-bold rounded-lg text-white transition">View Upgrades & Buildings</button>
+
+    <!-- FOOTER: Copyright Notice -->
+    <footer class="mt-8 mb-4 w-full text-center text-xs text-gray-500">
+        2025 (c) copyrighted All Right Reserved
+    </footer>
+
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const GAME_VERSION = "2.0.1"; 
+        const AUTO_SAVE_KEY = 'clickerGameAutoSave';
+        const STORAGE_KEY_PREFIX = 'clickerGameSaveSlot_';
+        const NUM_MANUAL_SLOTS = 5;
+        const COST_MULTIPLIER = 1.15;
+        const FRENZY_MULTIPLIER = 7;
+        const FRENZY_DURATION = 10;
+        const FRENZY_CHANCE = 0.002;
+        const AUTO_CLICKER_COST = 1000;
+        const AUTO_CLICKER_DURATION = 60;
+        const AUTO_CLICKER_RATE = 10; // Clicks per second
+
+        const GAME_TICK_RATE_MS = 100;
+        const UI_RENDER_INTERVAL_MS = 500;
+        const AUTO_SAVE_INTERVAL_MS = 10000;
+
+        // --- GAME STATE VARIABLES ---
+        let score = 0;
+        let clickPower = 1;
+        let perSecond = 0;
+        let totalClicks = 0;
+        let totalFrenziesTriggered = 0;
+        let isAutoClickerActive = false;
+        let autoClickerRemaining = 0;
+        let clickFrenzyActive = false;
+        let frenzyRemaining = 0;
+        let sfxVolume = 0.5;
+        let isAudioStarted = false;
+        let achievementPassiveBonus = 0;
+        let achievementClickBonus = 0;
+        let totalUpgradeLevels = 0;
+
+
+        // --- TONE.JS AUDIO SETUP ---
+        const sfxGain = new Tone.Gain(sfxVolume).toDestination();
+        const sfxSynth = new Tone.MembraneSynth({
+            pitchDecay: 0.05,
+            octaves: 2,
+            envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05 }
+        }).connect(sfxGain);
+
+        // --- UPGRADE CONFIG (220 Total) ---
+        const upgrades = [
+            { id: 1, name: "Finger Strengthener", baseCost: 10, type: 'click', effect: 1, owned: 0, description: "+1 click point per level." },
+            { id: 2, name: "Auto-Clicker Bot", baseCost: 100, type: 'passive', effect: 1, owned: 0, description: "+1 point/sec per level." },
+            { id: 3, name: "Novice Miner", baseCost: 500, type: 'passive', effect: 5, owned: 0, description: "+5 points/sec per level." },
+            { id: 4, name: "Turbo Mousepad", baseCost: 2000, type: 'click', effect: 5, owned: 0, description: "+5 click points per level." },
+            { id: 5, name: "Click Farm Assistant", baseCost: 10000, type: 'passive', effect: 20, owned: 0, description: "+20 points/sec per level." },
+            { id: 6, name: "Mega Drone", baseCost: 50000, type: 'passive', effect: 100, owned: 0, description: "+100 points/sec per level." },
+            { id: 7, name: "Diamond Hands", baseCost: 250000, type: 'click', effect: 50, owned: 0, description: "+50 click points per level." },
+            { id: 8, name: "Quantum Processor", baseCost: 1000000, type: 'passive', effect: 500, owned: 0, description: "+500 points/sec per level." },
+            { id: 9, name: "Galactic Portal", baseCost: 5000000, type: 'passive', effect: 2500, owned: 0, description: "+2.5K points/sec per level." },
+            { id: 10, name: "Universal Booster", baseCost: 20000000, type: 'click', effect: 100, owned: 0, description: "+100 click points per level." },
+            { id: 11, name: "Dark Matter Conduit", baseCost: 100000000, type: 'passive', effect: 10000, owned: 0, description: "+10K points/sec per level." },
+            { id: 12, name: "Hyperspeed Compiler", baseCost: 500000000, type: 'click', effect: 500, owned: 0, description: "+500 click points per level." },
+            { id: 13, name: "Singularity Generator", baseCost: 5000000000, type: 'passive', effect: 50000, owned: 0, description: "+50K points/sec per level." },
+            { id: 14, name: "Cosmic Clicker", baseCost: 25000000000, type: 'click', effect: 2500, owned: 0, description: "+2.5K click points per level." },
+            { id: 15, name: "Multiverse Fabric", baseCost: 100000000000, type: 'passive', effect: 250000, owned: 0, description: "+250K points/sec per level." },
+            { id: 16, name: "Hyperbolic Chamber", baseCost: 500000000000, type: 'passive', effect: 1000000, owned: 0, description: "+1M points/sec per level." },
+            { id: 17, name: "Chronos Accelerator", baseCost: 5000000000000, type: 'click', effect: 50000, owned: 0, description: "+50K click points per level." },
+            { id: 18, name: "Stellar Engine", baseCost: 25000000000000, type: 'passive', effect: 10000000, owned: 0, description: "+10M points/sec per level." },
+            { id: 19, name: "God Hand", baseCost: 100000000000000, type: 'click', effect: 250000, owned: 0, description: "+250K click points per level." },
+            { id: 20, name: "Infinite Loop", baseCost: 500000000000000, type: 'passive', effect: 100000000, owned: 0, description: "+100M points/sec per level." },
+            // --- NEW UPGRADES (200 Total) ---
+            { id: 21, name: "Temporal Rift Opener", baseCost: 750000000000000, type: 'click', effect: 375000, owned: 0, description: "+375K click points per level." },
+            { id: 22, name: "Event Horizon Miner", baseCost: 1125000000000000, type: 'passive', effect: 150000000, owned: 0, description: "+150M points/sec per level." },
+            { id: 23, name: "Singularity Tap", baseCost: 1687500000000000, type: 'click', effect: 562500, owned: 0, description: "+562K click points per level." },
+            { id: 24, name: "Exotic Matter Harvester", baseCost: 2531250000000000, type: 'passive', effect: 225000000, owned: 0, description: "+225M points/sec per level." },
+            { id: 25, name: "Cosmic String Flipper", baseCost: 3796875000000000, type: 'click', effect: 843750, owned: 0, description: "+843K click points per level." },
+            { id: 26, name: "Hyperspace Router", baseCost: 5695312500000000, type: 'passive', effect: 337500000, owned: 0, description: "+337M points/sec per level." },
+            { id: 27, name: "Parallel Universe Link", baseCost: 8542968750000000, type: 'click', effect: 1265625, owned: 0, description: "+1.26M click points per level." },
+            { id: 28, name: "Quasar Power Plant", baseCost: 12814453125000000, type: 'passive', effect: 506250000, owned: 0, description: "+506M points/sec per level." },
+            { id: 29, name: "Tachyon Injector", baseCost: 19221679687500000, type: 'click', effect: 1898437, owned: 0, description: "+1.89M click points per level." },
+            { id: 30, name: "Wormhole Spanner", baseCost: 28832519531250000, type: 'passive', effect: 759375000, owned: 0, description: "+759M points/sec per level." },
+            { id: 31, name: "Dimension Shifter", baseCost: 43248779296875000, type: 'click', effect: 2847656, owned: 0, description: "+2.84M click points per level." },
+            { id: 32, name: "Void Energy Conduit", baseCost: 64873168945312500, type: 'passive', effect: 1139062500, owned: 0, description: "+1.13B points/sec per level." },
+            { id: 33, name: "Aetheric Amplifier", baseCost: 97309753417968750, type: 'click', effect: 4271484, owned: 0, description: "+4.27M click points per level." },
+            { id: 34, name: "Galactic Treasury", baseCost: 145964630126953120, type: 'passive', effect: 1708593750, owned: 0, description: "+1.7B points/sec per level." },
+            { id: 35, name: "Reality Warper", baseCost: 218946945190429700, type: 'click', effect: 6407226, owned: 0, description: "+6.4M click points per level." },
+            { id: 36, name: "Cosmos Fabricator", baseCost: 328420417785644560, type: 'passive', effect: 2562890625, owned: 0, description: "+2.56B points/sec per level." },
+            { id: 37, name: "Existential Engine", baseCost: 492630626678466840, type: 'click', effect: 9610839, owned: 0, description: "+9.61M click points per level." },
+            { id: 38, name: "Omni-Present Node", baseCost: 738945939947700200, type: 'passive', effect: 3844335937, owned: 0, description: "+3.84B points/sec per level." },
+            { id: 39, name: "Hyper-Dimensional Click", baseCost: 1108418909921550300, type: 'click', effect: 14416259, owned: 0, description: "+14.4M click points per level." },
+            { id: 40, name: "Chrono-Sync Array", baseCost: 1662628364882325400, type: 'passive', effect: 5766503906, owned: 0, description: "+5.76B points/sec per level." },
+            { id: 41, name: "Infinite Improbability Drive", baseCost: 2493942547323488000, type: 'click', effect: 21624389, owned: 0, description: "+21.6M click points per level." },
+            { id: 42, name: "Universal Data Stream", baseCost: 3740913820985232000, type: 'passive', effect: 8649755859, owned: 0, description: "+8.64B points/sec per level." },
+            { id: 43, name: "Paradox Converter", baseCost: 5611370731477848000, type: 'click', effect: 32436584, owned: 0, description: "+32.4M click points per level." },
+            { id: 44, name: "Fifth Dimension Conduit", baseCost: 8417056097216773000, type: 'passive', effect: 12974633789, owned: 0, description: "+12.9B points/sec per level." },
+            { id: 45, name: "Reality Manipulator", baseCost: 12625584145825160000, type: 'click', effect: 48654876, owned: 0, description: "+48.6M click points per level." },
+            { id: 46, name: "Infinite Energy Source", baseCost: 18938376218737740000, type: 'passive', effect: 19461950683, owned: 0, description: "+19.4B points/sec per level." },
+            { id: 47, name: "Cosmic Ray Harnesser", baseCost: 28407564328106610000, type: 'click', effect: 72982314, owned: 0, description: "+72.9M click points per level." },
+            { id: 48, name: "Dark Energy Extractor", baseCost: 42611346492159910000, type: 'passive', effect: 29192926025, owned: 0, description: "+29.1B points/sec per level." },
+            { id: 49, name: "Omni-Key Generator", baseCost: 63917019738239860000, type: 'click', effect: 109473471, owned: 0, description: "+109M click points per level." },
+            { id: 50, name: "Universal Singularity", baseCost: 95875529607359790000, type: 'passive', effect: 43779389037, owned: 0, description: "+43.7B points/sec per level." },
+            { id: 51, name: "Multidimensional Bridge", baseCost: 143813294411039680000, type: 'click', effect: 164210206, owned: 0, description: "+164M click points per level." },
+            { id: 52, name: "Stardust Processor", baseCost: 215719941616559520000, type: 'passive', effect: 65669083556, owned: 0, description: "+65.6B points/sec per level." },
+            { id: 53, name: "Time Dilation Clicker", baseCost: 323579912424839300000, type: 'click', effect: 246315309, owned: 0, description: "+246M click points per level." },
+            { id: 54, name: "Hyperdrive Injector", baseCost: 485369868637258940000, type: 'passive', effect: 98503625334, owned: 0, description: "+98.5B points/sec per level." },
+            { id: 55, name: "Celestial Conduit", baseCost: 728054802955888400000, type: 'click', effect: 369472963, owned: 0, description: "+369M click points per level." },
+            { id: 56, name: "Galactic Bank", baseCost: 1092082204433832700000, type: 'passive', effect: 147755437976, owned: 0, description: "+147B points/sec per level." },
+            { id: 57, name: "Cosmic Force Multiplier", baseCost: 1638123306650749000000, type: 'click', effect: 554209444, owned: 0, description: "+554M click points per level." },
+            { id: 58, name: "Reality Anchor", baseCost: 2457184959976123500000, type: 'passive', effect: 221633156964, owned: 0, description: "+221B points/sec per level." },
+            { id: 59, name: "Hyper-Quantum Tap", baseCost: 3685777439964185000000, type: 'click', effect: 831314166, owned: 0, description: "+831M click points per level." },
+            { id: 60, name: "Infinity Generator", baseCost: 5528666159946277000000, type: 'passive', effect: 332449735446, owned: 0, description: "+332B points/sec per level." },
+            { id: 61, name: "Void Resonator", baseCost: 8292999239919416000000, type: 'click', effect: 1246971249, owned: 0, description: "+1.24B click points per level." },
+            { id: 62, name: "Universal Conduit", baseCost: 12439498859879124000000, type: 'passive', effect: 498674553170, owned: 0, description: "+498B points/sec per level." },
+            { id: 63, name: "Eternity Weaver", baseCost: 18659248289818686000000, type: 'click', effect: 1870456873, owned: 0, description: "+1.87B click points per level." },
+            { id: 64, name: "Cosmic Aligner", baseCost: 27988872434728030000000, type: 'passive', effect: 748011829755, owned: 0, description: "+748B points/sec per level." },
+            { id: 65, name: "Paradigm Shifter", baseCost: 41983308652092044000000, type: 'click', effect: 2805685310, owned: 0, description: "+2.8B click points per level." },
+            { id: 66, name: "Existential Loop", baseCost: 62974962978138060000000, type: 'passive', effect: 1122017744632, owned: 0, description: "+1.12T points/sec per level." },
+            { id: 67, name: "Final Click Device", baseCost: 94462444467207090000000, type: 'click', effect: 4208527965, owned: 0, description: "+4.2B click points per level." },
+            { id: 68, name: "Ultimate Singularity", baseCost: 141693666700810640000000, type: 'passive', effect: 1683026616948, owned: 0, description: "+1.68T points/sec per level." },
+            { id: 69, name: "Omniverse Builder", baseCost: 212540499051215960000000, type: 'click', effect: 6312791948, owned: 0, description: "+6.31B click points per level." },
+            { id: 70, name: "Cosmic Supergrid", baseCost: 318810748576823900000000, type: 'passive', effect: 2525203925422, owned: 0, description: "+2.52T points/sec per level." },
+            { id: 71, name: "Dimensional Slicer", baseCost: 478216122865235850000000, type: 'click', effect: 9469187922, owned: 0, description: "+9.46B click points per level." },
+            { id: 72, name: "Energy Nexus", baseCost: 717324184297853800000000, type: 'passive', effect: 3787805888133, owned: 0, description: "+3.78T points/sec per level." },
+            { id: 73, name: "Hyperdrive Core", baseCost: 1075986276446780700000000, type: 'click', effect: 14203781883, owned: 0, description: "+14.2B click points per level." },
+            { id: 74, name: "Quantum Entangler", baseCost: 1613979414670171000000000, type: 'passive', effect: 5681708832199, owned: 0, description: "+5.68T points/sec per level." },
+            { id: 75, name: "Gravity Well Clicker", baseCost: 2420969122005256500000000, type: 'click', effect: 21305672825, owned: 0, description: "+21.3B click points per level." },
+            { id: 76, name: "Planetary Processor", baseCost: 3631453683007885000000000, type: 'passive', effect: 8522563248299, owned: 0, description: "+8.52T points/sec per level." },
+            { id: 77, name: "Star Cluster Tap", baseCost: 5447180524511827000000000, type: 'click', effect: 31958509237, owned: 0, description: "+31.9B click points per level." },
+            { id: 78, name: "Nebula Farm", baseCost: 8170770786767741000000000, type: 'passive', effect: 12783844872449, owned: 0, description: "+12.7T points/sec per level." },
+            { id: 79, name: "Galaxy Core Miner", baseCost: 12256156180151611000000000, type: 'click', effect: 47937763856, owned: 0, description: "+47.9B click points per level." },
+            { id: 80, name: "Universal Catalyst", baseCost: 18384234270227416000000000, type: 'passive', effect: 19175767308674, owned: 0, description: "+19.1T points/sec per level." },
+            { id: 81, name: "Multiverse Gate", baseCost: 27576351405341120000000000, type: 'click', effect: 71906645785, owned: 0, description: "+71.9B click points per level." },
+            { id: 82, name: "Hyper-Evolution Engine", baseCost: 41364527108011680000000000, type: 'passive', effect: 28763650963011, owned: 0, description: "+28.7T points/sec per level." },
+            { id: 83, name: "Omega Clicker", baseCost: 62046790662017520000000000, type: 'click', effect: 107859968677, owned: 0, description: "+107B click points per level." },
+            { id: 84, name: "Zero-Point Extractor", baseCost: 93070185993026280000000000, type: 'passive', effect: 43145476444516, owned: 0, description: "+43.1T points/sec per level." },
+            { id: 85, name: "Absolute Infinity Tap", baseCost: 139605278989539420000000000, type: 'click', effect: 161789953016, owned: 0, description: "+161B click points per level." },
+            { id: 86, name: "Trans-Dimensional Factory", baseCost: 209407918484309130000000000, type: 'passive', effect: 64692714666774, owned: 0, description: "+64.6T points/sec per level." },
+            { id: 87, name: "Hyperspace Router 2.0", baseCost: 314111877726463700000000000, type: 'click', effect: 242684929524, owned: 0, description: "+242B click points per level." },
+            { id: 88, name: "Celestial Battery", baseCost: 471167816589695500000000000, type: 'passive', effect: 96998993881061, owned: 0, description: "+96.9T points/sec per level." },
+            { id: 89, name: "Cosmic String Weaver", baseCost: 706751724884543200000000000, type: 'click', effect: 364027394286, owned: 0, description: "+364B click points per level." },
+            { id: 90, name: "Nebula Farm 2.0", baseCost: 1060127587326814900000000000, type: 'passive', effect: 145498490821591, owned: 0, description: "+145T points/sec per level." },
+            { id: 91, name: "Void Energy Harvester", baseCost: 1590191380990222400000000000, type: 'click', effect: 546041091429, owned: 0, description: "+546B click points per level." },
+            { id: 92, name: "Galactic Bank 2.0", baseCost: 2385287071485333600000000000, type: 'passive', effect: 218247736232386, owned: 0, description: "+218T points/sec per level." },
+            { id: 93, name: "Dimension Splitter", baseCost: 3577930607227999800000000000, type: 'click', effect: 819061637144, owned: 0, description: "+819B click points per level." },
+            { id: 94, name: "Temporal Processor", baseCost: 5366895910841999700000000000, type: 'passive', effect: 327371604348579, owned: 0, description: "+327T points/sec per level." },
+            { id: 95, name: "Cosmic Anchor", baseCost: 8050343866262999000000000000, type: 'click', effect: 1228592455716, owned: 0, description: "+1.22T click points per level." },
+            { id: 96, name: "Infinity Weave", baseCost: 12075515799394498000000000000, type: 'passive', effect: 491057408322868, owned: 0, description: "+491T points/sec per level." },
+            { id: 97, name: "Ultimate Chronos Accelerator", baseCost: 18113273699091746000000000000, type: 'click', effect: 1842888683574, owned: 0, description: "+1.84T click points per level." },
+            { id: 98, name: "Stellar Engine 2.0", baseCost: 27169910548637620000000000000, type: 'passive', effect: 737155473430792, owned: 0, description: "+737T points/sec per level." },
+            { id: 99, name: "God Hand 2.0", baseCost: 40754865822956430000000000000, type: 'click', effect: 2764333025361, owned: 0, description: "+2.76T click points per level." },
+            { id: 100, name: "Infinite Loop 2.0", baseCost: 61132298734434645000000000000, type: 'passive', effect: 1105733210144188, owned: 0, description: "+1.1P points/sec per level." },
+            { id: 101, name: "Reality Matrix Programmer", baseCost: 91698448101651970000000000000, type: 'click', effect: 4146499538042, owned: 0, description: "+4.14T click points per level." },
+            { id: 102, name: "Quasar Power Grid", baseCost: 137547672152477960000000000000, type: 'passive', effect: 1658600000000000, owned: 0, description: "+1.65P points/sec per level." },
+            { id: 103, name: "Existential Tap Pro", baseCost: 206321508228716940000000000000, type: 'click', effect: 6219749307063, owned: 0, description: "+6.21T click points per level." },
+            { id: 104, name: "Cosmic Fabric 2.0", baseCost: 309482262343075400000000000000, type: 'passive', effect: 2487900000000000, owned: 0, description: "+2.48P points/sec per level." },
+            { id: 105, name: "Multiverse Conduit Pro", baseCost: 464223393514613100000000000000, type: 'click', effect: 9329623086961, owned: 0, description: "+9.32T click points per level." },
+            { id: 106, name: "Dark Energy Extractor Pro", baseCost: 696335090271919600000000000000, type: 'passive', effect: 3731850000000000, owned: 0, description: "+3.73P points/sec per level." },
+            { id: 107, name: "Void Slicer Elite", baseCost: 1044502635407879400000000000000, type: 'click', effect: 13994434630441, owned: 0, description: "+13.9T click points per level." },
+            { id: 108, name: "Infinite Mana Farm", baseCost: 1566753953111819000000000000000, type: 'passive', effect: 5597775000000000, owned: 0, description: "+5.59P points/sec per level." },
+            { id: 109, name: "Hyperbolic Click 3.0", baseCost: 2350130929667728500000000000000, type: 'click', effect: 20991651945661, owned: 0, description: "+20.9T click points per level." },
+            { id: 110, name: "Singularity Generator Pro", baseCost: 3525196394501593000000000000000, type: 'passive', effect: 8396662500000000, owned: 0, description: "+8.39P points/sec per level." },
+            { id: 111, name: "Absolute Limit Remover", baseCost: 5287794591752390000000000000000, type: 'click', effect: 31487477918491, owned: 0, description: "+31.4T click points per level." },
+            { id: 112, name: "Reality Warper 2.0", baseCost: 7931691887628585000000000000000, type: 'passive', effect: 12595000000000000, owned: 0, description: "+12.5P points/sec per level." },
+            { id: 113, name: "Chronos Accelerator Max", baseCost: 11897537831442877000000000000000, type: 'click', effect: 47231216877736, owned: 0, description: "+47.2T click points per level." },
+            { id: 114, name: "Stellar Engine Max", baseCost: 17846306747164316000000000000000, type: 'passive', effect: 18892500000000000, owned: 0, description: "+18.8P points/sec per level." },
+            { id: 115, name: "Cosmic Force Extreme", baseCost: 26769460120746473000000000000000, type: 'click', effect: 70846825316604, owned: 0, description: "+70.8T click points per level." },
+            { id: 116, name: "Multiverse Fabric Max", baseCost: 40154190181119710000000000000000, type: 'passive', effect: 28338750000000000, owned: 0, description: "+28.3P points/sec per level." },
+            { id: 117, name: "Infinite Loop Max", baseCost: 60231285271679560000000000000000, type: 'click', effect: 106270237974906, owned: 0, description: "+106T click points per level." },
+            { id: 118, name: "Omega Processor", baseCost: 90346927907519340000000000000000, type: 'passive', effect: 42508125000000000, owned: 0, description: "+42.5P points/sec per level." },
+            { id: 119, name: "God Hand Ultimate", baseCost: 135520391861278990000000000000000, type: 'click', effect: 159405356962359, owned: 0, description: "+159T click points per level." },
+            { id: 120, name: "Singularity Overdrive", baseCost: 203280587791918480000000000000000, type: 'passive', effect: 63762187500000000, owned: 0, description: "+63.7P points/sec per level." },
+            { id: 121, name: "Absolute Zero Tap", baseCost: 304920881687877700000000000000000, type: 'click', effect: 239108035443539, owned: 0, description: "+239T click points per level." },
+            { id: 122, name: "Wormhole Fusion Reactor", baseCost: 457381322531816550000000000000000, type: 'passive', effect: 95643281250000000, owned: 0, description: "+95.6P points/sec per level." },
+            { id: 123, name: "Event Horizon Piercer", baseCost: 686071983797724800000000000000000, type: 'click', effect: 358662053165309, owned: 0, description: "+358T click points per level." },
+            { id: 124, name: "Dimensional Slicer Max", baseCost: 1029107975696587200000000000000000, type: 'passive', effect: 143464921875000000, owned: 0, description: "+143P points/sec per level." },
+            { id: 125, name: "Time Dilation Clicker Max", baseCost: 1543661963544880800000000000000000, type: 'click', effect: 538000000000000, owned: 0, description: "+538T click points per level." },
+            { id: 126, name: "Cosmic Ray Extractor Max", baseCost: 2315492945317321000000000000000000, type: 'passive', effect: 215197382812500000, owned: 0, description: "+215P points/sec per level." },
+            { id: 127, name: "Quantum Entangler Max", baseCost: 3473239417975981500000000000000000, type: 'click', effect: 807000000000000, owned: 0, description: "+807T click points per level." },
+            { id: 128, name: "Nebula Farm X", baseCost: 5209859126963972000000000000000000, type: 'passive', effect: 322796074218750000, owned: 0, description: "+322P points/sec per level." },
+            { id: 129, name: "Galaxy Core Miner Max", baseCost: 7814788690445957000000000000000000, type: 'click', effect: 1210500000000000, owned: 0, description: "+1.21Q click points per level." },
+            { id: 130, name: "Universal Catalyst X", baseCost: 11722183035668936000000000000000000, type: 'passive', effect: 484194000000000000, owned: 0, description: "+484P points/sec per level." },
+            { id: 131, name: "Multiverse Gate X", baseCost: 17583274553503405000000000000000000, type: 'click', effect: 1815750000000000, owned: 0, description: "+1.81Q click points per level." },
+            { id: 132, name: "Hyper-Evolution Engine X", baseCost: 26374911830255106000000000000000000, type: 'passive', effect: 726291000000000000, owned: 0, description: "+726P points/sec per level." },
+            { id: 133, name: "Omega Clicker X", baseCost: 39562367745382660000000000000000000, type: 'click', effect: 2723625000000000, owned: 0, description: "+2.72Q click points per level." },
+            { id: 134, name: "Zero-Point Extractor X", baseCost: 59343551618073990000000000000000000, type: 'passive', effect: 1089437000000000000, owned: 0, description: "+1.08Q points/sec per level." },
+            { id: 135, name: "Absolute Infinity Tap X", baseCost: 89015327427110990000000000000000000, type: 'click', effect: 4085437500000000, owned: 0, description: "+4.08Q click points per level." },
+            { id: 136, name: "Trans-Dimensional Factory X", baseCost: 133522991140666480000000000000000000, type: 'passive', effect: 1634150000000000000, owned: 0, description: "+1.63Q points/sec per level." },
+            { id: 137, name: "Hyper-Dimensional Click X", baseCost: 200284486710999730000000000000000000, type: 'click', effect: 6128156250000000, owned: 0, description: "+6.12Q click points per level." },
+            { id: 138, name: "Celestial Battery X", baseCost: 300426730066499580000000000000000000, type: 'passive', effect: 2451225000000000000, owned: 0, description: "+2.45Q points/sec per level." },
+            { id: 139, name: "Cosmic String Weaver X", baseCost: 450640095099749350000000000000000000, type: 'click', effect: 9192234375000000, owned: 0, description: "+9.19Q click points per level." },
+            { id: 140, name: "Nebula Farm X2", baseCost: 675960142649624000000000000000000000, type: 'passive', effect: 3676837500000000000, owned: 0, description: "+3.67Q points/sec per level." },
+            { id: 141, name: "Void Energy Harvester X2", baseCost: 1013940213974436000000000000000000000, type: 'click', effect: 13788351562500000, owned: 0, description: "+13.7Q click points per level." },
+            { id: 142, name: "Galactic Bank X2", baseCost: 1520910320961654000000000000000000000, type: 'passive', effect: 5515320000000000000, owned: 0, description: "+5.51Q points/sec per level." },
+            { id: 143, name: "Dimension Splitter X2", baseCost: 2281365481442481000000000000000000000, type: 'click', effect: 20682527343750000, owned: 0, description: "+20.6Q click points per level." },
+            { id: 144, name: "Temporal Processor X2", baseCost: 3422048222163721500000000000000000000, type: 'passive', effect: 8272980000000000000, owned: 0, description: "+8.27Q points/sec per level." },
+            { id: 145, name: "Cosmic Anchor X2", baseCost: 5133072333245582000000000000000000000, type: 'click', effect: 31023791015625000, owned: 0, description: "+31.0Q click points per level." },
+            { id: 146, name: "Infinity Weave X2", baseCost: 7699608500000000000000000000000000000, type: 'passive', effect: 12409550000000000000, owned: 0, description: "+12.4Q points/sec per level." },
+            { id: 147, name: "Ultimate Chronos X2", baseCost: 11549412750000000000000000000000000000, type: 'click', effect: 46535686523437500, owned: 0, description: "+46.5Q click points per level." },
+            { id: 148, name: "Stellar Engine X2", baseCost: 17324119125000000000000000000000000000, type: 'passive', effect: 18609500000000000000, owned: 0, description: "+18.6Q points/sec per level." },
+            { id: 149, name: "God Hand X2", baseCost: 25986178687500000000000000000000000000, type: 'click', effect: 69803529785156250, owned: 0, description: "+69.8Q click points per level." },
+            { id: 150, name: "Infinite Loop X2", baseCost: 38979268031250000000000000000000000000, type: 'passive', effect: 27907500000000000000, owned: 0, description: "+27.9Q points/sec per level." },
+            { id: 151, name: "Reality Matrix X2", baseCost: 58468902046875000000000000000000000000, type: 'click', effect: 104705294677734380, owned: 0, description: "+104Q click points per level." },
+            { id: 152, name: "Quasar Power Grid X2", baseCost: 87703353070312500000000000000000000000, type: 'passive', effect: 41885500000000000000, owned: 0, description: "+41.8Q points/sec per level." },
+            { id: 153, name: "Existential Tap X2", baseCost: 131555029605468750000000000000000000000, type: 'click', effect: 157057942016601560, owned: 0, description: "+157Q click points per level." },
+            { id: 154, name: "Cosmic Fabric X2", baseCost: 197332544408203120000000000000000000000, type: 'passive', effect: 62828500000000000000, owned: 0, description: "+62.8Q points/sec per level." },
+            { id: 155, name: "Multiverse Conduit X2", baseCost: 295998816612304700000000000000000000000, type: 'click', effect: 235586913024902340, owned: 0, description: "+235Q click points per level." },
+            { id: 156, name: "Dark Energy X2", baseCost: 443998224918457000000000000000000000000, type: 'passive', effect: 94243000000000000000, owned: 0, description: "+94.2Q points/sec per level." },
+            { id: 157, name: "Void Slicer X2", baseCost: 665997337377685600000000000000000000000, type: 'click', effect: 353380369537353540, owned: 0, description: "+353Q click points per level." },
+            { id: 158, name: "Infinite Mana Farm X2", baseCost: 998996006066528300000000000000000000000, type: 'passive', effect: 141364000000000000000, owned: 0, description: "+141Q points/sec per level." },
+            { id: 159, name: "Hyperbolic Click X3", baseCost: 1498494009099792500000000000000000000000, type: 'click', effect: 530070554306030300, owned: 0, description: "+530Q click points per level." },
+            { id: 160, name: "Singularity Generator X2", baseCost: 2247741013649688700000000000000000000000, type: 'passive', effect: 212046000000000000000, owned: 0, description: "+212Q points/sec per level." },
+            { id: 161, name: "Absolute Limit X2", baseCost: 3371611520474533000000000000000000000000, type: 'click', effect: 795105831459045400, owned: 0, description: "+795Q click points per level." },
+            { id: 162, name: "Reality Warper X2", baseCost: 5057417280711799000000000000000000000000, type: 'passive', effect: 318069000000000000000, owned: 0, description: "+318Q points/sec per level." },
+            { id: 163, name: "Chronos Accelerator X3", baseCost: 7586125921067699000000000000000000000000, type: 'click', effect: 1192658747188568000, owned: 0, description: "+1.19S click points per level." },
+            { id: 164, name: "Stellar Engine X3", baseCost: 11379188881601548000000000000000000000000, type: 'passive', effect: 477103500000000000000, owned: 0, description: "+477Q points/sec per level." },
+            { id: 165, name: "Cosmic Force X3", baseCost: 17068783322402322000000000000000000000000, type: 'click', effect: 1788988120782852000, owned: 0, description: "+1.78S click points per level." },
+            { id: 166, name: "Multiverse Fabric X3", baseCost: 25603174983603482000000000000000000000000, type: 'passive', effect: 715655000000000000000, owned: 0, description: "+715Q points/sec per level." },
+            { id: 167, name: "Infinite Loop X3", baseCost: 38404762475405220000000000000000000000000, type: 'click', effect: 2683482181174278000, owned: 0, description: "+2.68S click points per level." },
+            { id: 168, name: "Omega Processor X2", baseCost: 57607143713107830000000000000000000000000, type: 'passive', effect: 1073482500000000000000, owned: 0, description: "+1.07S points/sec per level." },
+            { id: 169, name: "God Hand X3", baseCost: 86410715569661750000000000000000000000000, type: 'click', effect: 4025223271761417000, owned: 0, description: "+4.02S click points per level." },
+            { id: 170, name: "Singularity Overdrive X2", baseCost: 129616073354492620000000000000000000000000, type: 'passive', effect: 1609985000000000000000, owned: 0, description: "+1.6S points/sec per level." },
+            { id: 171, name: "Absolute Zero Tap X2", baseCost: 194424109990000000000000000000000000000000, type: 'click', effect: 6037834907642125000, owned: 0, description: "+6.03S click points per level." },
+            { id: 172, name: "Wormhole Fusion X2", baseCost: 291636164985000000000000000000000000000000, type: 'passive', effect: 2414977500000000000000, owned: 0, description: "+2.41S points/sec per level." },
+            { id: 173, name: "Event Horizon X2", baseCost: 437454247477500000000000000000000000000000, type: 'click', effect: 9056752361463187000, owned: 0, description: "+9.05S click points per level." },
+            { id: 174, name: "Dimensional Slicer X3", baseCost: 656181371216250000000000000000000000000000, type: 'passive', effect: 3622466250000000000000, owned: 0, description: "+3.62S points/sec per level." },
+            { id: 175, name: "Time Dilation X3", baseCost: 984272056824375000000000000000000000000000, type: 'click', effect: 13585128542194780000, owned: 0, description: "+13.5S click points per level." },
+            { id: 176, name: "Cosmic Ray Extractor X3", baseCost: 1476408085236562400000000000000000000000000, type: 'passive', effect: 5433850000000000000000, owned: 0, description: "+5.43S points/sec per level." },
+            { id: 177, name: "Quantum Entangler X3", baseCost: 2214612127854843600000000000000000000000000, type: 'click', effect: 20377692813292172000, owned: 0, description: "+20.3S click points per level." },
+            { id: 178, name: "Nebula Farm X3", baseCost: 3321918191782265400000000000000000000000000, type: 'passive', effect: 8150775000000000000000, owned: 0, description: "+8.15S points/sec per level." },
+            { id: 179, name: "Galaxy Core Miner X3", baseCost: 4982877287673398000000000000000000000000000, type: 'click', effect: 30566539219938257000, owned: 0, description: "+30.5S click points per level." },
+            { id: 180, name: "Universal Catalyst X2", baseCost: 7474315931500900000000000000000000000000000, type: 'passive', effect: 12226150000000000000000, owned: 0, description: "+12.2S points/sec per level." },
+            { id: 181, name: "Multiverse Gate X2", baseCost: 11211473897251350000000000000000000000000000, type: 'click', effect: 45849808829907386000, owned: 0, description: "+45.8S click points per level." },
+            { id: 182, name: "Hyper-Evolution X2", baseCost: 16817210845877025000000000000000000000000000, type: 'passive', effect: 18339225000000000000000, owned: 0, description: "+18.3S points/sec per level." },
+            { id: 183, name: "Omega Clicker X2", baseCost: 25225816268815537000000000000000000000000000, type: 'click', effect: 68774713244861070000, owned: 0, description: "+68.7S click points per level." },
+            { id: 184, name: "Zero-Point Extractor X2", baseCost: 37838724403223306000000000000000000000000000, type: 'passive', effect: 27508837500000000000000, owned: 0, description: "+27.5S points/sec per level." },
+            { id: 185, name: "Absolute Infinity Tap X2", baseCost: 56758086604834960000000000000000000000000000, type: 'click', effect: 103162070000000000000, owned: 0, description: "+103S click points per level." },
+            { id: 186, name: "Trans-Dimensional Factory X2", baseCost: 85137129907252440000000000000000000000000000, type: 'passive', effect: 41263250000000000000000, owned: 0, description: "+41.2S points/sec per level." },
+            { id: 187, name: "Hyper-Dimensional Click X2", baseCost: 127705694860878660000000000000000000000000000, type: 'click', effect: 154743105000000000000, owned: 0, description: "+154S click points per level." },
+            { id: 188, name: "Celestial Battery X2", baseCost: 191558542291317980000000000000000000000000000, type: 'passive', effect: 61895000000000000000000, owned: 0, description: "+61.8S points/sec per level." },
+            { id: 189, name: "Cosmic String Weaver X2", baseCost: 287337813436976970000000000000000000000000000, type: 'click', effect: 232114657500000000000, owned: 0, description: "+232S click points per level." },
+            { id: 190, name: "Nebula Farm X4", baseCost: 431006720155465450000000000000000000000000000, type: 'passive', effect: 92846900000000000000000, owned: 0, description: "+92.8S points/sec per level." },
+            { id: 191, name: "Void Energy Harvester X3", baseCost: 646510080233198200000000000000000000000000000, type: 'click', effect: 348171986250000000000, owned: 0, description: "+348S click points per level." },
+            { id: 192, name: "Galactic Bank X3", baseCost: 969765120349797300000000000000000000000000000, type: 'passive', effect: 139270500000000000000000, owned: 0, description: "+139S points/sec per level." },
+            { id: 193, name: "Dimension Splitter X3", baseCost: 1454647680524696000000000000000000000000000000, type: 'click', effect: 522257979375000000000, owned: 0, description: "+522S click points per level." },
+            { id: 194, name: "Temporal Processor X3", baseCost: 2181971520787044000000000000000000000000000000, type: 'passive', effect: 208906000000000000000000, owned: 0, description: "+208S points/sec per level." },
+            { id: 195, name: "Cosmic Anchor X3", baseCost: 3272957281180566000000000000000000000000000000, type: 'click', effect: 783386969062500000000, owned: 0, description: "+783S click points per level." },
+            { id: 196, name: "Infinity Weave X3", baseCost: 4909435921770849000000000000000000000000000000, type: 'passive', effect: 313364000000000000000000, owned: 0, description: "+313S points/sec per level." },
+            { id: 197, name: "Ultimate Chronos X3", baseCost: 7364153882656274000000000000000000000000000000, type: 'click', effect: 1175080453593750000000, owned: 0, description: "+1.17V click points per level." },
+            { id: 198, name: "Stellar Engine X4", baseCost: 11046230823984411000000000000000000000000000000, type: 'passive', effect: 470046000000000000000000, owned: 0, description: "+470S points/sec per level." },
+            { id: 199, name: "God Hand X4", baseCost: 16569346235976616000000000000000000000000000000, type: 'click', effect: 1762620680390625000000, owned: 0, description: "+1.76V click points per level." },
+            { id: 200, name: "Infinite Loop X4", baseCost: 24854019353964924000000000000000000000000000000, type: 'passive', effect: 705093000000000000000000, owned: 0, description: "+705S points/sec per level." },
+            { id: 201, name: "Reality Matrix X3", baseCost: 37281029030947386000000000000000000000000000000, type: 'click', effect: 2643931020585937500000, owned: 0, description: "+2.64V click points per level." },
+            { id: 202, name: "Quasar Power Grid X3", baseCost: 55921543546421080000000000000000000000000000000, type: 'passive', effect: 1057639500000000000000000, owned: 0, description: "+1.05V points/sec per level." },
+            { id: 203, name: "Existential Tap X3", baseCost: 83882315319631620000000000000000000000000000000, type: 'click', effect: 3965896530878906000000, owned: 0, description: "+3.96V click points per level." },
+            { id: 204, name: "Cosmic Fabric X3", baseCost: 125823472979447430000000000000000000000000000000, type: 'passive', effect: 1586459250000000000000000, owned: 0, description: "+1.58V points/sec per level." },
+            { id: 205, name: "Multiverse Conduit X3", baseCost: 188735209469171130000000000000000000000000000000, type: 'click', effect: 5948844796318359000000, owned: 0, description: "+5.94V click points per level." },
+            { id: 206, name: "Dark Energy X3", baseCost: 283102814203756700000000000000000000000000000000, type: 'passive', effect: 2379388750000000000000000, owned: 0, description: "+2.37V points/sec per level." },
+            { id: 207, name: "Void Slicer X3", baseCost: 424654221305635050000000000000000000000000000000, type: 'click', effect: 8923267194477538000000, owned: 0, description: "+8.92V click points per level." },
+            { id: 208, name: "Infinite Mana Farm X3", baseCost: 636981331958452600000000000000000000000000000000, type: 'passive', effect: 3569080000000000000000000, owned: 0, description: "+3.56V points/sec per level." },
+            { id: 209, name: "Hyperbolic Click X4", baseCost: 955472000000000000000000000000000000000000000000, type: 'click', effect: 13384900000000000000000, owned: 0, description: "+13.3V click points per level." },
+            { id: 210, name: "Singularity Generator X3", baseCost: 1433208000000000000000000000000000000000000000000, type: 'passive', effect: 5353840000000000000000000, owned: 0, description: "+5.35V points/sec per level." },
+            { id: 211, name: "Absolute Limit X3", baseCost: 2149812000000000000000000000000000000000000000000, type: 'click', effect: 20077350000000000000000, owned: 0, description: "+20.0V click points per level." },
+            { id: 212, name: "Reality Warper X3", baseCost: 3224718000000000000000000000000000000000000000000, type: 'passive', effect: 8030940000000000000000000, owned: 0, description: "+8.03V points/sec per level." },
+            { id: 213, name: "Chronos Accelerator X4", baseCost: 4837077000000000000000000000000000000000000000000, type: 'click', effect: 30116025000000000000000, owned: 0, description: "+30.1V click points per level." },
+            { id: 214, name: "Stellar Engine X5", baseCost: 7255615500000000000000000000000000000000000000000, type: 'passive', effect: 12046425000000000000000000, owned: 0, description: "+12.0Z points/sec per level." },
+            { id: 215, name: "Cosmic Force X4", baseCost: 108834232500000000000000000000000000000000000000000, type: 'click', effect: 45174037500000000000000, owned: 0, description: "+45.1V click points per level." },
+            { id: 216, name: "Multiverse Fabric X4", baseCost: 163251348750000000000000000000000000000000000000000, type: 'passive', effect: 18069637500000000000000000, owned: 0, description: "+18.0Z points/sec per level." },
+            { id: 217, name: "Infinite Loop X5", baseCost: 244877023125000000000000000000000000000000000000000, type: 'click', effect: 67761056250000000000000, owned: 0, description: "+67.7V click points per level." },
+            { id: 218, name: "Omega Processor X3", baseCost: 367315534687500000000000000000000000000000000000000, type: 'passive', effect: 27104456250000000000000000, owned: 0, description: "+27.1Z points/sec per level." },
+            { id: 219, name: "God Hand X5", baseCost: 550973302031250000000000000000000000000000000000000, type: 'click', effect: 101641584375000000000000, owned: 0, description: "+101V click points per level." },
+            { id: 220, name: "Singularity Overdrive X3", baseCost: 826459953046875000000000000000000000000000000000000, type: 'passive', effect: 40656625000000000000000000, owned: 0, description: "+40.6Z points/sec per level." },
+        ];
+
+
+        // --- ACHIEVEMENT CONFIG (212 Total) ---
+        const achievements = [
+            // Original Achievements (1-12)
+            { id: 1, name: "The First Tap", desc: "Click the button once.", check: () => totalClicks >= 1, earned: false, passiveBoost: 0, clickBoost: 1 },
+            { id: 2, name: "Quick Starter", desc: "Accumulate 100 total clicks.", check: () => totalClicks >= 100, earned: false, passiveBoost: 1, clickBoost: 0 },
+            { id: 3, name: "Six Figure Success", desc: "Reach a total score of 100,000.", check: () => score >= 100000, earned: false, passiveBoost: 10, clickBoost: 0 },
+            { id: 4, name: "Dedicated Collector", desc: "Own 10 levels of any single upgrade.", check: () => upgrades.some(u => u.owned >= 10), earned: false, passiveBoost: 0, clickBoost: 5 },
+            { id: 5, name: "The Billionaire", desc: "Reach a total score of 1,000,000,000 (1 Billion).", check: () => score >= 1000000000, earned: false, passiveBoost: 100, clickBoost: 0 },
+            { id: 6, name: "Novice Automation", desc: "Reach 1,000 passive points per second.", check: () => perSecond >= 1000, earned: false, passiveBoost: 0, clickBoost: 20 },
+            { id: 7, name: "Clicking Machine", desc: "Accumulate 1,000 total clicks.", check: () => totalClicks >= 1000, earned: false, passiveBoost: 10, clickBoost: 0 },
+            { id: 8, name: "Tycoon", desc: "Reach a total score of 10,000,000 (10 Million).", check: () => score >= 10000000, earned: false, passiveBoost: 50, clickBoost: 0 },
+            { id: 9, name: "Automation Expert", desc: "Reach 10,000 passive points per second.", check: () => perSecond >= 10000, earned: false, passiveBoost: 0, clickBoost: 50 },
+            { id: 10, name: "Obsessed Owner", desc: "Own 50 total upgrade levels across all upgrades.", check: () => totalUpgradeLevels >= 50, earned: false, passiveBoost: 25, clickBoost: 0 },
+            { id: 11, name: "Frenzy Fanatic", desc: "Trigger the Click Frenzy 5 times.", check: () => totalFrenziesTriggered >= 5, earned: false, passiveBoost: 0, clickBoost: 5 },
+            { id: 12, name: "Super Collector", desc: "Own 25 levels of any single upgrade.", check: () => upgrades.some(u => u.owned >= 25), earned: false, passiveBoost: 50, clickBoost: 0 },
+            
+            // --- NEW ACHIEVEMENTS (13-212) ---
+
+            // Clicks Tiers (13-78)
+            { id: 13, name: "The Next 10K", desc: "Accumulate 10,000 total clicks.", check: () => totalClicks >= 10000, earned: false, passiveBoost: 5, clickBoost: 10 },
+            { id: 14, name: "50K Tapper", desc: "Accumulate 50,000 total clicks.", check: () => totalClicks >= 50000, earned: false, passiveBoost: 10, clickBoost: 15 },
+            { id: 15, name: "Century Clicker", desc: "Accumulate 100,000 total clicks.", check: () => totalClicks >= 100000, earned: false, passiveBoost: 15, clickBoost: 20 },
+            { id: 16, name: "Half a Million", desc: "Accumulate 500,000 total clicks.", check: () => totalClicks >= 500000, earned: false, passiveBoost: 20, clickBoost: 25 },
+            { id: 17, name: "Millionaire Clicker", desc: "Accumulate 1,000,000 total clicks.", check: () => totalClicks >= 1000000, earned: false, passiveBoost: 30, clickBoost: 30 },
+            { id: 18, name: "Five Million Taps", desc: "Accumulate 5,000,000 total clicks.", check: () => totalClicks >= 5000000, earned: false, passiveBoost: 50, clickBoost: 40 },
+            { id: 19, name: "Ten Million Taps", desc: "Accumulate 10,000,000 total clicks.", check: () => totalClicks >= 10000000, earned: false, passiveBoost: 75, clickBoost: 50 },
+            { id: 20, name: "Fifty Million Taps", desc: "Accumulate 50,000,000 total clicks.", check: () => totalClicks >= 50000000, earned: false, passiveBoost: 100, clickBoost: 60 },
+            { id: 21, name: "The Hundred Million", desc: "Accumulate 100,000,000 total clicks.", check: () => totalClicks >= 100000000, earned: false, passiveBoost: 150, clickBoost: 75 },
+            { id: 22, name: "Half a Billion", desc: "Accumulate 500,000,000 total clicks.", check: () => totalClicks >= 500000000, earned: false, passiveBoost: 200, clickBoost: 100 },
+            { id: 23, name: "Billion Finger", desc: "Accumulate 1,000,000,000 total clicks.", check: () => totalClicks >= 1000000000, earned: false, passiveBoost: 300, clickBoost: 150 },
+            { id: 24, name: "5 Billion Taps", desc: "Accumulate 5,000,000,000 total clicks.", check: () => totalClicks >= 5000000000, earned: false, passiveBoost: 400, clickBoost: 200 },
+            { id: 25, name: "10 Billion Taps", desc: "Accumulate 10,000,000,000 total clicks.", check: () => totalClicks >= 10000000000, earned: false, passiveBoost: 500, clickBoost: 250 },
+            { id: 26, name: "50 Billion Taps", desc: "Accumulate 50,000,000,000 total clicks.", check: () => totalClicks >= 50000000000, earned: false, passiveBoost: 600, clickBoost: 300 },
+            { id: 27, name: "100 Billion Taps", desc: "Accumulate 100,000,000,000 total clicks.", check: () => totalClicks >= 100000000000, earned: false, passiveBoost: 750, clickBoost: 400 },
+            { id: 28, name: "500 Billion Taps", desc: "Accumulate 500,000,000,000 total clicks.", check: () => totalClicks >= 500000000000, earned: false, passiveBoost: 1000, clickBoost: 500 },
+            { id: 29, name: "Trillion Tapper", desc: "Accumulate 1,000,000,000,000 total clicks.", check: () => totalClicks >= 1000000000000, earned: false, passiveBoost: 1250, clickBoost: 600 },
+            { id: 30, name: "5 Trillion Taps", desc: "Accumulate 5,000,000,000,000 total clicks.", check: () => totalClicks >= 5000000000000, earned: false, passiveBoost: 1500, clickBoost: 750 },
+            { id: 31, name: "10 Trillion Taps", desc: "Accumulate 10,000,000,000,000 total clicks.", check: () => totalClicks >= 10000000000000, earned: false, passiveBoost: 2000, clickBoost: 1000 },
+            { id: 32, name: "50 Trillion Taps", desc: "Accumulate 50,000,000,000,000 total clicks.", check: () => totalClicks >= 50000000000000, earned: false, passiveBoost: 2500, clickBoost: 1250 },
+            { id: 33, name: "100 Trillion Taps", desc: "Accumulate 100,000,000,000,000 total clicks.", check: () => totalClicks >= 100000000000000, earned: false, passiveBoost: 3000, clickBoost: 1500 },
+            { id: 34, name: "500 Trillion Taps", desc: "Accumulate 500,000,000,000,000 total clicks.", check: () => totalClicks >= 500000000000000, earned: false, passiveBoost: 4000, clickBoost: 2000 },
+            { id: 35, name: "Quadrillion Clicker", desc: "Accumulate 1,000,000,000,000,000 total clicks.", check: () => totalClicks >= 1000000000000000, earned: false, passiveBoost: 5000, clickBoost: 2500 },
+            { id: 36, name: "5 Quadrillion Taps", desc: "Accumulate 5,000,000,000,000,000 total clicks.", check: () => totalClicks >= 5000000000000000, earned: false, passiveBoost: 6000, clickBoost: 3000 },
+            { id: 37, name: "10 Quadrillion Taps", desc: "Accumulate 10,000,000,000,000,000 total clicks.", check: () => totalClicks >= 10000000000000000, earned: false, passiveBoost: 7500, clickBoost: 4000 },
+            { id: 38, name: "50 Quadrillion Taps", desc: "Accumulate 50,000,000,000,000,000 total clicks.", check: () => totalClicks >= 50000000000000000, earned: false, passiveBoost: 10000, clickBoost: 5000 },
+            { id: 39, name: "100 Quadrillion Taps", desc: "Accumulate 100,000,000,000,000,000 total clicks.", check: () => totalClicks >= 100000000000000000, earned: false, passiveBoost: 12500, clickBoost: 6000 },
+            { id: 40, name: "500 Quadrillion Taps", desc: "Accumulate 500,000,000,000,000,000 total clicks.", check: () => totalClicks >= 500000000000000000, earned: false, passiveBoost: 15000, clickBoost: 7500 },
+            // Clicks continue to 10^18
+            ...Array.from({length: 38}, (_, i) => {
+                const index = i + 41;
+                const power = Math.floor(i / 2) + 18;
+                const base = (i % 2 === 0) ? 1 : 5;
+                const value = base * Math.pow(10, power);
+                const desc = `Accumulate ${formatNumber(value)} total clicks.`;
+                const passiveBoost = 20000 + i * 5000;
+                const clickBoost = 10000 + i * 2500;
+                return { id: index, name: `Click Nexus ${index}`, desc, check: () => totalClicks >= value, earned: false, passiveBoost, clickBoost };
+            }),
+
+            // Score Tiers (79-144)
+            { id: 79, name: "Ten Billionaire", desc: "Reach a total score of 10 Billion.", check: () => score >= 10000000000, earned: false, passiveBoost: 50, clickBoost: 100 },
+            { id: 80, name: "Fifty Billionaire", desc: "Reach a total score of 50 Billion.", check: () => score >= 50000000000, earned: false, passiveBoost: 100, clickBoost: 200 },
+            { id: 81, name: "Hundred Billionaire", desc: "Reach a total score of 100 Billion.", check: () => score >= 100000000000, earned: false, passiveBoost: 150, clickBoost: 300 },
+            { id: 82, name: "Half Trillionaire", desc: "Reach a total score of 500 Billion.", check: () => score >= 500000000000, earned: false, passiveBoost: 200, clickBoost: 400 },
+            { id: 83, name: "Trillionaire", desc: "Reach a total score of 1 Trillion.", check: () => score >= 1000000000000, earned: false, passiveBoost: 300, clickBoost: 500 },
+            { id: 84, name: "Five Trillionaire", desc: "Reach a total score of 5 Trillion.", check: () => score >= 5000000000000, earned: false, passiveBoost: 500, clickBoost: 750 },
+            { id: 85, name: "Ten Trillionaire", desc: "Reach a total score of 10 Trillion.", check: () => score >= 10000000000000, earned: false, passiveBoost: 750, clickBoost: 1000 },
+            { id: 86, name: "Fifty Trillionaire", desc: "Reach a total score of 50 Trillion.", check: () => score >= 50000000000000, earned: false, passiveBoost: 1000, clickBoost: 1250 },
+            { id: 87, name: "Hundred Trillionaire", desc: "Reach a total score of 100 Trillion.", check: () => score >= 100000000000000, earned: false, passiveBoost: 1500, clickBoost: 1500 },
+            { id: 88, name: "Half Quadrillionaire", desc: "Reach a total score of 500 Trillion.", check: () => score >= 500000000000000, earned: false, passiveBoost: 2000, clickBoost: 2000 },
+            { id: 89, name: "Quadrillionaire", desc: "Reach a total score of 1 Quadrillion.", check: () => score >= 1000000000000000, earned: false, passiveBoost: 3000, clickBoost: 2500 },
+            { id: 90, name: "Five Quadrillionaire", desc: "Reach a total score of 5 Quadrillion.", check: () => score >= 5000000000000000, earned: false, passiveBoost: 4000, clickBoost: 3000 },
+            { id: 91, name: "Ten Quadrillionaire", desc: "Reach a total score of 10 Quadrillion.", check: () => score >= 10000000000000000, earned: false, passiveBoost: 5000, clickBoost: 4000 },
+            { id: 92, name: "Fifty Quadrillionaire", desc: "Reach a total score of 50 Quadrillion.", check: () => score >= 50000000000000000, earned: false, passiveBoost: 7500, clickBoost: 5000 },
+            { id: 93, name: "Hundred Quadrillionaire", desc: "Reach a total score of 100 Quadrillion.", check: () => score >= 100000000000000000, earned: false, passiveBoost: 10000, clickBoost: 6000 },
+            { id: 94, name: "Half Quintillionaire", desc: "Reach a total score of 500 Quadrillion.", check: () => score >= 500000000000000000, earned: false, passiveBoost: 12500, clickBoost: 7500 },
+            { id: 95, name: "Quintillionaire", desc: "Reach a total score of 1 Quintillion.", check: () => score >= 1000000000000000000, earned: false, passiveBoost: 15000, clickBoost: 10000 },
+            { id: 96, name: "Five Quintillionaire", desc: "Reach a total score of 5 Quintillion.", check: () => score >= 5000000000000000000, earned: false, passiveBoost: 20000, clickBoost: 12500 },
+            // Score continues to 10^25
+            ...Array.from({length: 48}, (_, i) => {
+                const index = i + 97;
+                const power = Math.floor(i / 2) + 19;
+                const base = (i % 2 === 0) ? 1 : 5;
+                const value = base * Math.pow(10, power);
+                const desc = `Reach a total score of ${formatNumber(value)}.`;
+                const passiveBoost = 30000 + i * 10000;
+                const clickBoost = 15000 + i * 5000;
+                return { id: index, name: `Wealth Beyond Stars ${index}`, desc, check: () => score >= value, earned: false, passiveBoost, clickBoost };
+            }),
+            
+            // Passive Tiers (145-210)
+            { id: 145, name: "Master Automation", desc: "Reach 50,000 passive points per second.", check: () => perSecond >= 50000, earned: false, passiveBoost: 50, clickBoost: 1000 },
+            { id: 146, name: "Grand Automation", desc: "Reach 100,000 passive points per second.", check: () => perSecond >= 100000, earned: false, passiveBoost: 75, clickBoost: 1500 },
+            { id: 147, name: "Megacorp Automation", desc: "Reach 500,000 passive points per second.", check: () => perSecond >= 500000, earned: false, passiveBoost: 100, clickBoost: 2000 },
+            { id: 148, name: "Trio Automation", desc: "Reach 1,000,000 passive points per second (1 Million).", check: () => perSecond >= 1000000, earned: false, passiveBoost: 150, clickBoost: 3000 },
+            { id: 149, name: "Five Million Per Sec", desc: "Reach 5,000,000 passive points per second.", check: () => perSecond >= 5000000, earned: false, passiveBoost: 200, clickBoost: 4000 },
+            { id: 150, name: "Deca Automation", desc: "Reach 10,000,000 passive points per second (10 Million).", check: () => perSecond >= 10000000, earned: false, passiveBoost: 300, clickBoost: 5000 },
+            { id: 151, name: "Half-Centurion Automation", desc: "Reach 50,000,000 passive points per second.", check: () => perSecond >= 50000000, earned: false, passiveBoost: 400, clickBoost: 6000 },
+            { id: 152, name: "Centurion Automation", desc: "Reach 100,000,000 passive points per second (100 Million).", check: () => perSecond >= 100000000, earned: false, passiveBoost: 500, clickBoost: 7500 },
+            { id: 153, name: "Half Billion Per Sec", desc: "Reach 500,000,000 passive points per second.", check: () => perSecond >= 500000000, earned: false, passiveBoost: 600, clickBoost: 10000 },
+            { id: 154, name: "Billionaire Automation", desc: "Reach 1,000,000,000 passive points per second (1 Billion).", check: () => perSecond >= 1000000000, earned: false, passiveBoost: 750, clickBoost: 12500 },
+            { id: 155, name: "Five Billion Per Sec", desc: "Reach 5,000,000,000 passive points per second.", check: () => perSecond >= 5000000000, earned: false, passiveBoost: 1000, clickBoost: 15000 },
+            { id: 156, name: "Ten Billion Per Sec", desc: "Reach 10,000,000,000 passive points per second.", check: () => perSecond >= 10000000000, earned: false, passiveBoost: 1250, clickBoost: 20000 },
+            { id: 157, name: "Fifty Billion Per Sec", desc: "Reach 50,000,000,000 passive points per second.", check: () => perSecond >= 50000000000, earned: false, passiveBoost: 1500, clickBoost: 25000 },
+            { id: 158, name: "Hundred Billion Per Sec", desc: "Reach 100,000,000,000 passive points per second.", check: () => perSecond >= 100000000000, earned: false, passiveBoost: 2000, clickBoost: 30000 },
+            { id: 159, name: "Half Trillion Per Sec", desc: "Reach 500,000,000,000 passive points per second.", check: () => perSecond >= 500000000000, earned: false, passiveBoost: 2500, clickBoost: 40000 },
+            { id: 160, name: "Trillionaire Automation", desc: "Reach 1,000,000,000,000 passive points per second (1 Trillion).", check: () => perSecond >= 1000000000000, earned: false, passiveBoost: 3000, clickBoost: 50000 },
+            // Passive continues to 10^18
+            ...Array.from({length: 50}, (_, i) => {
+                const index = i + 161;
+                const power = Math.floor(i / 2) + 12;
+                const base = (i % 2 === 0) ? 5 : 10;
+                const value = base * Math.pow(10, power);
+                const desc = `Reach ${formatNumber(value)} passive points per second.`;
+                const passiveBoost = 4000 + i * 2000;
+                const clickBoost = 60000 + i * 10000;
+                return { id: index, name: `Automation Nexus ${index}`, desc, check: () => perSecond >= value, earned: false, passiveBoost, clickBoost };
+            }),
+
+            // Upgrade-Count Tiers (211-212)
+            { id: 211, name: "Master Builder", desc: `Own 100 total upgrade levels across all upgrades.`, check: () => totalUpgradeLevels >= 100, earned: false, passiveBoost: 50000, clickBoost: 500000 },
+            { id: 212, name: "God-Tier Builder", desc: `Own 200 total upgrade levels across all upgrades.`, check: () => totalUpgradeLevels >= 200, earned: false, passiveBoost: 500000, clickBoost: 5000000 },
+        ];
+
+
+        // --- DOM ELEMENTS ---
+        const scoreDisplay = document.getElementById('score-display');
+        const perSecondDisplay = document.getElementById('per-second-display');
+        const clickButton = document.getElementById('click-button');
+        const upgradeListElement = document.getElementById('upgrade-list');
+        const upgradesArea = document.getElementById('upgrades-area');
+        const mobileUpgradeButton = document.getElementById('mobile-upgrade-button');
+        const messageLog = document.getElementById('message-log');
+        const settingsModal = document.getElementById('settings-modal');
+        const achNotification = document.getElementById('achievement-notification');
+        const achName = document.getElementById('ach-name');
+        const achDesc = document.getElementById('ach-desc');
+        const sfxVolumeSlider = document.getElementById('sfx-volume-slider');
+        const slotManager = document.getElementById('slot-manager');
+        const gameVersionDisplay = document.getElementById('game-version-display');
+        
+        // Elements for event listeners (referenced globally)
+        const settingsButton = document.getElementById('settings-button');
+        const hideSettingsButton = document.getElementById('hide-settings-button');
+        const clearGameButton = document.getElementById('clear-game-button');
+        const upgradeCloseHandle = document.getElementById('upgrade-close-handle');
+        const tabBtnGeneral = document.getElementById('tab-btn-general');
+        const tabBtnSave = document.getElementById('tab-btn-save');
+        const tabBtnAchievements = document.getElementById('tab-btn-achievements');
+
+        let acModalButton; // Will be initialized in setupEventListeners()
+
+
+        // --- TONE.JS AUDIO SETUP ---
+
+        /** Starts the audio context on first user interaction. */
+        function startAudio() {
+            if (!isAudioStarted) {
+                Tone.start();
+                isAudioStarted = true;
+                logMessage("Sound Effects enabled.", '#a8ffee');
+            }
+        }
+
+        /** Handles volume change from the slider. */
+        function setVolume(volume) {
+            sfxVolume = parseFloat(volume);
+            sfxGain.gain.value = sfxVolume;
+            localStorage.setItem('clickerGameSfxVolume', sfxVolume);
+        }
+
+        /** Loads volume state from localStorage. */
+        function loadVolume() {
+            const savedVolume = localStorage.getItem('clickerGameSfxVolume');
+            if (savedVolume !== null) {
+                sfxVolume = parseFloat(savedVolume);
+            }
+            sfxGain.gain.value = sfxVolume;
+            if (sfxVolumeSlider) sfxVolumeSlider.value = sfxVolume;
+        }
+
+        /** Calculates the total permanent bonuses from unlocked achievements. */
+        function recalculateAchievementBonuses() {
+            achievementPassiveBonus = 0;
+            achievementClickBonus = 0;
+
+            achievements.forEach(ach => {
+                if (ach.earned) {
+                    achievementPassiveBonus += (ach.passiveBoost || 0);
+                    achievementClickBonus += (ach.clickBoost || 0);
+                }
+            });
+        }
+
+        // --- GAME MECHANIC & UI FUNCTIONS ---
+
+        /** Toggles the mobile upgrade menu slide-up/down. */
+        function toggleUpgradesMenu() {
+            startAudio();
+
+            // Only apply slide logic on screens less than 1024px wide (mobile/tablet)
+            if (window.innerWidth < 1024) {
+                if (!upgradesArea.classList.contains('slide-in')) {
+                    upgradesArea.style.display = 'block';
+                    const upgradesContent = document.getElementById('upgrades-content');
+                    upgradesContent.style.minHeight = (window.innerHeight - upgradesContent.offsetTop) + 'px';
+                }
+
+                upgradesArea.classList.toggle('slide-in');
+
+                if (upgradesArea.classList.contains('slide-in')) {
+                     document.body.style.overflow = 'hidden';
+                     logMessage("Upgrades menu open.", '#a8ffee');
+                } else {
+                     setTimeout(() => {
+                         upgradesArea.style.display = 'none';
+                         document.body.style.overflow = '';
+                     }, 400); 
+                     logMessage("Upgrades menu closed.", '#a8ffee');
+                }
+            }
+        }
+
+
+        /** Checks and triggers new achievements. */
+        function checkAchievements() {
+            let newAchieved = false;
+            achievements.forEach(ach => {
+                if (!ach.earned && ach.check()) {
+                    ach.earned = true;
+                    newAchieved = true;
+
+                    const passiveMsg = ach.passiveBoost > 0 ? `(+${formatNumber(ach.passiveBoost)} passive/sec)` : '';
+                    const clickMsg = ach.clickBoost > 0 ? `(+${formatNumber(ach.clickBoost)} click power)` : '';
+
+                    let message = `Achievement: ${ach.name} earned!`;
+                    if (passiveMsg || clickMsg) {
+                        message += ` ${passiveMsg} ${clickMsg}`;
+                    }
+
+                    logMessage(message, '#6cff8a');
+                    showAchievementNotification(ach.name, ach.desc);
+                }
+            });
+
+            if (newAchieved) {
+                recalculateStats();
+                renderAchievements();
+            }
+        }
+
+        /** Shows the slide-down achievement notification. */
+        function showAchievementNotification(name, desc) {
+            clearTimeout(window.achTimeout);
+            sfxSynth.triggerAttackRelease("C6", "16n");
+            achName.textContent = name;
+            achDesc.textContent = desc;
+
+            achNotification.classList.remove('show');
+            void achNotification.offsetWidth; // Force reflow
+            achNotification.classList.add('show');
+
+            window.achTimeout = setTimeout(() => {
+                achNotification.classList.remove('show');
+            }, 5000);
+        }
+
+        /** Handles the main click/tap action. */
+        function clickAction(event) {
+            startAudio();
+            totalClicks++;
+            score += clickPower;
+            sfxSynth.triggerAttackRelease("C4", "32n");
+
+            // Chance to trigger frenzy
+            if (Math.random() < FRENZY_CHANCE && !clickFrenzyActive) {
+                clickFrenzyActive = true;
+                frenzyRemaining = FRENZY_DURATION;
+                totalFrenziesTriggered++;
+                logMessage(`CLICK FRENZY! Click Power x${FRENZY_MULTIPLIER} for ${FRENZY_DURATION}s!`, '#ffea00');
+                sfxSynth.triggerAttackRelease("D4", "8n");
+            }
+
+            recalculateStats();
+            updateFastDisplay(); 
+
+            // Determine position for visual feedback
+            let clientX, clientY;
+            if (event.clientX && event.clientY) {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            } else {
+                // Fallback for touch/key events
+                const rect = clickButton.getBoundingClientRect();
+                clientX = rect.left + rect.width / 2;
+                clientY = rect.top + rect.height / 2;
+            }
+
+            const feedback = document.createElement('div');
+            const feedbackColor = clickFrenzyActive ? '#ff0077' : '#ffea00';
+            feedback.textContent = `+${formatNumber(clickPower)}`;
+
+            feedback.className = 'absolute font-bold pointer-events-none z-10';
+            feedback.style.cssText = `
+                color: ${feedbackColor};
+                font-size: 20px;
+                animation: floatUp 1s ease-out forwards;
+                left: ${clientX}px;
+                top: ${clientY}px;
+                transform: translateX(-50%);
+            `;
+
+            document.body.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 1000);
+        }
+
+        /** **FAST LOOP (100ms):** Updates score, timer displays, and button text/state. */
+        function updateFastDisplay() {
+            scoreDisplay.textContent = formatNumber(score);
+
+            let fpsText = `${formatNumber(perSecond)}/sec (Click: ${formatNumber(Math.floor(clickPower / (clickFrenzyActive ? FRENZY_MULTIPLIER : 1) ))})`;
+            let acDisplay = '';
+
+            // Auto Clicker Display Logic
+            if (isAutoClickerActive) {
+                let baseClickPowerBeforeFrenzy = 1;
+                // Recalculate base click power *without* frenzy for accurate AC calculation
+                upgrades.forEach(u => {
+                    if (u.owned > 0 && u.type === 'click') {
+                        baseClickPowerBeforeFrenzy += u.effect * u.owned;
+                    }
+                });
+                baseClickPowerBeforeFrenzy += achievementClickBonus;
+
+
+                const autoClickBonusPerSecond = baseClickPowerBeforeFrenzy * AUTO_CLICKER_RATE * (clickFrenzyActive ? FRENZY_MULTIPLIER : 1);
+                acDisplay = ` (+${formatNumber(autoClickBonusPerSecond)}/sec AC) (AC: ${Math.ceil(autoClickerRemaining)}s)`;
+            }
+
+            // Frenzy Display Logic
+            if (clickFrenzyActive) {
+                fpsText = `(${formatNumber(perSecond)}/sec passive) ${acDisplay}`; // Passive/AC display first
+                fpsText += ` (FRENZY: ${Math.ceil(frenzyRemaining)}s, Click: x${FRENZY_MULTIPLIER})`; // Frenzy info added
+                perSecondDisplay.style.color = '#ffea00';
+                clickButton.textContent = `FRENZY: +${formatNumber(clickPower)} Click! (${Math.ceil(frenzyRemaining)}s)`;
+            } else {
+                perSecondDisplay.style.color = isAutoClickerActive ? '#00ffff' : '#a8ffee';
+                fpsText += acDisplay;
+                clickButton.textContent = `Tap to Earn! (+${formatNumber(clickPower)})`;
+            }
+
+            perSecondDisplay.textContent = fpsText;
+
+            // Update AC Button in Modal
+            if (acModalButton) {
+                acModalButton.disabled = score < AUTO_CLICKER_COST && !isAutoClickerActive;
+                acModalButton.textContent = isAutoClickerActive 
+                    ? `Auto Clicker Active (${Math.ceil(autoClickerRemaining)}s)` 
+                    : `Activate Auto Clicker (${formatNumber(AUTO_CLICKER_COST)})`;
+                acModalButton.classList.toggle('bg-accent-cyan', !isAutoClickerActive && score >= AUTO_CLICKER_COST);
+                acModalButton.classList.toggle('bg-btn-red', isAutoClickerActive);
+                acModalButton.classList.toggle('bg-gray-500', !isAutoClickerActive && score < AUTO_CLICKER_COST);
+            }
+        }
+
+        /** **SLOW LOOP (500ms):** Handles DOM-heavy operations like rendering the upgrade list. */
+        function renderSlowUI() {
+            renderUpgrades();
+        }
+
+        /** Handles buying an upgrade. */
+        function buyUpgrade(upgradeId) {
+            const upgrade = upgrades.find(u => u.id === upgradeId);
+            const nextCost = calculateCost(upgrade);
+
+            if (score >= nextCost) {
+                score -= nextCost;
+                upgrade.owned++;
+                recalculateStats();
+                logMessage(`Acquired ${upgrade.name} (Level ${upgrade.owned})!`, '#6cff8a');
+                sfxSynth.triggerAttackRelease("C5", "32n");
+                updateFastDisplay();
+                renderUpgrades(); 
+            } else {
+                logMessage(`Need ${formatNumber(nextCost - score)} more points for ${upgrade.name}.`, '#ff6b6b');
+                sfxSynth.triggerAttackRelease("C3", "32n");
+            }
+        }
+
+        /** Recalculates clickPower, perSecond, and totalUpgradeLevels. */
+        function recalculateStats() {
+            let baseClickPower = 1;
+            perSecond = 0;
+            totalUpgradeLevels = 0;
+
+            recalculateAchievementBonuses();
+            perSecond += achievementPassiveBonus;
+
+            upgrades.forEach(u => {
+                totalUpgradeLevels += u.owned;
+                if (u.owned > 0) {
+                    if (u.type === 'click') {
+                        baseClickPower += u.effect * u.owned;
+                    } else if (u.type === 'passive') {
+                        perSecond += u.effect * u.owned;
+                    }
+                }
+            });
+
+            baseClickPower += achievementClickBonus;
+            clickPower = baseClickPower;
+
+            if (clickFrenzyActive) {
+                clickPower *= FRENZY_MULTIPLIER;
+            }
+
+            // Ensure click power is at least 1
+            if (clickPower < 1) clickPower = 1;
+        }
+
+        /** Renders the stackable upgrade list. (Slow update) */
+        function renderUpgrades() {
+            upgradeListElement.innerHTML = '';
+
+            upgrades.forEach(u => {
+                const nextCost = calculateCost(u);
+                const item = document.createElement('div');
+                const canAfford = score >= nextCost;
+                const itemClass = `upgrade-item p-4 rounded-lg flex justify-between items-center transition text-left cursor-pointer ${canAfford ? '' : 'disabled-buy'}`;
+                item.className = itemClass;
+
+                // --- Fix for flashing hover: Use explicit button classes ---
+                const buyButtonClass = canAfford 
+                    ? 'bg-buy-button-enabled hover:bg-opacity-80' 
+                    : 'bg-buy-button-disabled cursor-not-allowed';
+
+                item.innerHTML = `
+                    <div>
+                        <div class="upgrade-name text-white text-lg font-bold">
+                            <span>${u.name}</span>
+                            <span class="text-sm font-normal text-accent-cyan">(Lv. ${formatNumber(u.owned)})</span>
+                        </div>
+                        <div class="upgrade-effect text-sm mt-1">${u.description}</div>
+                    </div>
+                    <div class="text-right flex items-center">
+                        <button class="buy-upgrade-btn text-sm py-1 px-3 text-primary-dark rounded font-semibold transition ${buyButtonClass}" data-upgrade-id="${u.id}" ${canAfford ? '' : 'disabled'}>
+                            Buy: ${formatNumber(nextCost)}
+                        </button>
+                    </div>
+                `;
+
+                // Attach listener to the dynamically created button or the item itself
+                const buyButton = item.querySelector('.buy-upgrade-btn');
+                if (canAfford) {
+                    buyButton.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        buyUpgrade(u.id);
+                    });
+                } else {
+                    item.addEventListener('click', () => {
+                         // Only log message if the click is on the disabled item itself, not bubbling from a child element
+                        if (event.target === item || event.target.closest('.upgrade-item') === item) {
+                            logMessage(`Need ${formatNumber(nextCost - score)} more points for ${u.name}.`, '#ff6b6b')
+                        }
+                    });
+                }
+
+                upgradeListElement.appendChild(item);
+            });
+        }
+
+        /** Activates the temporary Auto Clicker feature (Called from Settings Modal). */
+        function activateAutoClicker() {
+            startAudio();
+
+            if (!isAutoClickerActive) {
+                if (score >= AUTO_CLICKER_COST) {
+                    score -= AUTO_CLICKER_COST;
+                    isAutoClickerActive = true;
+                    autoClickerRemaining = AUTO_CLICKER_DURATION;
+                    logMessage(`Auto Clicker activated! Cost: ${formatNumber(AUTO_CLICKER_COST)}.`, '#00ffff');
+                    sfxSynth.triggerAttackRelease("A3", "4n", "+0.1");
+                } else {
+                    logMessage(`Need ${formatNumber(AUTO_CLICKER_COST)} points to activate Auto Clicker.`, '#ff6b6b');
+                }
+            } else {
+                // Allow user to cancel early if active
+                isAutoClickerActive = false;
+                autoClickerRemaining = 0;
+                logMessage("Auto Clicker manually deactivated.", '#90a0ff');
+            }
+            updateFastDisplay();
+        }
+
+        /** The main game loop for passive income, auto-clicker, and frenzy management. */
+        function gameLoop() {
+            const TICK_FRACTION = GAME_TICK_RATE_MS / 1000;
+
+            // 1. Passive Income
+            score += perSecond * TICK_FRACTION;
+
+            // 2. Auto Clicker Tick
+            if (isAutoClickerActive) {
+                let baseClickPowerBeforeFrenzy = 1;
+                upgrades.forEach(u => {
+                    if (u.owned > 0 && u.type === 'click') {
+                        baseClickPowerBeforeFrenzy += u.effect * u.owned;
+                    }
+                });
+                baseClickPowerBeforeFrenzy += achievementClickBonus;
+
+                const autoClickBonus = baseClickPowerBeforeFrenzy * AUTO_CLICKER_RATE * TICK_FRACTION * (clickFrenzyActive ? FRENZY_MULTIPLIER : 1);
+                score += autoClickBonus;
+
+                autoClickerRemaining -= TICK_FRACTION;
+                if (autoClickerRemaining <= 0) {
+                    isAutoClickerActive = false;
+                    autoClickerRemaining = 0;
+                    logMessage("Auto Clicker deactivated.", '#90a0ff');
+                }
+            }
+
+            // 3. Frenzy Tick
+            if (clickFrenzyActive) {
+                frenzyRemaining -= TICK_FRACTION;
+                if (frenzyRemaining <= 0) {
+                    clickFrenzyActive = false;
+                    frenzyRemaining = 0;
+                    logMessage("Click Frenzy ended.", '#90a0ff');
+                }
+            }
+
+            recalculateStats();
+            updateFastDisplay();
+            checkAchievements();
+        }
+
+        /** Formats large numbers into K, M, B, etc. */
+        function formatNumber(num) {
+            if (num === null || isNaN(num) || num === Infinity) return 'Infinity';
+
+            const absNum = Math.abs(num);
+            const intNum = Math.floor(num);
+
+            if (absNum < 1000) return intNum.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+            const si = [
+                { value: 1, symbol: "" },
+                { value: 1E3, symbol: "K" },
+                { value: 1E6, symbol: "M" },
+                { value: 1E9, symbol: "B" },
+                { value: 1E12, symbol: "T" },
+                { value: 1E15, symbol: "Qd" },
+                { value: 1E18, symbol: "Qt" },
+                { value: 1E21, symbol: "Sx" },
+                { value: 1E24, symbol: "Sp" },
+                { value: 1E27, symbol: "Oc" },
+                { value: 1E30, symbol: "No" },
+                { value: 1E33, symbol: "De" },
+                { value: 1E36, symbol: "Ud" },
+                { value: 1E39, symbol: "Dd" },
+                { value: 1E42, symbol: "Td" },
+                { value: 1E45, symbol: "Qad" },
+                { value: 1E48, symbol: "Qid" },
+                { value: 1E51, symbol: "Sxd" },
+                { value: 1E54, symbol: "Spd" },
+                { value: 1E57, symbol: "Ocd" },
+                { value: 1E60, symbol: "Nod" }
+            ];
+
+            let i;
+            for (i = si.length - 1; i > 0; i--) {
+                if (absNum >= si[i].value) break;
+            }
+
+            // Fix for very large numbers that lose precision: use toExponential
+            if (absNum > 1E24) {
+                return (num / si[i].value).toFixed(2).replace(/\.0+$/, "") + si[i].symbol;
+            }
+
+            return (num / si[i].value).toFixed(2).replace(/\.0+$/, "") + si[i].symbol;
+        }
+
+        /** Calculates the cost of the next level for an upgrade. */
+        function calculateCost(upgrade) {
+            // Use Math.round to mitigate floating point creep for costs
+            return Math.round(upgrade.baseCost * Math.pow(COST_MULTIPLIER, upgrade.owned));
+        }
+
+        /** Global log message */
+        function logMessage(message, color) {
+            messageLog.textContent = message;
+            messageLog.style.color = color;
+            clearTimeout(window.messageTimer);
+            window.messageTimer = setTimeout(() => {
+                messageLog.style.color = 'transparent';
+                setTimeout(() => messageLog.textContent = '', 500);
+            }, 3000);
+        }
+
+        // --- SAVE/LOAD/SETTINGS FUNCTIONS ---
+
+        /** Retrieves the current game state object. */
+        function getCurrentSaveState() {
+            return {
+                version: GAME_VERSION,
+                score: score,
+                totalClicks: totalClicks,
+                totalFrenziesTriggered: totalFrenziesTriggered,
+                upgrades: upgrades.map(u => ({ id: u.id, owned: u.owned })),
+                achievements: achievements.map(a => ({ id: a.id, earned: a.earned })),
+                timestamp: new Date().toLocaleString(),
+            };
+        }
+
+        /** Helper to apply state from any saved data object. */
+        function applyState(data) {
+            // Reset temporary states
+            isAutoClickerActive = false;
+            clickFrenzyActive = false;
+            autoClickerRemaining = 0;
+            frenzyRemaining = 0;
+
+            // Load core stats
+            score = parseFloat(data.score) || 0;
+            totalClicks = parseInt(data.totalClicks) || 0;
+            totalFrenziesTriggered = parseInt(data.totalFrenziesTriggered) || 0;
+
+            // Load upgrades
+            upgrades.forEach(u => u.owned = 0); 
+            data.upgrades.forEach(savedUpgrade => {
+                const existingUpgrade = upgrades.find(u => u.id === savedUpgrade.id);
+                if (existingUpgrade) {
+                    // Check if saved upgrade ID is outside the current array size (if version mismatch)
+                    existingUpgrade.owned = savedUpgrade.owned;
+                }
+            });
+
+            // Load achievements
+            achievements.forEach(a => a.earned = false);
+            data.achievements.forEach(savedAch => {
+                const existingAch = achievements.find(a => a.id === savedAch.id);
+                if (existingAch) {
+                    existingAch.earned = savedAch.earned;
+                }
+            });
+            // Re-check all achievements to catch newly added ones not present in old save
+            achievements.forEach(ach => {
+                if (!ach.earned && ach.check()) {
+                    ach.earned = true; // Automatically grant if conditions are met
+                }
+            });
+        }
+
+        // --- MANUAL SLOT FUNCTIONS ---
+
+        /** Retrieves data from a specific manual slot. */
+        function getManualSlotData(slotIndex) {
+            const key = STORAGE_KEY_PREFIX + slotIndex;
+            const savedData = localStorage.getItem(key);
+            if (savedData) {
+                try {
+                    return JSON.parse(savedData);
+                } catch (e) {
+                    return null; 
+                }
+            }
+            return null; 
+        }
+
+        /** Saves the current game state to a specific manual slot. */
+        function saveGameToSlot(slotIndex) {
+            const key = STORAGE_KEY_PREFIX + slotIndex;
+            const saveState = getCurrentSaveState();
+            localStorage.setItem(key, JSON.stringify(saveState));
+            renderSlotManager(); 
+            logMessage(`Game saved to Slot ${slotIndex + 1}!`, '#d6d6ff');
+            sfxSynth.triggerAttackRelease("G4", "32n");
+        }
+
+        /** Loads the game state from a specific manual slot. */
+        function loadGameFromSlot(slotIndex) {
+            const data = getManualSlotData(slotIndex);
+            if (data) {
+                applyState(data); 
+                recalculateStats();
+                updateFastDisplay();
+                renderUpgrades();
+                renderAchievements();
+                logMessage(`Game loaded from Slot ${slotIndex + 1}!`, '#d6d6ff');
+                sfxSynth.triggerAttackRelease("C5", "64n", "+0.1");
+                hideSettingsModal();
+            } else {
+                logMessage(`Slot ${slotIndex + 1} is empty.`, '#ff6b6b');
+            }
+        }
+
+        /** Wipes data from a manual slot. */
+        function wipeManualSlot(slotIndex) {
+             const result = window.prompt(`Type 'WIPE ${slotIndex + 1}' to permanently erase Slot ${slotIndex + 1} data:`);
+            if (result === `WIPE ${slotIndex + 1}`) {
+                localStorage.removeItem(STORAGE_KEY_PREFIX + slotIndex);
+                renderSlotManager();
+                logMessage(`Slot ${slotIndex + 1} wiped!`, '#ff6b6b');
+            } else if (result !== null) {
+                logMessage("Wipe canceled.", '#90a0ff');
+            }
+        }
+
+
+        // --- AUTO-SAVE FUNCTIONS ---
+
+        /** Retrieves auto-save data. */
+        function getAutoSaveData() {
+            const savedData = localStorage.getItem(AUTO_SAVE_KEY);
+            if (savedData) {
+                try {
+                    return JSON.parse(savedData);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        /** Loads the game state from the auto-save. */
+        function loadAutoSave() {
+            const data = getAutoSaveData();
+            if (data) {
+                applyState(data); 
+                recalculateStats();
+                updateFastDisplay();
+                renderUpgrades();
+                renderAchievements();
+                logMessage(`Auto-Save loaded successfully from ${data.timestamp}.`, '#d6d6ff');
+                sfxSynth.triggerAttackRelease("C5", "64n", "+0.1");
+                hideSettingsModal();
+            } else {
+                logMessage(`Auto-Save slot is empty.`, '#ff6b6b');
+            }
+        }
+
+        /** Wipes the auto-save data. */
+        function wipeAutoSave() {
+            const result = window.prompt("Type 'WIPE AUTO' to permanently erase the Auto-Save data:");
+            if (result === 'WIPE AUTO') {
+                localStorage.removeItem(AUTO_SAVE_KEY);
+                renderSlotManager();
+                logMessage(`Auto-Save wiped!`, '#ff6b6b');
+            } else if (result !== null) {
+                logMessage("Wipe canceled.", '#90a0ff');
+            }
+        }
+
+        /** Auto-save logic. */
+        function autoSave() {
+            const saveState = getCurrentSaveState();
+            localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(saveState));
+        }
+
+        /** Auto-load logic (used only on startup). */
+        function autoLoadGame() {
+            const data = getAutoSaveData();
+            if (data) {
+                applyState(data);
+                logMessage(`Auto-Load successful. Progress restored from ${data.timestamp}.`, '#a8ffee');
+                return true;
+            }
+            return false; 
+        }
+
+        /** Handles copy/move operations. */
+        function completeTransfer(action, sourceIndex, targetIndex) {
+            const sourceKey = STORAGE_KEY_PREFIX + sourceIndex;
+            const targetKey = STORAGE_KEY_PREFIX + targetIndex;
+            const data = localStorage.getItem(sourceKey);
+
+            if (data) {
+                localStorage.setItem(targetKey, data);
+                if (action === 'move') {
+                    localStorage.removeItem(sourceKey);
+                    logMessage(`Slot ${sourceIndex + 1} MOVED to Slot ${targetIndex + 1}.`, '#ffdd57');
+                } else {
+                    logMessage(`Slot ${sourceIndex + 1} COPIED to Slot ${targetIndex + 1}.`, '#ffdd57');
+                }
+            }
+            renderSlotManager(); 
+        }
+
+        /** Resets the whole game. */
+        function clearGame() {
+            const result = window.prompt("Type 'WIPE EVERYTHING' to confirm erasing all game progress, including auto-save and manual slots:");
+            if (result === 'WIPE EVERYTHING') {
+                for(let i = 0; i < NUM_MANUAL_SLOTS; i++) {
+                    localStorage.removeItem(STORAGE_KEY_PREFIX + i);
+                }
+                localStorage.removeItem(AUTO_SAVE_KEY); 
+                localStorage.removeItem('clickerGameSfxVolume');
+
+                score = 0;
+                totalClicks = 0;
+                totalFrenziesTriggered = 0;
+                upgrades.forEach(u => u.owned = 0);
+                achievements.forEach(a => a.earned = false);
+                isAutoClickerActive = false;
+                clickFrenzyActive = false;
+
+                recalculateStats();
+                loadVolume();
+                updateFastDisplay();
+                renderUpgrades();
+                renderAchievements();
+                renderSlotManager();
+
+                logMessage("ALL progress has been completely wiped. Starting fresh!", '#ff6b6b');
+            } else if (result !== null) {
+                logMessage("Hard reset canceled.", '#90a0ff');
+            }
+        }
+
+        /** Renders the achievement list in the modal and status summary. */
+        function renderAchievements() {
+            const listContainer = document.getElementById('achievement-list-display');
+            listContainer.innerHTML = '';
+
+            let unlockedCount = 0;
+
+            achievements.forEach(ach => {
+                const item = document.createElement('div');
+                const isEarned = ach.earned;
+                if (isEarned) unlockedCount++;
+
+                const itemClass = `achievement-item p-3 rounded-lg flex items-center ${isEarned ? 'earned' : 'bg-gray-700 text-white'}`;
+                item.className = itemClass;
+
+                const passiveMsg = ach.passiveBoost > 0 ? `+${formatNumber(ach.passiveBoost)}/sec` : '';
+                const clickMsg = ach.clickBoost > 0 ? `+${formatNumber(ach.clickBoost)} Click Power` : '';
+
+                let rewardText = '';
+                if (passiveMsg && clickMsg) {
+                    rewardText = `${passiveMsg}, ${clickMsg}`;
+                } else if (passiveMsg) {
+                    rewardText = passiveMsg;
+                } else if (clickMsg) {
+                    rewardText = clickMsg;
+                }
+
+                item.innerHTML = `
+                    <span class="text-2xl mr-4">${isEarned ? '&#10003;' : '&#9734;'}</span>
+                    <div>
+                        <div class="font-bold text-lg">${ach.name}</div>
+                        <div class="text-sm">${ach.desc}</div>
+                        ${rewardText ? `<div class="text-xs italic ${isEarned ? 'text-achievement-green' : 'opacity-80'}">Reward: ${rewardText} (Permanent Bonus)</div>` : '<div class="text-xs italic opacity-50">No permanent bonus.</div>'}
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+
+            document.getElementById('ach-summary').textContent = `Unlocked ${unlockedCount}/${achievements.length} achievements.`;
+        }
+
+        /** Renders the Save/Load Slots UI. */
+        function renderSlotManager(action = null, sourceIndex = -1) {
+            slotManager.innerHTML = '';
+            const currentState = getCurrentSaveState();
+
+            // --- 1. Render 5 Manual Slots ---
+            for (let i = 0; i < NUM_MANUAL_SLOTS; i++) {
+                const data = getManualSlotData(i);
+                const isLoaded = data && JSON.stringify(currentState) === JSON.stringify(data);
+
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'p-4 rounded-lg border border-gray-600';
+
+                let content = `<div class="font-bold text-lg mb-1 flex justify-between">
+                                    <span>Slot ${i + 1} (Manual)</span>
+                                    ${isLoaded ? '<span class="text-accent-cyan text-sm">ACTIVE</span>' : ''}
+                               </div>`;
+
+                if (data) {
+                    content += `<p class="text-sm text-gray-400">Score: ${formatNumber(data.score)}</p>`;
+                    content += `<p class="text-xs text-gray-500 italic">Saved: ${data.timestamp}</p>`;
+                    content += `<p class="text-xs text-gray-500 italic">Version: ${data.version || 'V-OLD'}</p>`;
+                } else {
+                    content += `<p class="text-gray-500 italic">Empty Slot</p>`;
+                }
+
+                content += `<div class="grid grid-cols-4 gap-2 mt-3 text-sm">`;
+
+                if (action === 'copy' || action === 'move') {
+                    // Destination mode
+                    content += `<button data-action="transfer" data-source="${sourceIndex}" data-target="${i}" data-type="${action}" class="col-span-4 py-2 bg-btn-purple text-white rounded-md hover:opacity-80 transition">${action.toUpperCase()} HERE from Slot ${sourceIndex + 1}</button>`;
+                } else {
+                    // Normal mode
+                    if (data) {
+                        content += `<button data-action="load" data-slot="${i}" class="py-2 bg-accent-cyan text-primary-dark rounded-md hover:opacity-80 transition">LOAD</button>`;
+                        content += `<button data-action="save" data-slot="${i}" class="py-2 bg-achievement-green text-primary-dark rounded-md hover:opacity-80 transition">SAVE</button>`;
+                        content += `<button data-action="copy-mode" data-slot="${i}" class="py-2 bg-gray-500 text-white rounded-md hover:opacity-80 transition">COPY</button>`;
+                        content += `<button data-action="wipe" data-slot="${i}" class="py-2 bg-btn-red text-white rounded-md hover:opacity-80 transition">WIPE</button>`;
+                    } else {
+                        content += `<button data-action="save" data-slot="${i}" class="col-span-4 py-2 bg-achievement-green text-primary-dark rounded-md hover:opacity-80 transition">SAVE CURRENT GAME</button>`;
+                    }
+                }
+                content += `</div>`;
+                slotDiv.innerHTML = content;
+                slotManager.appendChild(slotDiv);
+            }
+
+            // --- 2. Render Dedicated Auto-Save Slot ---
+            const autoData = getAutoSaveData();
+            const isAutoLoaded = autoData && JSON.stringify(currentState) === JSON.stringify(autoData);
+
+            const autoSlotDiv = document.createElement('div');
+            autoSlotDiv.className = 'p-4 rounded-lg border border-autosave-blue bg-secondary-dark';
+
+            let autoContent = `<div class="font-bold text-lg mb-1 flex justify-between">
+                                <span>Auto-Save (Slot 6)</span>
+                                ${isAutoLoaded ? '<span class="text-accent-cyan text-sm">ACTIVE</span>' : '<span class="text-autosave-blue text-sm">AUTOMATIC</span>'}
+                           </div>`;
+
+            if (autoData) {
+                autoContent += `<p class="text-sm text-gray-400">Score: ${formatNumber(autoData.score)}</p>`;
+                autoContent += `<p class="text-xs text-autosave-blue italic">Last Saved: ${autoData.timestamp}</p>`;
+                autoContent += `<p class="text-xs text-gray-500 italic">Version: ${autoData.version || 'V-OLD'}</p>`;
+            } else {
+                autoContent += `<p class="text-autosave-blue italic">Empty Slot (Automatic Save runs every 10s)</p>`;
+            }
+
+            autoContent += `<div class="grid grid-cols-2 gap-2 mt-3 text-sm">`;
+            autoContent += `<button data-action="load-auto" class="py-2 bg-autosave-blue text-primary-dark rounded-md hover:opacity-80 transition">LOAD AUTO-SAVE</button>`;
+            autoContent += `<button data-action="wipe-auto" class="py-2 bg-btn-red text-white rounded-md hover:bg-red-700 transition">WIPE AUTO-SAVE</button>`;
+            autoContent += `</div>`;
+
+            autoSlotDiv.innerHTML = autoContent;
+            slotManager.appendChild(autoSlotDiv);
+
+            // Attach listeners to dynamically created slot buttons
+            slotManager.querySelectorAll('button').forEach(button => {
+                const action = button.dataset.action;
+                const slot = parseInt(button.dataset.slot);
+                const source = parseInt(button.dataset.source);
+                const target = parseInt(button.dataset.target);
+                const type = button.dataset.type;
+
+                if (action === 'load') button.addEventListener('click', () => loadGameFromSlot(slot));
+                else if (action === 'save') button.addEventListener('click', () => saveGameToSlot(slot));
+                else if (action === 'wipe') button.addEventListener('click', () => wipeManualSlot(slot));
+                else if (action === 'copy-mode') button.addEventListener('click', () => renderSlotManager('copy', slot));
+                else if (action === 'transfer') button.addEventListener('click', () => completeTransfer(type, source, target));
+                else if (action === 'load-auto') button.addEventListener('click', loadAutoSave);
+                else if (action === 'wipe-auto') button.addEventListener('click', wipeAutoSave);
+            });
+        }
+
+        /** Shows a specific tab in the modal. */
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('bg-btn-purple', 'shadow-inner'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.add('bg-secondary-dark'));
+
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabName}`).classList.add('bg-btn-purple');
+            document.getElementById(`tab-btn-${tabName}`).classList.remove('bg-secondary-dark');
+        }
+
+        /** Opens the settings modal. */
+        function showSettingsModal() {
+            settingsModal.classList.remove('hidden');
+            showTab('general'); // Default to General tab
+            renderSlotManager();
+            renderAchievements();
+        }
+
+        /** Closes the settings modal. */
+        function hideSettingsModal() {
+            settingsModal.classList.add('hidden');
+        }
+
+        // Handle overlay click to close modal
+        function closeModal(event) {
+            if (event.target === settingsModal) {
+                hideSettingsModal();
+            }
+        }
+
+        /** Sets up all event listeners, especially for elements without inline 'onclick'. */
+        function setupEventListeners() {
+            // Initialize AC button reference after DOM load
+            acModalButton = document.getElementById('ac-modal-button');
+            
+            // Main clicker listeners
+            clickButton.addEventListener('click', clickAction);
+            clickButton.addEventListener('touchstart', (e) => { e.preventDefault(); clickAction(e); }, { passive: false });
+            clickButton.addEventListener('keyup', (e) => {
+                 if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    clickAction(e);
+                }
+            });
+            clickButton.addEventListener('keydown', (e) => {
+                 if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                }
+            });
+
+            // Settings Modal listeners
+            settingsButton.addEventListener('click', showSettingsModal);
+            hideSettingsButton.addEventListener('click', hideSettingsModal);
+            clearGameButton.addEventListener('click', clearGame);
+            
+            // Attach Auto Clicker listener only if button is found
+            if (acModalButton) {
+                acModalButton.addEventListener('click', activateAutoClicker);
+            }
+
+            // Tab listeners
+            tabBtnGeneral.addEventListener('click', () => showTab('general'));
+            tabBtnSave.addEventListener('click', () => renderSlotManager() || showTab('save')); // Render before showing save tab
+            tabBtnAchievements.addEventListener('click', () => renderAchievements() || showTab('achievements')); // Render before showing ach tab
+
+            // Volume slider listener
+            sfxVolumeSlider.addEventListener('input', (e) => setVolume(e.target.value));
+
+            // Mobile Upgrades listeners
+            mobileUpgradeButton.addEventListener('click', toggleUpgradesMenu);
+            upgradeCloseHandle.addEventListener('click', toggleUpgradesMenu);
+        }
+
+        // --- INITIALIZATION ---
+
+        /** Loads the game state from auto-save or starts a new game. */
+        function initialLoad() {
+            gameVersionDisplay.textContent = GAME_VERSION;
+            loadVolume();
+            setupEventListeners(); // Attach all listeners
+
+            if (autoLoadGame()) {
+                // Auto-save found and loaded.
+            } else {
+                // No auto-save found, check manual slots as a fallback, then start new.
+                let loadedManual = false;
+                for(let i = 0; i < NUM_MANUAL_SLOTS; i++) {
+                    const data = getManualSlotData(i);
+                    if (data) {
+                        loadGameFromSlot(i);
+                        loadedManual = true;
+                        break;
+                    }
+                }
+                if (!loadedManual) {
+                    recalculateStats();
+                    updateFastDisplay();
+                    renderUpgrades();
+                    renderAchievements();
+                    logMessage(`Welcome to V${GAME_VERSION}. Tap the button!`, '#a8ffee');
+                }
+            }
+        }
+
+        // Expose functions globally for the remaining HTML elements (only modal overlay)
+        window.closeModal = closeModal;
+        // Expose helper functions for dynamic slot button creation
+        window.loadGameFromSlot = loadGameFromSlot;
+        window.saveGameToSlot = saveGameToSlot;
+        window.wipeManualSlot = wipeManualSlot;
+        window.loadAutoSave = loadAutoSave;
+        window.wipeAutoSave = wipeAutoSave;
+        window.completeTransfer = completeTransfer;
+        window.renderSlotManager = renderSlotManager;
+
+
+        // 1. Start the main game loop (10 times per second for smooth score/timers)
+        setInterval(gameLoop, GAME_TICK_RATE_MS);
+
+        // 2. Start the slow UI rendering loop (0.5 seconds to prevent flicker)
+        setInterval(renderSlowUI, UI_RENDER_INTERVAL_MS);
+
+        // 3. Start the auto-save loop (10 seconds for persistent progress)
+        setInterval(autoSave, AUTO_SAVE_INTERVAL_MS);
+
+        // Run initial setup (auto-load progress and attach all listeners)
+        initialLoad();
+
+    </script>
+</body>
+</html>
