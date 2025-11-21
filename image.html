@@ -3,169 +3,1250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Goofy Image Remix</title>
+    <title>Image Upscaler v4.0</title>
+    <!-- Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Theme loader script -->
+    <script>
+        // NEW LOGIC: Force light mode on load unless explicitly set to 'dark' by the user toggle
+        if (localStorage.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            // Force save the 'light' preference to override system preference
+            localStorage.theme = 'light'; 
+        }
+    </script>
+
     <style>
+        /* Use the Inter font family */
         body {
-            font-family: "Inter", sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom file input styles */
+        input[type="file"]::file-selector-button {
+            margin-right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem; 
+            border: 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background-color: #eff6ff; 
+            color: #1d4ed8; 
+            cursor: pointer;
+            transition: background-color 150ms ease-in-out;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #dbeafe;
+        }
+        
+        /* Custom file input styles for DARK MODE */
+        .dark input[type="file"]::file-selector-button {
+            background-color: #334155; 
+            color: #60a5fa; 
+        }
+        .dark input[type="file"]::file-selector-button:hover {
+            background-color: #475569; 
+        }
+
+        /* --- Zoom/Compare Styles --- */
+        #zoomContainer {
+            position: relative;
+            overflow: hidden; 
+            width: 100%;
+            flex-grow: 1; 
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
+            /* Explicitly setting to white for a bright light mode experience */
+            background-color: white; 
+            border-radius: 0.5rem;
+            user-select: none; /* Prevent text selection during drag/pan */
+            touch-action: none; /* Prevent scroll on touch devices */
         }
-        .container {
-            background-color: #ffffff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
+        .dark #zoomContainer {
+            background-color: #0f172a;
         }
-        .image-placeholder {
-            width: 100%;
+
+        #canvasWrapper {
+            position: relative;
+            line-height: 0; 
+            overflow: hidden; 
+            border-radius: 0.5rem;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* --- Compare/Slider Styles --- */
+        #beforeCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 5;
+        }
+        
+        #mainCanvas {
+            position: relative;
+            z-index: 10;
+            clip-path: inset(0 0 0 50%); 
+            max-width: none; 
             height: auto;
-            min-height: 200px;
-            background-color: #e2e8f0;
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1rem;
-            color: #4a5568;
-            margin-bottom: 20px;
-            overflow: hidden; /* Ensure image fits */
         }
-        .image-placeholder img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
+
+        #compareSlider {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 0;
+            bottom: 0; 
+            left: 50%;
+            width: 6px;
+            background: rgba(255, 255, 255, 0.7);
+            cursor: ew-resize;
+            z-index: 20; /* The main line element */
+            transform: translateX(-3px); 
+            overflow: visible; 
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
         }
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
+        
+        /* SLIDER HANDLE (Circle) - now an inner div */
+        #sliderHandle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             width: 40px;
             height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+            border-radius: 50%;
+            background-color: white;
+            border: 2px solid #3b82f6; /* Blue border for highlight */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            z-index: 25; /* Always above the line (20) */
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .button-style {
-            background-color: #4a90e2;
+        
+        /* SLIDER LABEL (Original - Left Side) */
+        .slider-label-original {
+            position: absolute;
+            top: 20px;
+            right: 100%; /* To the left of the slider line */
+            margin-right: 15px; /* Spacing from the line */
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.6);
             color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            display: inline-block;
-            margin-top: 15px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.375rem;
+            white-space: nowrap;
+            z-index: 30; /* Ensure on top */
+            opacity: 0.9;
+            pointer-events: none;
         }
-        .button-style:hover {
-            background-color: #357bd8;
+        
+        /* SLIDER LABEL (Upscaled - Right Side) */
+        .slider-label-upscaled {
+            position: absolute;
+            top: 20px;
+            left: 100%; /* To the right of the slider line */
+            margin-left: 15px; /* Spacing from the line */
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.375rem;
+            white-space: nowrap;
+            z-index: 30; /* Ensure on top */
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        /* --- End compare styles --- */
+
+        /* --- Slider Styles --- */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 0.5rem;
+            outline: none;
+        }
+        .dark input[type="range"] {
+            background: #475569;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #2563eb; 
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 2px rgba(0,0,0,0.2);
+            margin-top: -6px;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #2563eb;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 2px rgba(0,0,0,0.2);
+        }
+
+        /* --- Zoom Slider Styles --- */
+        #zoomSlider::-webkit-slider-thumb {
+            width: 24px;
+            height: 24px;
+            margin-top: -8px; 
+            transition: transform 0.1s ease-in-out;
+        }
+        #zoomSlider:hover::-webkit-slider-thumb {
+            transform: scale(1.1);
+        }
+        #zoomSlider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+        }
+        #zoomSlider:hover::-moz-range-thumb {
+            transform: scale(1.1);
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Goofy Image Remix</h1>
-        <p class="text-gray-600 mb-6">Click the button below to generate a goofy version of the image.</p>
+<!-- background is set to bg-white for light mode and dark:bg-slate-900 for dark mode -->
+<body class="bg-white dark:bg-slate-900 min-h-screen flex items-center justify-center p-4 transition-colors duration-200">
+
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-2xl p-6 md:p-8 my-10 max-w-5xl w-full">
         
-        <div id="imageContainer" class="image-placeholder">
-            <p>Your goofy image will appear here!</p>
+        <!-- Header with Theme Toggle -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Image Upscaler v4.0
+            </h1>
+            <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors" title="Toggle light/dark mode">
+                <!-- Moon icon (Hidden in dark mode) -->
+                <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+                <!-- Sun icon (Hidden in light mode) -->
+                <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="space-y-6 mb-6">
+            
+            <!-- File Input -->
+            <div>
+                <label for="imageLoader" class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">1. Upload Image</label>
+                <input type="file" id="imageLoader" accept="image/*" class="block w-full text-sm text-gray-500 dark:text-slate-400">
+            </div>
+
+            <!-- Scale Slider -->
+            <div>
+                <label for="scaleSlider" class="block text-sm font-medium text-gray-700 dark:text-slate-300">2. Select Scale (1x - 20x)</label>
+                <div class="flex items-center space-x-4 mt-2">
+                    <input type="range" id="scaleSlider" min="1" max="20" value="1" step="1" class="w-full">
+                    <span id="scaleValue" class="font-bold text-lg text-blue-600 dark:text-blue-400 w-12 text-center">1x</span>
+                </div>
+                <!-- Warning Message -->
+                <p id="scaleWarning" class="hidden mt-3 p-3 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-800" role="alert">
+                    <strong>Warning:</strong> High scale factors (above 15x) on large images can use a lot of memory and may cause the page to become slow or crash.
+                </p>
+            </div>
+
+            <!-- Render Type Select -->
+            <div>
+                <label for="renderType" class="block text-sm font-medium text-gray-700 dark:text-slate-300">3. Select Render Type</label>
+                <select id="renderType" class="mt-2 block w-full py-2 px-3 border border-gray-300 bg-white dark:border-slate-600 dark:bg-slate-700 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <optgroup label="Smooth (For Photos)">
+                        <option value="true" selected title="Good balance of speed and quality. Best for general photos.">Standard (Default)</option>
+                        <option value="true" title="Aims for the best possible smooth image. Good for high-quality photos.">High Fidelity</option>
+                        <option value="true" title="Standard smoothing, good for all-purpose photos.">Smooth Photo</option>
+                        <option value="true" title="Aims to preserve photo details with smoothing.">Realistic</option>
+                    </optgroup>
+                    <optgroup label="Pixelated (For Art/Speed)">
+                        <option value="false" title="No smoothing. Very fast, but results in a blocky, pixelated image.">Lite (Fastest)</option>
+                        <option value="false" title="No smoothing. Perfect for scaling pixel art while keeping sharp edges.">Pixel Art (Sharp)</option>
+                        <option value="false" title="No smoothing. Good for animation or cartoon cels with hard outlines.">Cartoon (Sharp Edge)</option>
+                    </optgroup>
+                </select>
+                <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">"Smooth" is better for photos; "Pixelated" is better for pixel art.</p>
+            </div>
+            
+            <!-- GPU Availability Toggle -->
+            <div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-700 rounded-lg">
+                <label for="gpuToggle" class="flex flex-col">
+                    <span class="font-medium text-gray-900 dark:text-gray-100">Use GPU (Hardware Acceleration)</span>
+                    <span id="gpuStatusMessage" class="text-sm text-gray-600 dark:text-slate-300">Checking availability...</span>
+                </label>
+                <button type="button" id="gpuToggle" disabled class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 dark:bg-slate-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 dark:focus:ring-offset-slate-800" role="switch" aria-checked="false">
+                    <span id="gpuToggleKnob" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+                </button>
+            </div>
+
+            <!-- Optimizer Mode Toggle (Bypass for high scale) -->
+            <div class="flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-700 rounded-lg">
+                <label for="optimizerToggle" class="flex flex-col">
+                    <span class="font-medium text-gray-900 dark:text-gray-100">Optimizer Mode (Preview Bypass)</span>
+                    <!-- UPDATED TEXT HERE -->
+                    <span class="text-sm text-gray-600 dark:text-slate-300">Bypasses preview for high-scale renders to save memory.</span>
+                </label>
+                <!-- Toggle Switch -->
+                <button type="button" id="optimizerToggle" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 dark:bg-slate-600 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 dark:focus:ring-offset-slate-800" role="switch" aria-checked="false">
+                    <span id="optimizerToggleKnob" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+                </button>
+            </div>
+            
+            <!-- Render Button -->
+            <button id="renderBtn" disabled class="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400">
+                Apply Settings & Render
+            </button>
+
+            <!-- Download Button -->
+            <button id="downloadBtn" disabled class="w-full py-3 px-4 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400">
+                Download Upscaled Image
+            </button>
         </div>
         
-        <button id="generateButton" class="button-style">Generate Goofy Image</button>
+        <!-- UPDATED: Resolution Display with Resolution Label and File Size (3 columns) -->
+        <div id="resolutionDisplay" class="hidden grid grid-cols-3 gap-4 text-center p-4 bg-gray-50 dark:bg-slate-700 rounded-xl mb-6 border border-gray-200 dark:border-slate-600">
+            <!-- Column 1: Original Details -->
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-slate-300">Original Resolution</p>
+                <p id="originalResolution" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100">--</p>
+                 <p class="text-xs font-medium text-gray-500 dark:text-slate-400 mt-1">
+                    Est. Size: <span id="originalFileSize">--</span>
+                </p>
+            </div>
+            <!-- Column 2: Upscaled Resolution & Label -->
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-slate-300">Upscaled Resolution</p>
+                <p class="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <span id="upscaledResolution">--</span> 
+                    <span id="upscaledLabel" class="text-base font-semibold text-gray-500 dark:text-slate-400 block mt-1"></span>
+                </p>
+            </div>
+             <!-- Column 3: Required Memory/Min File Size -->
+            <div>
+                <p class="text-sm font-medium text-gray-600 dark:text-slate-300">Required Memory</p>
+                <p class="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400">
+                    <span id="upscaledFileSize">--</span> 
+                </p>
+                <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">(Uncompressed memory/min file size)</p>
+            </div>
+        </div>
+        <!-- END UPDATED RESOLUTION DISPLAY -->
 
-        <div id="loading" class="hidden loading-spinner"></div>
-        <p id="error" class="text-red-500 mt-4 hidden"></p>
+        <!-- DEBUG PANE -->
+        <div id="debugPane" class="hidden mb-4 p-3 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-800 rounded-lg text-yellow-700 dark:text-yellow-300 text-xs font-mono">
+            <h4 class="font-bold mb-1">Debug Info:</h4>
+            <pre id="debugOutput"></pre>
+        </div>
+
+        <!-- Zoom Controls -->
+        <div id="zoomControls" class="hidden mb-4 p-3 bg-gray-100 dark:bg-slate-700 rounded-lg flex items-center space-x-3">
+            <label class="text-sm font-medium text-gray-700 dark:text-slate-300">Zoom:</label>
+            <button id="zoomOutBtn" class="p-1 rounded-full bg-white dark:bg-slate-600 shadow-sm" title="Zoom Out">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                </svg>
+            </button>
+            <input type="range" id="zoomSlider" min="0.1" max="5" value="1" step="0.1" class="w-full max-w-xs">
+            <button id="zoomInBtn" class="p-1 rounded-full bg-white dark:bg-slate-600 shadow-sm" title="Zoom In">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
+            <span id="zoomValue" class="text-sm font-semibold text-blue-600 dark:text-blue-400 w-12 text-center">100%</span>
+            
+            <!-- Spacer to push compare button to the right -->
+            <span class="flex-grow"></span>
+            
+            <!-- Toggle Compare Button -->
+            <button id="toggleCompareBtn" class="p-2 rounded-lg bg-white dark:bg-slate-600 shadow-sm opacity-50" title="Toggle Compare Slider">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700 dark:text-gray-200" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18v-16a8 8 0 010 16z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Canvas Output -->
+        <div id="outputContainer" class="w-full h-[500px] bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-inner rounded-xl p-4 flex flex-col items-center relative hidden">
+            
+            <!-- Error Message -->
+            <p id="renderError" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800 w-full" role="alert">
+                <!-- Content set by JS -->
+            </p>
+
+            <!-- Optimizer Mode Message -->
+            <p id="optimizerMessage" class="hidden p-4 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 dark:bg-slate-700 dark:text-blue-300 dark:border-blue-600 w-full text-center" role="status">
+                <strong>Optimizer Mode is ON.</strong>
+                <span class="block text-sm mt-1">Preview is disabled to save memory. Click "Download" to generate your image.</span>
+            </p>
+            
+            <!-- Zoom Container -->
+            <div id="zoomContainer" class="hidden">
+                <!-- Viewport Wrapper -->
+                <div id="viewport" style="position: relative; line-height: 0; transform-origin: center center; transition: transform 0.1s ease-out;">
+                    <!-- This part scales -->
+                    <div id="canvasWrapper">
+                        <canvas id="beforeCanvas" class="max-w-none h-auto"></canvas>
+                        <canvas id="mainCanvas" class="max-w-none h-auto"></canvas>
+                    </div>
+                    
+                    <!-- Loading Overlay also stays on top -->
+                    <div id="loadingOverlay" class="hidden absolute inset-0 bg-gray-900 bg-opacity-75 dark:bg-slate-900 dark:bg-opacity-75 flex flex-col items-center justify-center rounded-lg backdrop-blur-sm transition-opacity" style="z-index: 30;">
+                        <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <p class="text-white text-lg font-semibold mt-4">Rendering...</p>
+                    </div>
+                </div>
+                
+                <!-- compareSlider (The interactive separator line) -->
+                <div id="compareSlider">
+                    <!-- NEW: Slider Handle (Circle) -->
+                    <div id="sliderHandle">
+                        <!-- Left/Right arrow icon inside handle for better UX -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                    </div>
+                    <!-- NEW: Labels that move with the slider -->
+                    <div id="sliderLabelOriginal" class="slider-label-original hidden">Original (Pixelated)</div>
+                    <div id="sliderLabelUpscaled" class="slider-label-upscaled hidden">Upscaled (Smooth)</div>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 
-    <script type="module">
-        const generateButton = document.getElementById('generateButton');
-        const imageContainer = document.getElementById('imageContainer');
-        const loadingSpinner = document.getElementById('loading');
-        const errorDisplay = document.getElementById('error');
+    <script>
+        // Get DOM elements
+        const imageLoader = document.getElementById('imageLoader');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleValue = document.getElementById('scaleValue');
+        const scaleWarning = document.getElementById('scaleWarning');
+        const renderType = document.getElementById('renderType');
+        const renderBtn = document.getElementById('renderBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const ctx = mainCanvas.getContext('2d');
+        
+        // Canvas Elements
+        const beforeCanvas = document.getElementById('beforeCanvas');
+        const beforeCtx = beforeCanvas.getContext('2d');
+        const zoomContainer = document.getElementById('zoomContainer');
+        const viewport = document.getElementById('viewport');
+        const compareSlider = document.getElementById('compareSlider');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const renderError = document.getElementById('renderError');
+        const outputContainer = document.getElementById('outputContainer');
+        
+        // Resolution Display Elements
+        const resolutionDisplay = document.getElementById('resolutionDisplay');
+        const originalResolution = document.getElementById('originalResolution');
+        const originalFileSize = document.getElementById('originalFileSize'); 
+        const upscaledResolution = document.getElementById('upscaledResolution');
+        const upscaledLabel = document.getElementById('upscaledLabel'); 
+        const upscaledFileSize = document.getElementById('upscaledFileSize'); 
+        
+        // Compare Slider Labels
+        const sliderLabelOriginal = document.getElementById('sliderLabelOriginal');
+        const sliderLabelUpscaled = document.getElementById('sliderLabelUpscaled');
+        
+        // Theme Toggle Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const moonIcon = document.getElementById('moonIcon');
+        const sunIcon = document.getElementById('sunIcon');
+        const htmlEl = document.documentElement;
 
-        generateButton.addEventListener('click', async () => {
-            imageContainer.innerHTML = ''; // Clear previous content
-            loadingSpinner.classList.remove('hidden');
-            errorDisplay.classList.add('hidden');
+        // Optimizer Elements
+        const optimizerToggle = document.getElementById('optimizerToggle');
+        const optimizerToggleKnob = document.getElementById('optimizerToggleKnob');
+        const optimizerMessage = document.getElementById('optimizerMessage');
+        
+        // NEW: GPU Elements
+        const gpuToggle = document.getElementById('gpuToggle');
+        const gpuToggleKnob = document.getElementById('gpuToggleKnob');
+        const gpuStatusMessage = document.getElementById('gpuStatusMessage');
+        let isGpuAvailable = false;
+        let useGpu = true; // State to track if the user wants to use it (default true if available)
+
+        // Zoom Elements
+        const zoomControls = document.getElementById('zoomControls'); 
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        const toggleCompareBtn = document.getElementById('toggleCompareBtn'); 
+        let currentZoom = 1;
+        let compareEnabled = false;
+        
+        // Panning State
+        let isPanning = false;
+        let lastPanX = 0;
+        let lastPanY = 0;
+        let panX = 0;
+        let panY = 0;
+        
+        // Store the original loaded image in memory
+        let originalImage = null;
+        let originalFileName = 'upscaled-image';
+
+        // CONSTANT: Set a hard limit for canvas size in MB (4 bytes/pixel RGBA)
+        const MAX_PREVIEW_MEGABYTES = 1024; // 1 GB RAM limit for preview
+        
+        /**
+         * Calculates the uncompressed file size in Megabytes (MB) and formats it.
+         * Switches to GB when the size is 1000 MB or more.
+         * @param {number} width 
+         * @param {number} height 
+         * @returns {string} File size formatted with appropriate unit (MB or GB).
+         */
+        function calculateFileSize(width, height) {
+            const totalBytes = width * height * 4; // 4 bytes per pixel (RGBA)
+            const totalMB = totalBytes / (1024 * 1024);
+            
+            if (totalMB >= 1000) {
+                const totalGB = totalMB / 1024;
+                return `${totalGB.toFixed(2)} GB`;
+            }
+            
+            return `${totalMB.toFixed(2)} MB`;
+        }
+
+        /**
+         * Determines a friendly resolution label based on total megapixels, 
+         * extended to cover resolutions up to 40K and beyond.
+         * @param {number} width 
+         * @param {number} height 
+         * @returns {string} The descriptive resolution label.
+         */
+        function getResolutionLabel(width, height) {
+            const totalMP = (width * height) / 1000000;
+            
+            if (totalMP >= 8000) return 'Extreme Gigapixel (8 GP+)'; // 8 Gigapixels
+            if (totalMP >= 4000) return '4 Gigapixel Range (4 GP+)'; 
+            if (totalMP >= 2000) return '2 Gigapixel Range (2 GP+)'; 
+            if (totalMP >= 1000) return '1 Gigapixel / Hyper-Resolution'; 
+            
+            // New K-Resolution tiers
+            if (totalMP >= 800) return '40K+ Resolution'; 
+            if (totalMP >= 600) return '30K Resolution';
+            if (totalMP >= 400) return '25K Resolution';
+            if (totalMP >= 200) return '20K Resolution / Extreme Hi-Res'; 
+            if (totalMP >= 100) return '16K Resolution / Ultra High Fidelity'; 
+            if (totalMP >= 60) return '12K Resolution'; 
+            
+            // Standard tiers
+            if (totalMP >= 30) return '8K Resolution / Ultra High Definition+'; 
+            if (totalMP >= 14) return '5K Resolution / Digital Cinema'; 
+            if (totalMP >= 8) return '4K Resolution / Ultra HD'; 
+            if (totalMP >= 3.5) return 'Quad HD / 2K'; 
+            if (totalMP >= 2) return 'Full HD / 1080p'; 
+            if (totalMP >= 0.9) return 'HD / 720p'; 
+            
+            return 'Standard Definition (SD)';
+        }
+        
+        /**
+         * Updates the upscaled resolution display (pixels, descriptive label, and file size).
+         * @param {number} width 
+         * @param {number} height 
+         * @param {string} suffix 
+         */
+        function updateUpscaledResolutionDisplay(width, height, suffix = '') {
+            const label = getResolutionLabel(width, height);
+            const totalMBFormatted = calculateFileSize(width, height);
+            
+            upscaledResolution.textContent = `${Math.round(width)} x ${Math.round(height)} ${suffix}`;
+            upscaledLabel.textContent = label;
+            upscaledFileSize.textContent = totalMBFormatted;
+        }
+
+        /**
+         * Clears all error/status messages.
+         */
+        function clearStatusMessages() {
+            renderError.classList.add('hidden');
+            optimizerMessage.classList.add('hidden');
+        }
+
+        /**
+         * Checks if the calculated size exceeds the given MB limit.
+         * @param {number} width 
+         * @param {number} height 
+         * @param {number} limitMB 
+         * @returns {boolean} True if size exceeds limit.
+         */
+        function isSizeExceeded(width, height, limitMB) {
+            const totalBytes = width * height * 4;
+            const maxBytes = limitMB * 1024 * 1024;
+            return totalBytes > maxBytes;
+        }
+        
+        /**
+         * NEW: Checks for WebGL context availability (GPU support).
+         */
+        function checkGpuAvailability() {
+            // Attempt to get a WebGL2 or WebGL rendering context
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+            
+            isGpuAvailable = !!gl;
+            
+            if (isGpuAvailable) {
+                gpuStatusMessage.textContent = 'GPU Acceleration available and active.';
+                gpuStatusMessage.classList.add('text-green-600', 'dark:text-green-400');
+                gpuStatusMessage.classList.remove('text-gray-600', 'dark:text-slate-300', 'text-red-600', 'dark:text-red-400', 'text-yellow-600', 'dark:text-yellow-400');
+                
+                // Enable and visually set ON by default
+                gpuToggle.disabled = false;
+                gpuToggle.setAttribute('aria-checked', 'true');
+                gpuToggle.classList.add('bg-blue-600', 'dark:bg-blue-600');
+                gpuToggle.classList.remove('bg-gray-200', 'dark:bg-slate-600');
+                gpuToggleKnob.style.transform = 'translateX(20px)';
+                useGpu = true;
+            } else {
+                gpuStatusMessage.textContent = 'GPU Not Found. Running in CPU mode.';
+                gpuStatusMessage.classList.add('text-red-600', 'dark:text-red-400');
+                gpuStatusMessage.classList.remove('text-gray-600', 'dark:text-slate-300', 'text-green-600', 'dark:text-green-400', 'text-yellow-600', 'dark:text-yellow-400');
+                
+                // Keep disabled and greyed out
+                gpuToggle.disabled = true;
+                gpuToggle.setAttribute('aria-checked', 'false');
+                gpuToggle.classList.remove('bg-blue-600', 'dark:bg-blue-600');
+                gpuToggle.classList.add('bg-gray-200', 'dark:bg-slate-600');
+                gpuToggleKnob.style.transform = 'translateX(0px)';
+                useGpu = false;
+            }
+        }
+
+        /**
+         * Redraws the image onto the canvas based on current settings.
+         */
+        function redrawCanvas() {
+            if (!originalImage) {
+                loadingOverlay.classList.add('hidden');
+                renderBtn.disabled = !originalImage;
+                downloadBtn.disabled = !originalImage;
+                return;
+            }
+            
+            clearStatusMessages();
+
+            // Get current settings
+            const scale = parseFloat(scaleSlider.value);
+            const smoothing = (renderType.value === 'true');
+
+            // Calculate new dimensions
+            const newWidth = originalImage.width * scale;
+            const newHeight = originalImage.height * scale;
+            
+            // Update upscaled resolution display with the CONFIRMED resolution after render
+            updateUpscaledResolutionDisplay(newWidth, newHeight);
+
+
+            // --- 1. Hard Limit Check for Preview ---
+            const totalMB = (newWidth * newHeight * 4) / (1024 * 1024);
+            if (totalMB > MAX_PREVIEW_MEGABYTES) {
+                renderError.textContent = `
+                    Image Too Large for Preview! The calculated output memory size is ${totalMB.toFixed(2)} MB, exceeding the safe preview limit of ${MAX_PREVIEW_MEGABYTES} MB (1 GB). 
+                    Please reduce the scale or enable Optimizer Mode to bypass the preview and download the file directly.
+                `;
+                renderError.classList.remove('hidden');
+                
+                loadingOverlay.classList.add('hidden');
+                renderBtn.disabled = false;
+                downloadBtn.disabled = false;
+                zoomContainer.classList.add('hidden');
+                zoomControls.classList.add('hidden');
+                outputContainer.classList.remove('hidden');
+                return; 
+            }
+            
+            // --- 2. Check for Optimizer Mode (after size check, for clarity) ---
+            if (optimizerToggle.getAttribute('aria-checked') === 'true') {
+                try {
+                    // Clear canvas view if it was previously drawn
+                    ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                    beforeCtx.clearRect(0, 0, beforeCanvas.width, beforeCanvas.height);
+                } catch (e) {}
+
+                outputContainer.classList.remove('hidden');
+                zoomContainer.classList.add('hidden');
+                optimizerMessage.classList.remove('hidden');
+                zoomControls.classList.add('hidden');
+
+                loadingOverlay.classList.add('hidden');
+                renderBtn.disabled = false;
+                downloadBtn.disabled = false;
+                return;
+            }
+
+            // --- 3. If not in optimizer mode, show canvas and attempt render ---
+            outputContainer.classList.remove('hidden');
+            zoomContainer.classList.remove('hidden');
 
             try {
-                // Fetch the image data
-                const imageUrl = 'image.png'; // Assuming the image is named image.png and is accessible
-                const response = await fetch(imageUrl);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                // NOTE: The smoothing setting remains controlled by renderType, 
+                // but browser might use hardware acceleration if useGpu is true.
+                
+                // --- Draw "After" Canvas (Main Canvas, on top) ---
+                mainCanvas.width = newWidth;
+                mainCanvas.height = newHeight;
+                ctx.imageSmoothingEnabled = smoothing;
+                ctx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+                
+                // --- Draw "Before" Canvas ---
+                beforeCanvas.width = newWidth;
+                beforeCanvas.height = newHeight;
+                beforeCtx.imageSmoothingEnabled = false; 
+                beforeCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+                
+                // --- Set Viewport Size ---
+                viewport.style.width = `${newWidth}px`;
+                viewport.style.height = `${newHeight}px`;
+                
+                updateCompareSliderUI();
+
+                // --- Hide Loading Overlay ---
+                loadingOverlay.classList.add('hidden');
+                renderBtn.disabled = false;
+                downloadBtn.disabled = false;
+                zoomControls.classList.remove('hidden');
+                
+                // --- Calculate "Fit" Zoom ---
+                const containerRect = zoomContainer.getBoundingClientRect();
+                const containerWidth = containerRect.width;
+                const containerHeight = containerRect.height;
+
+                let fitZoom = 1.0;
+                if (newWidth > containerWidth || newHeight > containerHeight) {
+                    const padding = 0; 
+                    fitZoom = Math.min((containerWidth - padding) / newWidth, (containerHeight - padding) / newHeight);
                 }
-                const blob = await response.blob();
+                fitZoom = Math.max(0.1, Math.min(fitZoom, 1.0)); 
 
-                // Convert blob to base64
-                const reader = new FileReader();
-                reader.readAsDataURL(blob);
-                reader.onloadend = async function() {
-                    const base64ImageData = reader.result.split(',')[1]; // Get base64 string without data:image/png;base64, prefix
-
-                    // Prepare the payload for image generation
-                    const prompt = "Remix the provided image of a person into a very goofy and comical version. Exaggerate facial features and add absurd elements to make it look funny.";
-                    
-                    const payload = { 
-                        instances: {
-                            prompt: prompt,
-                            image: {
-                                bytesBase64Encoded: base64ImageData
-                            }
-                        },
-                        parameters: { "sampleCount": 1 } 
-                    };
-                    
-                    const apiKey = ""; // Canvas will automatically provide the API key
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-
-                    const imageGenerationResponse = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const result = await imageGenerationResponse.json();
-
-                    if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
-                        const generatedImageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
-                        const imgElement = document.createElement('img');
-                        imgElement.src = generatedImageUrl;
-                        imgElement.alt = "Goofy Remixed Image";
-                        imageContainer.innerHTML = ''; // Clear "Your goofy image will appear here!"
-                        imageContainer.appendChild(imgElement);
-                    } else {
-                        throw new Error('Failed to generate image: No prediction found.');
-                    }
-                };
-                reader.onerror = function(error) {
-                    throw new Error('Error converting image to base64: ' + error);
-                };
-
+                panX = 0; 
+                panY = 0; 
+                updateZoom(fitZoom);
+                
             } catch (error) {
-                console.error('Error generating goofy image:', error);
-                errorDisplay.textContent = 'Failed to generate image. Please try again. ' + error.message;
-                errorDisplay.classList.remove('hidden');
-            } finally {
-                loadingSpinner.classList.add('hidden');
+                console.error("Canvas render failed:", error);
+
+                renderError.textContent = "Preview Render Failed: Image is too large to display. Auto-enabling Optimizer Mode. Please download the result.";
+                renderError.classList.remove('hidden');
+                
+                loadingOverlay.classList.add('hidden');
+
+                // --- AUTO-ENABLE OPTIMIZER MODE ---
+                optimizerToggle.setAttribute('aria-checked', 'true');
+                optimizerToggleKnob.style.transform = 'translateX(20px)';
+                optimizerToggle.classList.add('bg-blue-600', 'dark:bg-blue-600');
+                optimizerToggle.classList.remove('bg-gray-200', 'dark:bg-slate-600');
+
+                optimizerMessage.classList.remove('hidden');
+                zoomContainer.classList.add('hidden');
+                zoomControls.classList.add('hidden');
+                
+                renderBtn.disabled = false;
+                downloadBtn.disabled = false;
+
+                try {
+                    // Attempt to clear in case of partial render failure
+                    ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                    beforeCtx.clearRect(0, 0, beforeCanvas.width, beforeCanvas.height);
+                } catch (e) {}
+            }
+        }
+
+        // --- Theme Toggle Logic ---
+        function updateThemeIcons() {
+            if (htmlEl.classList.contains('dark')) {
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                moonIcon.classList.remove('hidden');
+                sunIcon.classList.add('hidden');
+            }
+        }
+
+        // Initial icon update on load
+        updateThemeIcons(); 
+        
+        themeToggle.onclick = () => {
+            htmlEl.classList.toggle('dark');
+            if (htmlEl.classList.contains('dark')) {
+                localStorage.theme = 'dark';
+            } else {
+                localStorage.theme = 'light';
+            }
+            updateThemeIcons();
+        };
+        
+        // --- NEW: GPU Toggle Click ---
+        gpuToggle.onclick = () => {
+            if (!isGpuAvailable) return;
+            
+            const isChecked = gpuToggle.getAttribute('aria-checked') === 'true';
+            useGpu = !isChecked; // Toggle the JS state
+
+            // Toggle the state visually
+            gpuToggle.setAttribute('aria-checked', useGpu ? 'true' : 'false');
+            gpuToggleKnob.style.transform = useGpu ? 'translateX(20px)' : 'translateX(0px)';
+            gpuToggle.classList.toggle('bg-blue-600', useGpu);
+            gpuToggle.classList.toggle('dark:bg-blue-600', useGpu);
+            gpuToggle.classList.toggle('bg-gray-200', !useGpu);
+            gpuToggle.classList.toggle('dark:bg-slate-600', !useGpu);
+            
+            gpuStatusMessage.textContent = useGpu ? 'GPU Acceleration available and active.' : 'GPU Acceleration disabled by user.';
+            gpuStatusMessage.classList.toggle('text-green-600', useGpu);
+            gpuStatusMessage.classList.toggle('dark:text-green-400', useGpu);
+            gpuStatusMessage.classList.toggle('text-yellow-600', !useGpu);
+            gpuStatusMessage.classList.toggle('dark:text-yellow-400', !useGpu);
+
+            // Re-render (optional, but good practice if the underlying rendering pipeline changes)
+            if (originalImage) {
+                renderBtn.click(); 
+            }
+        };
+
+
+        // --- Optimizer Toggle Click ---
+        optimizerToggle.onclick = () => {
+            const isChecked = optimizerToggle.getAttribute('aria-checked') === 'true';
+            
+            // Toggle the state visually
+            optimizerToggle.setAttribute('aria-checked', isChecked ? 'false' : 'true');
+            optimizerToggleKnob.style.transform = isChecked ? 'translateX(0px)' : 'translateX(20px)';
+            optimizerToggle.classList.toggle('bg-blue-600', !isChecked);
+            optimizerToggle.classList.toggle('dark:bg-blue-600', !isChecked);
+            optimizerToggle.classList.toggle('bg-gray-200', isChecked);
+            optimizerToggle.classList.toggle('dark:bg-slate-600', isChecked);
+
+            // Update UI messages and visibility
+            if (isChecked) {
+                // Turned OFF: Try to render preview if image is loaded and not too large
+                optimizerMessage.classList.add('hidden');
+                if (originalImage) {
+                    renderBtn.click(); // Re-render to show preview
+                }
+            } else {
+                // Turned ON: Hide preview and show message
+                optimizerMessage.classList.remove('hidden');
+                zoomContainer.classList.add('hidden');
+                zoomControls.classList.add('hidden');
+            }
+        };
+
+
+        // 1. Handle image upload
+        imageLoader.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+                return;
+            }
+            
+            clearStatusMessages();
+            outputContainer.classList.add('hidden');
+            zoomContainer.classList.add('hidden');
+            zoomControls.classList.add('hidden');
+            
+            // If the user uploads a new image, disable optimizer mode by default
+            if (optimizerToggle.getAttribute('aria-checked') === 'true') {
+                optimizerToggle.click();
+            }
+            
+            panX = 0;
+            panY = 0;
+            updateZoom(1.0);
+            
+            if (compareEnabled) {
+                toggleCompareBtn.click();
+            }
+            
+            // Reset slider value to 1x on new image load
+            scaleSlider.value = 1;
+            scaleValue.textContent = '1x';
+
+            originalFileName = file.name.split('.').slice(0, -1).join('.');
+
+            const reader = new FileReader();
+
+            reader.onload = (event) => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    renderBtn.disabled = false;
+                    
+                    // Display original resolution and size, and show the resolution box
+                    resolutionDisplay.classList.remove('hidden');
+                    originalResolution.textContent = `${originalImage.width} x ${originalImage.height}`;
+                    originalFileSize.textContent = calculateFileSize(originalImage.width, originalImage.height);
+                    
+                    // Placeholder text until scale is committed or render is pressed
+                    updateUpscaledResolutionDisplay(originalImage.width, originalImage.height, '(Expected)'); 
+                };
+                originalImage.src = event.target.result;
+            };
+
+            reader.readAsDataURL(file);
+        };
+
+        // 2. Handle slider input (only update text and warning while sliding)
+        scaleSlider.oninput = () => {
+            scaleValue.textContent = `${scaleSlider.value}x`;
+            
+            if (scaleSlider.value > 15) {
+                scaleWarning.classList.remove('hidden');
+            } else {
+                scaleWarning.classList.add('hidden');
+            }
+        };
+        
+        // Handle slider change (after sliding stops) - update the EXPECTED resolution
+        scaleSlider.onchange = () => {
+            if (originalImage) {
+                const scale = parseFloat(scaleSlider.value);
+                const newWidth = originalImage.width * scale;
+                const newHeight = originalImage.height * scale;
+                // Update resolution only after the user releases the slider
+                updateUpscaledResolutionDisplay(newWidth, newHeight, '(Expected)');
+            }
+        };
+        
+        // 4. Handle Render button click
+        renderBtn.onclick = () => {
+            loadingOverlay.classList.remove('hidden');
+            renderBtn.disabled = true;
+            downloadBtn.disabled = true;
+            
+            setTimeout(() => {
+                redrawCanvas();
+            }, 50);
+        };
+
+        // 5. Handle download button click (Consolidated and improved)
+        downloadBtn.onclick = () => {
+            if (!originalImage) return;
+
+            loadingOverlay.classList.remove('hidden');
+            renderBtn.disabled = true;
+            downloadBtn.disabled = true;
+            clearStatusMessages();
+
+            setTimeout(() => {
+                try {
+                    const downloadCanvas = document.createElement('canvas');
+                    const dlCtx = downloadCanvas.getContext('2d');
+
+                    const scale = parseFloat(scaleSlider.value);
+                    const smoothing = (renderType.value === 'true');
+                    const newWidth = originalImage.width * scale;
+                    const newHeight = originalImage.height * scale;
+                    
+                    const totalMB = (newWidth * newHeight * 4) / (1024 * 1024);
+                    
+                    // --- WARNING: DOWNLOAD LIMIT BYPASS ACTIVATED ---
+                    // We are intentionally skipping the hard check (like MAX_DOWNLOAD_MEGABYTES) here
+                    // to allow the download of extremely large images, as requested.
+                    // CAUTION: This may crash the browser tab if the image exceeds the system's memory capacity.
+                    if (totalMB > 2000) { // If it's over 2GB uncompressed, issue a strong warning
+                        console.warn(`Attempting extremely large download: ${totalMB.toFixed(2)} MB. Tab crash possible.`);
+                        renderError.textContent = `!! EXTREME RISK !! The final image size is ${totalMB.toFixed(2)} MB. Downloading this size without a strict limit may crash your browser tab. Proceed with caution.`;
+                        renderError.classList.remove('hidden');
+                    }
+                    // --- END WARNING ---
+
+                    // Perform the actual high-res render on the hidden canvas
+                    downloadCanvas.width = newWidth;
+                    downloadCanvas.height = newHeight;
+                    dlCtx.imageSmoothingEnabled = smoothing;
+                    dlCtx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+
+                    // Attempt to get the data URL
+                    const dataURL = downloadCanvas.toDataURL('image/png');
+                    
+                    // NEW: Check for 0-byte (empty dataURL) before attempting download
+                    if (!dataURL || dataURL === 'data:,') {
+                        renderError.textContent = "Download Failed: The browser could not generate the image file. This typically means the image is still too large for your device's memory. Try reducing the scale.";
+                        renderError.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    // If successful, trigger download
+                    triggerDownload(dataURL);
+
+                } catch (error) {
+                    console.error("Download failed:", error);
+                    renderError.textContent = "Download Failed due to an unexpected memory error. Try a smaller scale.";
+                    renderError.classList.remove('hidden');
+                } finally {
+                    loadingOverlay.classList.add('hidden');
+                    renderBtn.disabled = false;
+                    downloadBtn.disabled = false;
+                }
+            }, 50);
+        };
+
+        function triggerDownload(dataURL) {
+            const link = document.createElement('a');
+            link.href = dataURL;
+            
+            const scale = scaleSlider.value;
+            link.download = `${originalFileName}_${scale}x.png`;
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // --- Zoom Logic ---
+        function updateZoom(newZoom) {
+            currentZoom = Math.max(0.1, Math.min(newZoom, 5.0));
+            // Recalculate pan limits and clamp pan position when zoom changes
+            clampPan(); 
+            updateTransform();
+            zoomValue.textContent = `${Math.round(currentZoom * 100)}%`;
+            zoomSlider.value = currentZoom;
+        }
+        
+        function updateTransform() {
+            viewport.style.transform = `scale(${currentZoom}) translate(${panX}px, ${panY}px)`;
+        }
+
+        zoomInBtn.onclick = () => updateZoom(currentZoom + 0.1);
+        zoomOutBtn.onclick = () => updateZoom(currentZoom - 0.1);
+        zoomSlider.oninput = () => updateZoom(parseFloat(zoomSlider.value));
+        zoomContainer.ondblclick = () => {
+            panX = 0;
+            panY = 0;
+            updateZoom(1.0);
+        };
+        
+        // --- Compare Toggle Logic ---
+        let isDragging = false; // Shared drag state
+        
+        function updateCompareSliderUI() {
+            if (compareEnabled) {
+                // Turn ON
+                compareSlider.style.display = 'block';
+                // Reset slider to center
+                const mainCanvasWidth = mainCanvas.width || 1;
+                const canvasWrapperRect = document.getElementById('canvasWrapper').getBoundingClientRect();
+                const centerPosition = (canvasWrapperRect.width / 2) * currentZoom;
+
+                // Determine the correct percentage position relative to the zoomContainer width
+                const containerRect = zoomContainer.getBoundingClientRect();
+                const containerWidth = containerRect.width;
+                
+                // Calculate position relative to the center of the zoomContainer
+                const centerOffset = panX * currentZoom;
+                const sliderLeftPx = (containerWidth / 2) + centerOffset;
+                const sliderLeftPercent = (sliderLeftPx / containerWidth) * 100;
+                
+                compareSlider.style.left = `${sliderLeftPercent}%`;
+                
+                // Clip canvas back to 50% for initial state (or where it was last dragged)
+                mainCanvas.style.clipPath = 'inset(0 0 0 50%)'; 
+                
+                toggleCompareBtn.classList.remove('opacity-50');
+                
+                // Show NEW slider labels
+                sliderLabelOriginal.classList.remove('hidden');
+                sliderLabelUpscaled.classList.remove('hidden');
+
+            } else {
+                // Turn OFF
+                compareSlider.style.display = 'none';
+                mainCanvas.style.clipPath = 'none';
+                toggleCompareBtn.classList.add('opacity-50');
+                
+                // Hide NEW slider labels
+                sliderLabelOriginal.classList.add('hidden');
+                sliderLabelUpscaled.classList.add('hidden');
+            }
+        }
+        
+        toggleCompareBtn.onclick = () => {
+            compareEnabled = !compareEnabled;
+            updateCompareSliderUI();
+        };
+
+        // --- Compare Slider Drag Logic ---
+        
+        const startDrag = (e) => {
+            if (isPanning) return; // Prevent drag if panning is active
+            e.preventDefault();
+            isDragging = true;
+        };
+
+        const stopDrag = () => {
+            isDragging = false;
+        };
+
+        const onDrag = (e) => {
+            if (!isDragging || !compareEnabled) return;
+            e.preventDefault();
+            
+            const viewportRect = viewport.getBoundingClientRect();
+            const containerRect = zoomContainer.getBoundingClientRect();
+            
+            let clientX = e.clientX || e.touches[0].clientX;
+            
+            // 1. Calculate x position *inside* the canvas (unscaled)
+            // Start from clientX, subtract container left, convert to unscaled relative to the viewport's origin (center)
+            const relativeClientX = clientX - containerRect.left;
+            
+            // Calculate the position of the center point of the canvas wrapper relative to the container
+            const viewportCenterOffset = containerRect.width / 2;
+
+            // Calculate current X position of the mouse relative to the canvas center (unscaled)
+            // (Relative X position of cursor - Center offset) / Zoom factor + Canvas Pan
+            let x_unscaled_center_origin = (relativeClientX - viewportCenterOffset) / currentZoom - panX;
+            
+            // Convert to origin at the LEFT edge of the canvas (unscaled)
+            const unscaledWidth = mainCanvas.width;
+            let x_unscaled = x_unscaled_center_origin + (unscaledWidth / 2);
+
+            // Clamp to image boundaries (0 to unscaledWidth)
+            x_unscaled = Math.max(0, Math.min(x_unscaled, unscaledWidth));
+            
+            // 2. Calculate the clip percentage (relative to image)
+            const clipPercent = (x_unscaled / unscaledWidth) * 100;
+            mainCanvas.style.clipPath = `inset(0 0 0 ${clipPercent}%)`;
+
+            // 3. Calculate the slider's visual position (relative to container)
+            // The position of the slider line is the same as the mouse's relativeClientX
+            const sliderLeftPercent = (relativeClientX / containerRect.width) * 100;
+            compareSlider.style.left = `${sliderLeftPercent}%`;
+        };
+
+        compareSlider.addEventListener('mousedown', startDrag);
+        window.addEventListener('mouseup', stopDrag);
+        window.addEventListener('mousemove', onDrag);
+
+        compareSlider.addEventListener('touchstart', startDrag, { passive: false });
+        window.addEventListener('touchend', stopDrag);
+        window.addEventListener('touchmove', onDrag, { passive: false });
+        
+        // --- Panning Logic (Updated with clamping and touch support) ---
+        
+        // Helper to get coordinates from mouse or touch event
+        const getClientCoords = (e) => {
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return { clientX, clientY };
+        };
+
+        const startPan = (e) => {
+            if (isDragging || !originalImage || zoomContainer.classList.contains('hidden')) return; // Don't pan if already dragging compare slider or no image
+            
+            const target = e.target;
+            // Prevent panning if starting on the compare slider handle
+            if (target === compareSlider || target.closest('#sliderHandle')) {
+                return;
+            }
+
+            e.preventDefault();
+            isPanning = true;
+            const coords = getClientCoords(e);
+            lastPanX = coords.clientX;
+            lastPanY = coords.clientY;
+            zoomContainer.style.cursor = 'grabbing';
+        };
+
+        const stopPan = () => {
+            isPanning = false;
+            zoomContainer.style.cursor = 'grab';
+        };
+        
+        // **Clamping function**
+        function clampPan() {
+            const containerRect = zoomContainer.getBoundingClientRect();
+            const canvasWidth = mainCanvas.width;
+            const canvasHeight = mainCanvas.height;
+            
+            const scaledWidth = canvasWidth * currentZoom;
+            const scaledHeight = canvasHeight * currentZoom;
+            const containerWidth = containerRect.width;
+            const containerHeight = containerRect.height;
+            
+            // Calculate how much the image overhangs the container (scaled)
+            const xOverhang = Math.max(0, (scaledWidth - containerWidth) / 2); 
+            const yOverhang = Math.max(0, (scaledHeight - containerHeight) / 2);
+            
+            // Convert overhang to unscaled pan limits
+            const maxPanX = xOverhang / currentZoom;
+            const maxPanY = yOverhang / currentZoom;
+
+            // Apply clamping: limit panX and panY to prevent edges from moving past the center
+            panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+            panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+        }
+
+        const pan = (e) => {
+            if (!isPanning) return;
+            
+            e.preventDefault();
+            
+            const coords = getClientCoords(e);
+            const deltaX = coords.clientX - lastPanX;
+            const deltaY = coords.clientY - lastPanY;
+            
+            // Update the unscaled pan values
+            panX += deltaX / currentZoom;
+            panY += deltaY / currentZoom;
+            
+            lastPanX = coords.clientX;
+            lastPanY = coords.clientY;
+            
+            // Apply clamping immediately after updating
+            clampPan();
+            
+            updateTransform();
+            
+            // If compare is enabled, update its position to match the new pan
+            if (compareEnabled) {
+                // We fake a drag event to reposition the slider after panning
+                onDrag(e); 
+            }
+        };
+
+        // Robust Panning Listeners (Mouse)
+        zoomContainer.addEventListener('mousedown', startPan);
+        window.addEventListener('mouseup', stopPan);
+        window.addEventListener('mousemove', pan);
+        
+        // Robust Panning Listeners (Touch)
+        zoomContainer.addEventListener('touchstart', startPan, { passive: false });
+        window.addEventListener('touchend', stopPan);
+        window.addEventListener('touchcancel', stopPan);
+        window.addEventListener('touchmove', pan, { passive: false });
+        
+        zoomContainer.style.cursor = 'grab';
+
+        // Recalculate view on window resize
+        window.addEventListener('resize', () => {
+            if (originalImage) {
+                // When resizing, we must re-clamp the pan position to ensure it's still visible
+                clampPan(); 
+                updateTransform();
             }
         });
-
-        // Initialize the button state or load initial content if needed
+        
+        // Initialize GPU check on script load
+        checkGpuAvailability();
     </script>
+
 </body>
 </html>
-
