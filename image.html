@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goofy Image Remix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .image-placeholder {
+            width: 100%;
+            height: auto;
+            min-height: 200px;
+            background-color: #e2e8f0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1rem;
+            color: #4a5568;
+            margin-bottom: 20px;
+            overflow: hidden; /* Ensure image fits */
+        }
+        .image-placeholder img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .button-style {
+            background-color: #4a90e2;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        .button-style:hover {
+            background-color: #357bd8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Goofy Image Remix</h1>
+        <p class="text-gray-600 mb-6">Click the button below to generate a goofy version of the image.</p>
+        
+        <div id="imageContainer" class="image-placeholder">
+            <p>Your goofy image will appear here!</p>
+        </div>
+        
+        <button id="generateButton" class="button-style">Generate Goofy Image</button>
+
+        <div id="loading" class="hidden loading-spinner"></div>
+        <p id="error" class="text-red-500 mt-4 hidden"></p>
+    </div>
+
+    <script type="module">
+        const generateButton = document.getElementById('generateButton');
+        const imageContainer = document.getElementById('imageContainer');
+        const loadingSpinner = document.getElementById('loading');
+        const errorDisplay = document.getElementById('error');
+
+        generateButton.addEventListener('click', async () => {
+            imageContainer.innerHTML = ''; // Clear previous content
+            loadingSpinner.classList.remove('hidden');
+            errorDisplay.classList.add('hidden');
+
+            try {
+                // Fetch the image data
+                const imageUrl = 'image.png'; // Assuming the image is named image.png and is accessible
+                const response = await fetch(imageUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const blob = await response.blob();
+
+                // Convert blob to base64
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = async function() {
+                    const base64ImageData = reader.result.split(',')[1]; // Get base64 string without data:image/png;base64, prefix
+
+                    // Prepare the payload for image generation
+                    const prompt = "Remix the provided image of a person into a very goofy and comical version. Exaggerate facial features and add absurd elements to make it look funny.";
+                    
+                    const payload = { 
+                        instances: {
+                            prompt: prompt,
+                            image: {
+                                bytesBase64Encoded: base64ImageData
+                            }
+                        },
+                        parameters: { "sampleCount": 1 } 
+                    };
+                    
+                    const apiKey = ""; // Canvas will automatically provide the API key
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+                    const imageGenerationResponse = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await imageGenerationResponse.json();
+
+                    if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                        const generatedImageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                        const imgElement = document.createElement('img');
+                        imgElement.src = generatedImageUrl;
+                        imgElement.alt = "Goofy Remixed Image";
+                        imageContainer.innerHTML = ''; // Clear "Your goofy image will appear here!"
+                        imageContainer.appendChild(imgElement);
+                    } else {
+                        throw new Error('Failed to generate image: No prediction found.');
+                    }
+                };
+                reader.onerror = function(error) {
+                    throw new Error('Error converting image to base64: ' + error);
+                };
+
+            } catch (error) {
+                console.error('Error generating goofy image:', error);
+                errorDisplay.textContent = 'Failed to generate image. Please try again. ' + error.message;
+                errorDisplay.classList.remove('hidden');
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        // Initialize the button state or load initial content if needed
+    </script>
+</body>
+</html>
+
