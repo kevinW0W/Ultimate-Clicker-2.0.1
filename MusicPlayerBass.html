@@ -216,6 +216,7 @@
             border-radius: 10px;
             pointer-events: none;
             overflow: hidden;
+            z-index: 1; /* Keep track behind thumb */
         }
 
         #progress-fill {
@@ -223,6 +224,41 @@
             background: var(--primary);
             border-radius: 10px;
             width: 0%;
+        }
+
+        /* Improved Range Styling to fix Thumb Visibility */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            position: relative;
+            z-index: 10; /* Ensure the interactive range is on top */
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid var(--primary);
+            margin-top: -8px;
+            position: relative;
+            z-index: 20; /* Force thumb to the very front */
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 8px;
+            background: var(--accent);
+            border-radius: 10px;
+            border: none;
+        }
+
+        /* Specific fix for the seek slider to ensure it overlaps the visual fill */
+        #seek-slider {
+            opacity: 1;
         }
 
         .main-controls {
@@ -263,28 +299,6 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-        }
-
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 24px;
-            width: 24px;
-            border-radius: 50%;
-            background: #fff;
-            border: 3px solid var(--primary);
-            margin-top: -8px;
-        }
-
-        input[type=range]::-webkit-slider-runnable-track {
-            height: 8px;
-            background: var(--accent);
-            border-radius: 10px;
         }
 
         .queue-container {
