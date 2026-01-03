@@ -4,14 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <!-- PWA / Home Screen Meta -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Bass Booster">
-    
-    <!-- Fixed SVG Favicon (Encoded for compatibility) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%230f172a'/%3E%3Ccircle cx='50' cy='50' r='35' stroke='%2300e5ff' stroke-width='8' fill='none'/%3E%3Ccircle cx='50' cy='50' r='10' fill='%2300e5ff'/%3E%3C/svg%3E">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e293b'/%3E%3Ccircle cx='50' cy='50' r='35' stroke='%2300e5ff' stroke-width='8' fill='none'/%3E%3Ccircle cx='50' cy='50' r='10' fill='%2300e5ff'/%3E%3C/svg%3E">
 
     <title>Bass Booster Pro | Secure</title>
     <style>
@@ -23,7 +16,6 @@
             --accent: #2d3748;
             --track-bg: #0f172a;
             --danger: #ff4b4b;
-            --success: #00ff88;
         }
 
         body {
@@ -38,7 +30,7 @@
             overflow: hidden;
         }
 
-        /* --- Security Shield Screen --- */
+        /* --- Security & Captcha Screen --- */
         #shield-screen {
             position: fixed;
             inset: 0;
@@ -48,76 +40,74 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            text-align: center;
             padding: 20px;
+            transition: opacity 0.5s ease;
         }
 
         .shield-box {
             background: var(--card);
-            padding: 40px;
+            padding: 30px;
             border-radius: 24px;
             border: 1px solid var(--accent);
-            max-width: 400px;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
         }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(0, 229, 255, 0.1);
-            border-left-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+        #captcha-canvas {
+            background: #fff;
+            border-radius: 8px;
+            margin: 15px 0;
+            cursor: pointer;
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .captcha-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            background: var(--bg);
+            color: white;
+            text-align: center;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
 
         .verify-btn {
-            background: transparent;
-            border: 2px solid var(--primary);
-            color: var(--primary);
-            padding: 12px 24px;
+            width: 100%;
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            padding: 14px;
             border-radius: 12px;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.2s;
-            display: none;
+            text-transform: uppercase;
         }
 
-        .verify-btn:hover {
-            background: var(--primary);
-            color: var(--bg);
-        }
-
-        /* --- Main Player UI --- */
+        /* --- Player UI --- */
         .player-card {
             background: var(--card);
-            width: 90%;
+            width: 95%;
             max-width: 900px;
             height: 600px;
             border-radius: 32px;
             display: flex;
             overflow: hidden;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
             border: 1px solid rgba(255,255,255,0.05);
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.5s ease-out;
-        }
-
-        .player-card.visible {
-            opacity: 1;
-            transform: translateY(0);
+            display: none; /* Hidden until verified */
         }
 
         .sidebar {
-            width: 300px;
+            width: 280px;
             background: rgba(0,0,0,0.2);
             border-right: 1px solid var(--accent);
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            padding: 20px;
         }
 
         .main-stage {
@@ -128,10 +118,9 @@
             justify-content: space-between;
         }
 
-        /* Visualizer Circle */
         .viz-container {
-            width: 220px;
-            height: 220px;
+            width: 200px;
+            height: 200px;
             margin: 0 auto;
             position: relative;
             display: flex;
@@ -141,11 +130,11 @@
 
         .viz-ring {
             position: absolute;
-            inset: -10px;
+            inset: -15px;
             border: 4px solid var(--primary);
             border-radius: 50%;
-            opacity: 0.2;
-            transition: transform 0.1s ease-out;
+            opacity: 0.15;
+            transition: transform 0.05s ease-out;
         }
 
         .album-art {
@@ -158,15 +147,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
         }
 
-        /* Progress & Seek */
         .progress-container {
             position: relative;
-            height: 12px;
+            height: 10px;
             background: var(--track-bg);
-            border-radius: 6px;
+            border-radius: 5px;
             margin: 20px 0;
             overflow: hidden;
         }
@@ -176,7 +163,6 @@
             height: 100%;
             background: rgba(255,255,255,0.1);
             width: 0%;
-            transition: width 0.3s;
         }
 
         .play-bar {
@@ -184,7 +170,6 @@
             height: 100%;
             background: var(--primary);
             width: 0%;
-            z-index: 2;
             box-shadow: 0 0 15px var(--primary);
         }
 
@@ -197,99 +182,84 @@
             cursor: pointer;
         }
 
-        /* Buttons */
         .controls {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 25px;
+            gap: 20px;
         }
 
         .btn {
             background: var(--accent);
             border: none;
             color: white;
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
             cursor: pointer;
-            font-size: 1.2rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: 0.2s;
         }
 
-        .btn:active { transform: scale(0.9); }
-
         .btn-main {
-            width: 70px;
-            height: 70px;
+            width: 65px;
+            height: 65px;
             background: var(--primary);
             color: var(--bg);
-            font-size: 1.8rem;
+            font-size: 1.5rem;
         }
 
         .booster-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 15px;
             background: rgba(255,255,255,0.03);
             padding: 20px;
             border-radius: 20px;
         }
 
-        input[type=range] {
-            width: 100%;
-            accent-color: var(--primary);
-        }
-
-        .queue-list {
-            flex: 1;
-            overflow-y: auto;
-            margin-top: 15px;
-        }
+        input[type=range] { width: 100%; accent-color: var(--primary); }
 
         .queue-item {
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             margin-bottom: 5px;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             cursor: pointer;
-            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            display: flex;
-            justify-content: space-between;
+            white-space: nowrap;
         }
 
-        .queue-item:hover { background: rgba(255,255,255,0.05); }
         .queue-item.active { color: var(--primary); background: rgba(0,229,255,0.1); }
 
         @media (max-width: 700px) {
             .player-card { flex-direction: column; height: auto; }
-            .sidebar { width: 100%; height: 200px; }
+            .sidebar { width: 100%; height: 180px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Anti-Bot Verification Screen -->
+    <!-- CAPTCHA SHIELD -->
     <div id="shield-screen">
         <div class="shield-box">
-            <h2 id="shield-title">Verifying connection...</h2>
-            <p id="shield-msg" style="color: #64748b; font-size: 0.9rem;">Checking if the site connection is secure</p>
-            <div id="shield-loader" class="spinner"></div>
-            <button id="verify-btn" class="verify-btn" onclick="completeVerification()">Verify I am Human</button>
+            <h2 style="margin-top:0">Security Check</h2>
+            <p style="color: #64748b; font-size: 0.85rem;">Please enter the characters below to access the player.</p>
+            
+            <canvas id="captcha-canvas" width="200" height="70" onclick="generateCaptcha()"></canvas>
+            
+            <input type="text" id="captcha-input" class="captcha-input" placeholder="Enter Code" maxlength="6">
+            <button class="verify-btn" onclick="verifyCaptcha()">Unlock Player</button>
+            <p id="error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 10px; display: none;">Invalid code. Try again.</p>
         </div>
-        <p style="margin-top: 20px; font-size: 0.7rem; color: #334155; letter-spacing: 1px;">PROTECTED BY HYPERSECURE BOT-SHIELD</style>
     </div>
 
-    <!-- Main Application -->
+    <!-- MAIN APP -->
     <div class="player-card" id="app-root">
         <div class="sidebar">
-            <button class="btn" style="width: 100%; border-radius: 12px; margin-bottom: 20px;" onclick="triggerFiles()">+ ADD MUSIC</button>
-            <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Playlist</div>
+            <button class="btn" style="width: 100%; border-radius: 12px; margin-bottom: 20px;" onclick="document.getElementById('f-in').click()">+ ADD MUSIC</button>
             <div class="queue-list" id="queue"></div>
         </div>
 
@@ -297,24 +267,24 @@
             <div class="viz-container">
                 <div id="viz-ring" class="viz-ring"></div>
                 <div class="album-art">
-                    <svg width="60" height="60" viewBox="0 0 24 24" fill="var(--primary)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="var(--primary)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
                 </div>
             </div>
 
             <div style="text-align: center;">
-                <h2 id="track-name" style="margin: 0; color: var(--primary);">READY TO PLAY</h2>
-                <p id="track-meta" style="color: #64748b; margin: 5px 0;">Select a file to begin</p>
+                <h3 id="track-name" style="margin: 0; color: var(--primary);">NO TRACK LOADED</h3>
+                <p id="track-status" style="color: #64748b; font-size: 0.8rem; margin: 5px 0;">Upload MP3 to start</p>
             </div>
 
-            <div class="player-controls">
-                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px;">
+            <div class="player-ui">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px;">
                     <span id="cur-time">0:00</span>
                     <span id="total-time">0:00</span>
                 </div>
                 <div class="progress-container">
                     <div id="buffer-bar" class="buffer-bar"></div>
                     <div id="play-bar" class="play-bar"></div>
-                    <input type="range" class="seek-input" id="seek" min="0" max="100" value="0" step="0.1">
+                    <input type="range" class="seek-input" id="seek" min="0" max="100" value="0">
                 </div>
 
                 <div class="controls">
@@ -326,11 +296,11 @@
 
             <div class="booster-grid">
                 <div>
-                    <label style="font-size: 0.7rem; display: block; margin-bottom: 8px;">BASS BOOST: <span id="bass-val" style="color:var(--primary)">0%</span></label>
+                    <label style="font-size: 0.65rem; display: block; margin-bottom: 5px;">BASS POWER: <span id="bass-val" style="color:var(--primary)">0%</span></label>
                     <input type="range" min="0" max="100" value="0" oninput="setBass(this.value)">
                 </div>
                 <div>
-                    <label style="font-size: 0.7rem; display: block; margin-bottom: 8px;">MASTER VOL: <span id="vol-val" style="color:var(--primary)">100%</span></label>
+                    <label style="font-size: 0.65rem; display: block; margin-bottom: 5px;">MASTER GAIN: <span id="vol-val" style="color:var(--primary)">100%</span></label>
                     <input type="range" min="0" max="150" value="100" oninput="setVol(this.value)">
                 </div>
             </div>
@@ -340,177 +310,168 @@
     <input type="file" id="f-in" multiple accept="audio/*" style="display:none" onchange="loadFiles(event)">
 
     <script>
-        // --- SECURITY & ANTI-BOT LOGIC ---
-        let isVerified = false;
-        let lastActionTime = 0;
-        const ACTION_COOLDOWN = 300; // ms
+        // --- CAPTCHA LOGIC ---
+        let currentCaptcha = "";
+        const canvas = document.getElementById('captcha-canvas');
+        const ctx_cap = canvas.getContext('2d');
 
-        window.onload = () => {
-            // Fake "Processing" delay to mimic WAF behavior
-            setTimeout(() => {
-                document.getElementById('shield-loader').style.display = 'none';
-                document.getElementById('shield-title').innerText = 'Verification Required';
-                document.getElementById('verify-btn').style.display = 'block';
-            }, 1200);
-        };
+        function generateCaptcha() {
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            currentCaptcha = "";
+            for(let i=0; i<5; i++) currentCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
+            
+            // Draw
+            ctx_cap.fillStyle = "#f1f5f9";
+            ctx_cap.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Background Noise
+            for(let i=0; i<30; i++) {
+                ctx_cap.strokeStyle = `rgba(0,0,0,${Math.random() * 0.2})`;
+                ctx_cap.beginPath();
+                ctx_cap.moveTo(Math.random()*canvas.width, Math.random()*canvas.height);
+                ctx_cap.lineTo(Math.random()*canvas.width, Math.random()*canvas.height);
+                ctx_cap.stroke();
+            }
 
-        function completeVerification() {
-            isVerified = true;
-            document.getElementById('shield-screen').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('shield-screen').style.display = 'none';
-                document.getElementById('app-root').classList.add('visible');
-                initAudio();
-            }, 500);
+            ctx_cap.font = "bold 30px monospace";
+            ctx_cap.fillStyle = "#1e293b";
+            ctx_cap.textBaseline = "middle";
+            
+            for(let i=0; i<currentCaptcha.length; i++) {
+                ctx_cap.save();
+                ctx_cap.translate(30 + (i * 35), 35);
+                ctx_cap.rotate((Math.random() - 0.5) * 0.4);
+                ctx_cap.fillText(currentCaptcha[i], 0, 0);
+                ctx_cap.restore();
+            }
         }
 
-        // Rate Limiter to prevent automated spamming of buttons
-        function secureAction(fn) {
-            const now = Date.now();
-            if (now - lastActionTime < ACTION_COOLDOWN) return;
-            lastActionTime = now;
-            fn();
+        function verifyCaptcha() {
+            const input = document.getElementById('captcha-input').value.toUpperCase();
+            if(input === currentCaptcha) {
+                document.getElementById('shield-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('shield-screen').style.display = 'none';
+                    document.getElementById('app-root').style.display = 'flex';
+                    initAudio();
+                }, 500);
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
+                document.getElementById('captcha-input').value = "";
+                generateCaptcha();
+            }
         }
 
-        // --- CORE AUDIO ENGINE ---
-        let ctx, audio, source, bass, gain, playlist = [], index = 0;
+        // --- AUDIO ENGINE ---
+        let audioCtx, audio, source, bassShelf, bassPeak, gainNode, compressor, playlist = [], index = 0;
 
         function initAudio() {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            // 'playback' latency hint improves buffer stability on slower devices/connections
-            ctx = new AudioContext({ latencyHint: 'playback' });
-            
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
             audio = new Audio();
             audio.crossOrigin = "anonymous";
-            audio.preload = "auto";
-
-            source = ctx.createMediaElementSource(audio);
             
-            // Bass Filter
-            bass = ctx.createBiquadFilter();
-            bass.type = "lowshelf";
-            bass.frequency.value = 180;
-            bass.gain.value = 0;
-
-            // Volume Gain
-            gain = ctx.createGain();
+            source = audioCtx.createMediaElementSource(audio);
             
-            source.connect(bass).connect(gain).connect(ctx.destination);
+            // Filter 1: Low Shelf (General low-end lift)
+            bassShelf = audioCtx.createBiquadFilter();
+            bassShelf.type = "lowshelf";
+            bassShelf.frequency.value = 200;
+            bassShelf.gain.value = 0;
 
-            // Listeners for buffer updates
-            audio.addEventListener('progress', updateBufferUI);
-            audio.addEventListener('timeupdate', updatePlayUI);
-            audio.addEventListener('ended', next);
+            // Filter 2: Peaking (Deep "THUMP" boost)
+            bassPeak = audioCtx.createBiquadFilter();
+            bassPeak.type = "peaking";
+            bassPeak.frequency.value = 60; // Tuning frequency for deep kick
+            bassPeak.Q.value = 1.5; // Sharpness of boost
+            bassPeak.gain.value = 0;
+
+            // Dynamics Compressor (Prevents distortion from heavy bass)
+            compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
+            compressor.knee.setValueAtTime(30, audioCtx.currentTime);
+            compressor.ratio.setValueAtTime(4, audioCtx.currentTime);
             
-            // Handle stalls (The "Buffering" fix)
-            audio.addEventListener('waiting', () => {
-                document.getElementById('track-meta').innerText = "Buffering...";
+            gainNode = audioCtx.createGain();
+
+            // CHAIN: Source -> BassShelf -> BassPeak -> Gain -> Compressor -> Destination
+            source.connect(bassShelf)
+                  .connect(bassPeak)
+                  .connect(gainNode)
+                  .connect(compressor)
+                  .connect(audioCtx.destination);
+
+            audio.addEventListener('progress', () => {
+                if (audio.buffered.length) {
+                    const loaded = (audio.buffered.end(0) / audio.duration) * 100;
+                    document.getElementById('buffer-bar').style.width = loaded + "%";
+                }
             });
-            audio.addEventListener('playing', () => {
-                document.getElementById('track-meta').innerText = "Playing";
-            });
-        }
 
-        function triggerFiles() {
-            if (ctx.state === 'suspended') ctx.resume();
-            document.getElementById('f-in').click();
+            audio.addEventListener('timeupdate', () => {
+                const pct = (audio.currentTime / audio.duration) * 100;
+                document.getElementById('play-bar').style.width = pct + "%";
+                document.getElementById('cur-time').innerText = formatTime(audio.currentTime);
+                document.getElementById('total-time').innerText = formatTime(audio.duration || 0);
+                
+                // Audio visualization scaling
+                const scale = 1 + (bassPeak.gain.value / 40) * 0.1;
+                document.getElementById('viz-ring').style.transform = `scale(${scale})`;
+            });
+
+            audio.onended = next;
         }
 
         function loadFiles(e) {
             const files = Array.from(e.target.files);
-            const wasEmpty = playlist.length === 0;
+            const start = playlist.length === 0;
             playlist = playlist.concat(files);
-            renderQueue();
-            if (wasEmpty) playTrack(0);
+            updateQueue();
+            if(start) playTrack(0);
         }
 
-        function renderQueue() {
+        function updateQueue() {
             const q = document.getElementById('queue');
             q.innerHTML = playlist.map((f, i) => `
                 <div class="queue-item ${i === index ? 'active' : ''}" onclick="playTrack(${i})">
-                    ${i + 1}. ${f.name}
+                    ${f.name}
                 </div>
             `).join('');
         }
 
         function playTrack(i) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
             index = i;
-            if (index < 0 || index >= playlist.length) return;
-            
             const file = playlist[index];
-            const url = URL.createObjectURL(file);
-            
-            audio.src = url;
-            document.getElementById('track-name').innerText = file.name.split('.')[0].toUpperCase();
+            audio.src = URL.createObjectURL(file);
+            document.getElementById('track-name').innerText = file.name.toUpperCase();
             document.getElementById('play-btn').innerText = "||";
-            
             audio.play();
-            renderQueue();
+            updateQueue();
         }
 
         function togglePlay() {
-            secureAction(() => {
-                if (audio.paused) {
-                    audio.play();
-                    document.getElementById('play-btn').innerText = "||";
-                } else {
-                    audio.pause();
-                    document.getElementById('play-btn').innerText = "▶";
-                }
-            });
-        }
-
-        function updateBufferUI() {
-            if (audio.buffered.length > 0) {
-                const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
-                const duration = audio.duration;
-                if (duration > 0) {
-                    document.getElementById('buffer-bar').style.width = (bufferedEnd / duration) * 100 + "%";
-                }
-            }
-        }
-
-        function updatePlayUI() {
-            const cur = audio.currentTime;
-            const dur = audio.duration || 0;
-            const pct = (cur / dur) * 100 || 0;
-            
-            document.getElementById('play-bar').style.width = pct + "%";
-            document.getElementById('cur-time').innerText = formatTime(cur);
-            document.getElementById('total-time').innerText = formatTime(dur);
-            
-            // Subtle ring animation based on time (visual flair)
-            const pulse = 1 + (Math.sin(cur * 2) * 0.05);
-            document.getElementById('viz-ring').style.transform = `scale(${pulse})`;
+            if (audio.paused) { audio.play(); document.getElementById('play-btn').innerText = "||"; }
+            else { audio.pause(); document.getElementById('play-btn').innerText = "▶"; }
         }
 
         function setBass(v) {
-            // Map 0-100 to 0-35dB
-            const db = (v / 100) * 35;
-            bass.gain.setTargetAtTime(db, ctx.currentTime, 0.1);
+            const shelfBoost = (v / 100) * 20; // 20dB max shelf
+            const peakBoost = (v / 100) * 15;  // 15dB extra peak at 60Hz
+            bassShelf.gain.setTargetAtTime(shelfBoost, audioCtx.currentTime, 0.1);
+            bassPeak.gain.setTargetAtTime(peakBoost, audioCtx.currentTime, 0.1);
             document.getElementById('bass-val').innerText = v + "%";
         }
 
         function setVol(v) {
-            const vol = v / 100;
-            gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.1);
+            gainNode.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.1);
             document.getElementById('vol-val').innerText = v + "%";
         }
 
-        function next() { secureAction(() => { if(playlist.length) playTrack((index + 1) % playlist.length); }); }
-        function prev() { secureAction(() => { if(playlist.length) playTrack((index - 1 + playlist.length) % playlist.length); }); }
-        
-        function formatTime(s) {
-            const m = Math.floor(s / 60);
-            const sec = Math.floor(s % 60);
-            return `${m}:${sec.toString().padStart(2, '0')}`;
-        }
+        function next() { if(playlist.length) playTrack((index+1)%playlist.length); }
+        function prev() { if(playlist.length) playTrack((index-1+playlist.length)%playlist.length); }
+        function formatTime(s) { return Math.floor(s/60) + ":" + Math.floor(s%60).toString().padStart(2, '0'); }
 
-        // Seek implementation
-        document.getElementById('seek').oninput = (e) => {
-            const time = (e.target.value / 100) * audio.duration;
-            audio.currentTime = time;
-        };
+        window.onload = generateCaptcha;
     </script>
 </body>
 </html>
