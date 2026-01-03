@@ -3,9 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%230f172a'/%3E%3Ccircle cx='50' cy='50' r='35' stroke='%2300e5ff' stroke-width='8' fill='none'/%3E%3Ccircle cx='50' cy='50' r='10' fill='%2300e5ff'/%3E%3C/svg%3E">
-
     <title>Bass Booster Pro | Secure</title>
     <style>
         :root {
@@ -14,8 +11,7 @@
             --card: #161b2e;
             --text: #f8fafc;
             --accent: #2d3748;
-            --track-bg: #0f172a;
-            --danger: #ff4b4b;
+            --success: #10b981;
         }
 
         body {
@@ -30,7 +26,7 @@
             overflow: hidden;
         }
 
-        /* --- Security & Captcha Screen --- */
+        /* --- Verification Screen --- */
         #shield-screen {
             position: fixed;
             inset: 0;
@@ -40,77 +36,94 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            transition: opacity 0.5s ease;
         }
 
-        .shield-box {
-            background: var(--card);
-            padding: 30px;
-            border-radius: 24px;
-            border: 1px solid var(--accent);
-            width: 100%;
-            max-width: 380px;
-            text-align: center;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-        }
-
-        #captcha-canvas {
-            background: #fff;
-            border-radius: 8px;
-            margin: 15px 0;
+        .captcha-widget {
+            background: #f9f9f9;
+            border: 1px solid #d3d3d3;
+            border-radius: 3px;
+            width: 300px;
+            height: 74px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
         }
 
-        .captcha-input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--accent);
-            background: var(--bg);
-            color: white;
-            text-align: center;
-            font-size: 1.2rem;
-            letter-spacing: 4px;
-            margin-bottom: 15px;
-            box-sizing: border-box;
+        .captcha-widget:hover { background: #f1f1f1; }
+
+        .checkbox-container {
+            width: 28px;
+            height: 28px;
+            border: 2px solid #c1c1c1;
+            border-radius: 2px;
+            background: white;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
         }
 
-        .verify-btn {
-            width: 100%;
-            background: var(--primary);
-            color: var(--bg);
-            border: none;
-            padding: 14px;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #4d90fe;
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            display: none;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .checkmark {
+            width: 22px;
+            height: 22px;
+            fill: var(--success);
+            display: none;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .captcha-text {
+            color: #333;
+            font-size: 14px;
+            font-family: Roboto, Arial, sans-serif;
+            flex-grow: 1;
+        }
+
+        .captcha-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #555;
+            font-size: 8px;
         }
 
         /* --- Player UI --- */
         .player-card {
             background: var(--card);
             width: 95%;
-            max-width: 900px;
-            height: 600px;
-            border-radius: 32px;
-            display: flex;
+            max-width: 800px;
+            height: 500px;
+            border-radius: 24px;
+            display: none; /* Hidden until verified */
+            flex-direction: row;
             overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
-            display: none; /* Hidden until verified */
         }
 
         .sidebar {
-            width: 280px;
+            width: 240px;
             background: rgba(0,0,0,0.2);
             border-right: 1px solid var(--accent);
             padding: 20px;
-            display: flex;
-            flex-direction: column;
+            overflow-y: auto;
         }
 
-        .main-stage {
+        .main-content {
             flex: 1;
             padding: 40px;
             display: flex;
@@ -118,68 +131,18 @@
             justify-content: space-between;
         }
 
-        .viz-container {
-            width: 200px;
-            height: 200px;
+        .viz-circle {
+            width: 160px;
+            height: 160px;
             margin: 0 auto;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .viz-ring {
-            position: absolute;
-            inset: -15px;
-            border: 4px solid var(--primary);
             border-radius: 50%;
-            opacity: 0.15;
-            transition: transform 0.05s ease-out;
-        }
-
-        .album-art {
-            width: 100%;
-            height: 100%;
             background: #000;
-            border-radius: 50%;
-            border: 5px solid var(--accent);
-            z-index: 2;
+            border: 4px solid var(--accent);
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        .progress-container {
-            position: relative;
-            height: 10px;
-            background: var(--track-bg);
-            border-radius: 5px;
-            margin: 20px 0;
-            overflow: hidden;
-        }
-
-        .buffer-bar {
-            position: absolute;
-            height: 100%;
-            background: rgba(255,255,255,0.1);
-            width: 0%;
-        }
-
-        .play-bar {
-            position: absolute;
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            box-shadow: 0 0 15px var(--primary);
-        }
-
-        .seek-input {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            z-index: 10;
-            cursor: pointer;
+            transition: transform 0.05s ease-out;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
         }
 
         .controls {
@@ -187,252 +150,245 @@
             align-items: center;
             justify-content: center;
             gap: 20px;
+            margin: 20px 0;
         }
 
         .btn {
             background: var(--accent);
             border: none;
             color: white;
-            width: 45px;
-            height: 45px;
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s;
         }
 
-        .btn-main {
-            width: 65px;
-            height: 65px;
+        .btn-play {
+            width: 70px;
+            height: 70px;
             background: var(--primary);
             color: var(--bg);
             font-size: 1.5rem;
         }
 
-        .booster-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            background: rgba(255,255,255,0.03);
-            padding: 20px;
-            border-radius: 20px;
+        .slider-group {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
         }
 
-        input[type=range] { width: 100%; accent-color: var(--primary); }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
 
-        .queue-item {
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 5px;
-            font-size: 0.8rem;
+        input[type=range] {
+            width: 100%;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 3px;
+            appearance: none;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
             cursor: pointer;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--accent);
+            position: relative;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            border-radius: 2px;
+        }
+
+        .song-item {
+            padding: 10px;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
         }
 
-        .queue-item.active { color: var(--primary); background: rgba(0,229,255,0.1); }
-
-        @media (max-width: 700px) {
-            .player-card { flex-direction: column; height: auto; }
-            .sidebar { width: 100%; height: 180px; }
-        }
+        .song-item.active { background: rgba(0, 229, 255, 0.1); color: var(--primary); }
     </style>
 </head>
 <body>
 
-    <!-- CAPTCHA SHIELD -->
+    <!-- VERIFICATION SCREEN -->
     <div id="shield-screen">
-        <div class="shield-box">
-            <h2 style="margin-top:0">Security Check</h2>
-            <p style="color: #64748b; font-size: 0.85rem;">Please enter the characters below to access the player.</p>
-            
-            <canvas id="captcha-canvas" width="200" height="70" onclick="generateCaptcha()"></canvas>
-            
-            <input type="text" id="captcha-input" class="captcha-input" placeholder="Enter Code" maxlength="6">
-            <button class="verify-btn" onclick="verifyCaptcha()">Unlock Player</button>
-            <p id="error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 10px; display: none;">Invalid code. Try again.</p>
+        <div class="captcha-widget" onclick="handleVerify()">
+            <div class="checkbox-container" id="cap-box">
+                <div class="spinner" id="cap-spinner"></div>
+                <svg class="checkmark" id="cap-check" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </div>
+            <div class="captcha-text">I'm not a robot</div>
+            <div class="captcha-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#4d90fe"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm4.59-12.42L10 14.17l-2.59-2.58L6 13l4 4 8-8z"/></svg>
+                <span>reCAPTCHA</span>
+                <span style="font-size: 6px">Privacy - Terms</span>
+            </div>
         </div>
     </div>
 
     <!-- MAIN APP -->
     <div class="player-card" id="app-root">
         <div class="sidebar">
-            <button class="btn" style="width: 100%; border-radius: 12px; margin-bottom: 20px;" onclick="document.getElementById('f-in').click()">+ ADD MUSIC</button>
-            <div class="queue-list" id="queue"></div>
+            <button class="btn" style="width: 100%; border-radius: 8px; font-size: 0.7rem; height: 40px; margin-bottom: 20px;" onclick="document.getElementById('f-upload').click()">+ IMPORT MUSIC</button>
+            <div id="playlist-container"></div>
         </div>
 
-        <div class="main-stage">
-            <div class="viz-container">
-                <div id="viz-ring" class="viz-ring"></div>
-                <div class="album-art">
-                    <svg width="50" height="50" viewBox="0 0 24 24" fill="var(--primary)"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-                </div>
+        <div class="main-content">
+            <div class="viz-circle" id="viz-disk">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="var(--primary)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
             </div>
 
             <div style="text-align: center;">
-                <h3 id="track-name" style="margin: 0; color: var(--primary);">NO TRACK LOADED</h3>
-                <p id="track-status" style="color: #64748b; font-size: 0.8rem; margin: 5px 0;">Upload MP3 to start</p>
+                <h2 id="track-name" style="margin: 0; font-size: 1.2rem; color: var(--primary);">READY FOR INPUT</h2>
+                <p id="track-artist" style="color: #64748b; margin: 5px 0; font-size: 0.8rem;">Upload a track to boost the bass</p>
             </div>
 
-            <div class="player-ui">
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px;">
-                    <span id="cur-time">0:00</span>
-                    <span id="total-time">0:00</span>
-                </div>
-                <div class="progress-container">
-                    <div id="buffer-bar" class="buffer-bar"></div>
-                    <div id="play-bar" class="play-bar"></div>
-                    <input type="range" class="seek-input" id="seek" min="0" max="100" value="0">
-                </div>
-
-                <div class="controls">
-                    <button class="btn" onclick="prev()">⏮</button>
-                    <button class="btn btn-main" id="play-btn" onclick="togglePlay()">▶</button>
-                    <button class="btn" onclick="next()">⏭</button>
-                </div>
+            <div class="progress-bar" onclick="seek(event)">
+                <div class="progress-fill" id="progress-fill"></div>
             </div>
 
-            <div class="booster-grid">
-                <div>
-                    <label style="font-size: 0.65rem; display: block; margin-bottom: 5px;">BASS POWER: <span id="bass-val" style="color:var(--primary)">0%</span></label>
-                    <input type="range" min="0" max="100" value="0" oninput="setBass(this.value)">
+            <div class="controls">
+                <button class="btn" onclick="prev()">⏮</button>
+                <button class="btn btn-play" id="play-btn" onclick="togglePlay()">▶</button>
+                <button class="btn" onclick="next()">⏭</button>
+            </div>
+
+            <div class="booster-controls">
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Bass Impact (55Hz Peak)</span>
+                        <span id="bass-val" style="color: var(--primary)">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" oninput="updateBass(this.value)">
                 </div>
-                <div>
-                    <label style="font-size: 0.65rem; display: block; margin-bottom: 5px;">MASTER GAIN: <span id="vol-val" style="color:var(--primary)">100%</span></label>
-                    <input type="range" min="0" max="150" value="100" oninput="setVol(this.value)">
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Master Output</span>
+                        <span id="vol-val" style="color: var(--primary)">100%</span>
+                    </div>
+                    <input type="range" min="0" max="150" value="100" oninput="updateVol(this.value)">
                 </div>
             </div>
         </div>
     </div>
 
-    <input type="file" id="f-in" multiple accept="audio/*" style="display:none" onchange="loadFiles(event)">
+    <input type="file" id="f-upload" multiple accept="audio/*" style="display:none" onchange="handleFiles(event)">
 
     <script>
-        // --- CAPTCHA LOGIC ---
-        let currentCaptcha = "";
-        const canvas = document.getElementById('captcha-canvas');
-        const ctx_cap = canvas.getContext('2d');
-
-        function generateCaptcha() {
-            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            currentCaptcha = "";
-            for(let i=0; i<5; i++) currentCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
+        // --- VERIFICATION LOGIC ---
+        let isVerified = false;
+        function handleVerify() {
+            if(isVerified) return;
+            const box = document.getElementById('cap-box');
+            const spinner = document.getElementById('cap-spinner');
+            const check = document.getElementById('cap-check');
             
-            // Draw
-            ctx_cap.fillStyle = "#f1f5f9";
-            ctx_cap.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Background Noise
-            for(let i=0; i<30; i++) {
-                ctx_cap.strokeStyle = `rgba(0,0,0,${Math.random() * 0.2})`;
-                ctx_cap.beginPath();
-                ctx_cap.moveTo(Math.random()*canvas.width, Math.random()*canvas.height);
-                ctx_cap.lineTo(Math.random()*canvas.width, Math.random()*canvas.height);
-                ctx_cap.stroke();
-            }
+            box.style.border = 'none';
+            spinner.style.display = 'block';
 
-            ctx_cap.font = "bold 30px monospace";
-            ctx_cap.fillStyle = "#1e293b";
-            ctx_cap.textBaseline = "middle";
-            
-            for(let i=0; i<currentCaptcha.length; i++) {
-                ctx_cap.save();
-                ctx_cap.translate(30 + (i * 35), 35);
-                ctx_cap.rotate((Math.random() - 0.5) * 0.4);
-                ctx_cap.fillText(currentCaptcha[i], 0, 0);
-                ctx_cap.restore();
-            }
-        }
-
-        function verifyCaptcha() {
-            const input = document.getElementById('captcha-input').value.toUpperCase();
-            if(input === currentCaptcha) {
-                document.getElementById('shield-screen').style.opacity = '0';
+            // Simulate "Human Analysis"
+            setTimeout(() => {
+                spinner.style.display = 'none';
+                check.style.display = 'block';
+                isVerified = true;
+                
                 setTimeout(() => {
                     document.getElementById('shield-screen').style.display = 'none';
                     document.getElementById('app-root').style.display = 'flex';
                     initAudio();
-                }, 500);
-            } else {
-                document.getElementById('error-msg').style.display = 'block';
-                document.getElementById('captcha-input').value = "";
-                generateCaptcha();
-            }
+                }, 600);
+            }, 1800);
         }
 
         // --- AUDIO ENGINE ---
-        let audioCtx, audio, source, bassShelf, bassPeak, gainNode, compressor, playlist = [], index = 0;
+        let audioCtx, audio, source, bassShelf, bassPeak, gainNode, compressor, playlist = [], currentIndex = -1;
 
         function initAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audio = new Audio();
-            audio.crossOrigin = "anonymous";
-            
             source = audioCtx.createMediaElementSource(audio);
-            
-            // Filter 1: Low Shelf (General low-end lift)
+
+            // STAGE 1: Broad Bass Shelf (200Hz)
             bassShelf = audioCtx.createBiquadFilter();
             bassShelf.type = "lowshelf";
             bassShelf.frequency.value = 200;
             bassShelf.gain.value = 0;
 
-            // Filter 2: Peaking (Deep "THUMP" boost)
+            // STAGE 2: Deep Bass Peak (55Hz) - This provides the "thump"
             bassPeak = audioCtx.createBiquadFilter();
             bassPeak.type = "peaking";
-            bassPeak.frequency.value = 60; // Tuning frequency for deep kick
-            bassPeak.Q.value = 1.5; // Sharpness of boost
+            bassPeak.frequency.value = 55;
+            bassPeak.Q.value = 2.0; // High resonance for punchiness
             bassPeak.gain.value = 0;
 
-            // Dynamics Compressor (Prevents distortion from heavy bass)
-            compressor = audioCtx.createDynamicsCompressor();
-            compressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
-            compressor.knee.setValueAtTime(30, audioCtx.currentTime);
-            compressor.ratio.setValueAtTime(4, audioCtx.currentTime);
-            
+            // STAGE 3: Volume
             gainNode = audioCtx.createGain();
 
-            // CHAIN: Source -> BassShelf -> BassPeak -> Gain -> Compressor -> Destination
-            source.connect(bassShelf)
-                  .connect(bassPeak)
-                  .connect(gainNode)
-                  .connect(compressor)
-                  .connect(audioCtx.destination);
+            // STAGE 4: Safety Limiter (Prevents clipping from high bass)
+            compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-10, audioCtx.currentTime);
+            compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+            compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
 
-            audio.addEventListener('progress', () => {
-                if (audio.buffered.length) {
-                    const loaded = (audio.buffered.end(0) / audio.duration) * 100;
-                    document.getElementById('buffer-bar').style.width = loaded + "%";
-                }
-            });
+            source.connect(bassShelf).connect(bassPeak).connect(gainNode).connect(compressor).connect(audioCtx.destination);
 
             audio.addEventListener('timeupdate', () => {
                 const pct = (audio.currentTime / audio.duration) * 100;
-                document.getElementById('play-bar').style.width = pct + "%";
-                document.getElementById('cur-time').innerText = formatTime(audio.currentTime);
-                document.getElementById('total-time').innerText = formatTime(audio.duration || 0);
+                document.getElementById('progress-fill').style.width = pct + "%";
                 
-                // Audio visualization scaling
-                const scale = 1 + (bassPeak.gain.value / 40) * 0.1;
-                document.getElementById('viz-ring').style.transform = `scale(${scale})`;
+                // Visualization reaction to bass levels
+                const bounce = 1 + (bassPeak.gain.value / 40) * 0.15;
+                document.getElementById('viz-disk').style.transform = `scale(${bounce})`;
             });
 
             audio.onended = next;
         }
 
-        function loadFiles(e) {
+        function handleFiles(e) {
             const files = Array.from(e.target.files);
-            const start = playlist.length === 0;
             playlist = playlist.concat(files);
-            updateQueue();
-            if(start) playTrack(0);
+            renderPlaylist();
+            if(currentIndex === -1) playTrack(0);
         }
 
-        function updateQueue() {
-            const q = document.getElementById('queue');
-            q.innerHTML = playlist.map((f, i) => `
-                <div class="queue-item ${i === index ? 'active' : ''}" onclick="playTrack(${i})">
+        function renderPlaylist() {
+            const container = document.getElementById('playlist-container');
+            container.innerHTML = playlist.map((f, i) => `
+                <div class="song-item ${i === currentIndex ? 'active' : ''}" onclick="playTrack(${i})">
                     ${f.name}
                 </div>
             `).join('');
@@ -440,38 +396,45 @@
 
         function playTrack(i) {
             if(audioCtx.state === 'suspended') audioCtx.resume();
-            index = i;
-            const file = playlist[index];
+            currentIndex = i;
+            const file = playlist[i];
             audio.src = URL.createObjectURL(file);
-            document.getElementById('track-name').innerText = file.name.toUpperCase();
+            document.getElementById('track-name').innerText = file.name.split('.')[0].toUpperCase();
             document.getElementById('play-btn').innerText = "||";
             audio.play();
-            updateQueue();
+            renderPlaylist();
         }
 
         function togglePlay() {
-            if (audio.paused) { audio.play(); document.getElementById('play-btn').innerText = "||"; }
+            if(!audio.src) return;
+            if(audio.paused) { audio.play(); document.getElementById('play-btn').innerText = "||"; }
             else { audio.pause(); document.getElementById('play-btn').innerText = "▶"; }
         }
 
-        function setBass(v) {
-            const shelfBoost = (v / 100) * 20; // 20dB max shelf
-            const peakBoost = (v / 100) * 15;  // 15dB extra peak at 60Hz
+        function updateBass(v) {
+            // Distribute boost across shelf and peak filters
+            const shelfBoost = (v / 100) * 18;
+            const peakBoost = (v / 100) * 22;
             bassShelf.gain.setTargetAtTime(shelfBoost, audioCtx.currentTime, 0.1);
             bassPeak.gain.setTargetAtTime(peakBoost, audioCtx.currentTime, 0.1);
             document.getElementById('bass-val').innerText = v + "%";
         }
 
-        function setVol(v) {
+        function updateVol(v) {
             gainNode.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.1);
             document.getElementById('vol-val').innerText = v + "%";
         }
 
-        function next() { if(playlist.length) playTrack((index+1)%playlist.length); }
-        function prev() { if(playlist.length) playTrack((index-1+playlist.length)%playlist.length); }
-        function formatTime(s) { return Math.floor(s/60) + ":" + Math.floor(s%60).toString().padStart(2, '0'); }
+        function seek(e) {
+            if(!audio.duration) return;
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const pct = x / rect.width;
+            audio.currentTime = pct * audio.duration;
+        }
 
-        window.onload = generateCaptcha;
+        function next() { if(playlist.length) playTrack((currentIndex + 1) % playlist.length); }
+        function prev() { if(playlist.length) playTrack((currentIndex - 1 + playlist.length) % playlist.length); }
     </script>
 </body>
 </html>
