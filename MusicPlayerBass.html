@@ -154,11 +154,12 @@
             100% { transform: translateX(-100%); }
         }
 
-        /* Seek Slider */
+        /* Enhanced Seek Slider */
         .progress-container {
             width: 100%;
             max-width: 400px;
             margin: 10px 0;
+            user-select: none;
         }
 
         .time-labels {
@@ -169,14 +170,22 @@
             opacity: 0.6;
         }
 
+        .progress-bar-hitbox {
+            width: 100%;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+
         .progress-bar {
             width: 100%;
             height: 6px;
             background: var(--accent);
             border-radius: 3px;
-            cursor: pointer;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .progress-fill {
@@ -185,6 +194,26 @@
             width: 0%;
             border-radius: 3px;
             box-shadow: 0 0 10px var(--primary);
+            position: relative;
+        }
+
+        .progress-thumb {
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .progress-bar-hitbox:hover .progress-thumb,
+        .progress-bar-hitbox:active .progress-thumb {
+            opacity: 1;
         }
 
         /* Controls */
@@ -297,8 +326,12 @@
                     <span id="current-time">0:00</span>
                     <span id="duration">0:00</span>
                 </div>
-                <div class="progress-bar" id="progress-bar" onclick="seek(event)">
-                    <div class="progress-fill" id="progress-fill"></div>
+                <div class="progress-bar-hitbox" id="progress-hitbox">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill">
+                            <div class="progress-thumb"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -324,8 +357,8 @@
     <input type="file" id="files" multiple accept="audio/*" style="display:none" onchange="loadFiles(event)">
 
     <script>
-        // loopMode: 0 = OFF, 1 = PLAYLIST, 2 = CURRENT
         let audioCtx, audio, source, bass, gain, compressor, playlist = [], index = -1, loopMode = 0;
+        let isDragging = false;
 
         function formatTime(s) {
             if (isNaN(s)) return "0:00";
@@ -362,15 +395,15 @@
                 source.connect(bass).connect(gain).connect(compressor).connect(audioCtx.destination);
 
                 audio.addEventListener('timeupdate', () => {
-                    const pct = (audio.currentTime / audio.duration) * 100 || 0;
-                    document.getElementById('progress-fill').style.width = pct + "%";
-                    document.getElementById('current-time').innerText = formatTime(audio.currentTime);
-                    if(!isNaN(audio.duration)) {
-                        document.getElementById('duration').innerText = formatTime(audio.duration);
+                    if (!isDragging) {
+                        const pct = (audio.currentTime / audio.duration) * 100 || 0;
+                        updateProgressUI(pct, audio.currentTime);
                     }
                 });
 
                 audio.onended = handleEnded;
+
+                initSeekListeners();
 
                 document.getElementById('shield-screen').style.display = 'none';
                 document.getElementById('app').style.display = 'flex';
@@ -381,16 +414,68 @@
             }, 800);
         }
 
+        function updateProgressUI(pct, time) {
+            document.getElementById('progress-fill').style.width = pct + "%";
+            document.getElementById('current-time').innerText = formatTime(time);
+            if(!isNaN(audio.duration)) {
+                document.getElementById('duration').innerText = formatTime(audio.duration);
+            }
+        }
+
+        function initSeekListeners() {
+            const hitbox = document.getElementById('progress-hitbox');
+            
+            const handleSeek = (e) => {
+                if (!audio || !audio.duration) return;
+                const rect = hitbox.getBoundingClientRect();
+                const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                let pct = Math.max(0, Math.min(1, x / rect.width));
+                
+                updateProgressUI(pct * 100, pct * audio.duration);
+                if (!isDragging) {
+                    audio.currentTime = pct * audio.duration;
+                }
+            };
+
+            const onStart = (e) => {
+                isDragging = true;
+                handleSeek(e);
+            };
+
+            const onMove = (e) => {
+                if (isDragging) {
+                    handleSeek(e);
+                    e.preventDefault();
+                }
+            };
+
+            const onEnd = (e) => {
+                if (isDragging) {
+                    const rect = hitbox.getBoundingClientRect();
+                    const x = (e.changedTouches ? e.changedTouches[0].clientX : e.clientX) - rect.left;
+                    let pct = Math.max(0, Math.min(1, x / rect.width));
+                    audio.currentTime = pct * audio.duration;
+                    isDragging = false;
+                }
+            };
+
+            hitbox.addEventListener('mousedown', onStart);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+
+            // Touch events for iPad/iOS
+            hitbox.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+        }
+
         function handleEnded() {
             if (loopMode === 2) {
-                // Loop Current
                 audio.currentTime = 0;
                 audio.play();
             } else if (loopMode === 1) {
-                // Loop Playlist
                 next();
             } else {
-                // No Loop
                 if (index < playlist.length - 1) {
                     next();
                 } else {
@@ -453,15 +538,12 @@
 
         function toggle() {
             if(!audio.src) return;
-            
-            // Replay Bug Fix: If song ended, go back to start
             if (audio.ended || Math.abs(audio.currentTime - audio.duration) < 0.1) {
                 audio.currentTime = 0;
                 audio.play();
                 document.getElementById('play-btn').innerText = "||";
                 return;
             }
-
             if(audio.paused) { 
                 audio.play(); 
                 document.getElementById('play-btn').innerText = "||"; 
@@ -469,13 +551,6 @@
                 audio.pause(); 
                 document.getElementById('play-btn').innerText = "▶"; 
             }
-        }
-
-        function seek(e) {
-            if(!audio || !audio.duration) return;
-            const rect = document.getElementById('progress-bar').getBoundingClientRect();
-            const pct = (e.clientX - rect.left) / rect.width;
-            audio.currentTime = pct * audio.duration;
         }
 
         function setBass(v) {
