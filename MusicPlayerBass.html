@@ -134,6 +134,7 @@
         .viz-circle {
             width: 160px;
             height: 160px;
+            flex-shrink: 0; /* Prevents stretching when container shrinks */
             margin: 0 auto;
             border-radius: 50%;
             background: #000;
@@ -143,6 +144,7 @@
             justify-content: center;
             transition: transform 0.05s ease-out;
             box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
+            aspect-ratio: 1 / 1; /* Ensures perfect circle */
         }
 
         .controls {
