@@ -295,8 +295,8 @@
                 <input type="range" min="0" max="100" value="0" oninput="setBass(this.value)">
             </div>
             <div class="slider-box">
-                <div class="label-row"><span>VOLUME</span><span id="v-val">100%</span></div>
-                <input type="range" min="0" max="100" value="100" oninput="setVol(this.value)">
+                <div class="label-row"><span>VOLUME BOOSTER</span><span id="v-val">100%</span></div>
+                <input type="range" min="0" max="300" value="100" oninput="setVol(this.value)">
             </div>
         </div>
     </div>
@@ -305,7 +305,7 @@
     <input type="file" id="files" multiple accept="audio/*" style="display:none" onchange="loadFiles(event)">
 
     <script>
-        let audioCtx, audio, source, bass, gain, playlist = [], index = -1;
+        let audioCtx, audio, source, bass, gain, compressor, playlist = [], index = -1;
 
         function formatTime(s) {
             if (isNaN(s)) return "0:00";
@@ -332,12 +332,25 @@
 
                 // Setup routing
                 source = audioCtx.createMediaElementSource(audio);
+                
+                // Bass Filter
                 bass = audioCtx.createBiquadFilter();
                 bass.type = "lowshelf";
                 bass.frequency.value = 200;
+                
+                // Volume/Gain Booster Node
                 gain = audioCtx.createGain();
                 
-                source.connect(bass).connect(gain).connect(audioCtx.destination);
+                // Limiter/Compressor to prevent clipping at high boost levels
+                compressor = audioCtx.createDynamicsCompressor();
+                compressor.threshold.setValueAtTime(-1.0, audioCtx.currentTime);
+                compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+                compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+                compressor.attack.setValueAtTime(0, audioCtx.currentTime);
+                compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
+                // Chain: Source -> Bass -> Volume -> Compressor (Limiter) -> Output
+                source.connect(bass).connect(gain).connect(compressor).connect(audioCtx.destination);
 
                 // Update progress UI
                 audio.addEventListener('timeupdate', () => {
@@ -426,6 +439,7 @@
 
         function setVol(v) {
             if(!gain) return;
+            // Boost up to 300% (3.0 gain factor)
             gain.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.1);
             document.getElementById('v-val').innerText = v + "%";
         }
