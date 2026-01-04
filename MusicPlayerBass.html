@@ -75,13 +75,13 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Main Player - Responsive Scaling for iPad */
+        /* Main Player */
         .player-card {
             background: var(--card);
             width: 95vw;
             max-width: 860px;
             height: 90vh;
-            max-height: clamp(500px, 85vh, 650px); /* Keeps it contained on iPads */
+            max-height: clamp(500px, 85vh, 650px);
             border-radius: 20px;
             display: none; 
             flex-direction: row;
@@ -106,7 +106,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            min-width: 0; /* Fixes marquee flex-shrink issue */
+            min-width: 0;
         }
 
         .viz-container {
@@ -128,9 +128,9 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 0 30px rgba(0, 229, 255, 0.15);
+            transition: transform 0.1s ease-out;
         }
 
-        /* Marquee Text */
         .track-info {
             width: 100%;
             text-align: center;
@@ -154,7 +154,7 @@
             100% { transform: translateX(-100%); }
         }
 
-        /* Seek Slider / Progress Bar */
+        /* Seek Slider */
         .progress-container {
             width: 100%;
             max-width: 400px;
@@ -188,6 +188,13 @@
         }
 
         /* Controls */
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin: 5px 0;
+        }
+
         .btn {
             background: var(--accent);
             border: none;
@@ -200,9 +207,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s;
         }
 
+        .btn:active { transform: scale(0.9); }
+
         .btn-play { width: 60px; height: 60px; background: var(--primary); color: var(--bg); }
+        
+        .btn-loop { 
+            font-size: 0.8rem; 
+            background: transparent; 
+            border: 1px solid var(--accent); 
+            color: #888;
+        }
+        .btn-loop.active { border-color: var(--primary); color: var(--primary); background: rgba(0, 229, 255, 0.1); }
 
         .slider-box {
             width: 100%;
@@ -227,6 +245,7 @@
             align-items: center;
             margin-bottom: 4px;
             background: rgba(255,255,255,0.03);
+            cursor: pointer;
         }
         .song-row.active { background: rgba(0, 229, 255, 0.2); color: var(--primary); }
         .remove-btn { color: var(--danger); font-weight: bold; padding: 5px 10px; cursor: pointer; }
@@ -273,7 +292,6 @@
                 <div style="font-size: 0.7rem; opacity: 0.5;" id="artist">Ready to Play</div>
             </div>
 
-            <!-- Seek Slider Section -->
             <div class="progress-container">
                 <div class="time-labels">
                     <span id="current-time">0:00</span>
@@ -284,7 +302,8 @@
                 </div>
             </div>
 
-            <div style="display:flex; gap: 20px; align-items: center; margin: 5px 0;">
+            <div class="controls-row">
+                <button class="btn btn-loop" id="loop-btn" onclick="toggleLoop()" title="Toggle Loop Mode">OFF</button>
                 <button class="btn" onclick="prev()">⏮</button>
                 <button class="btn btn-play" id="play-btn" onclick="toggle()">▶</button>
                 <button class="btn" onclick="next()">⏭</button>
@@ -305,7 +324,8 @@
     <input type="file" id="files" multiple accept="audio/*" style="display:none" onchange="loadFiles(event)">
 
     <script>
-        let audioCtx, audio, source, bass, gain, compressor, playlist = [], index = -1;
+        // loopMode: 0 = OFF, 1 = PLAYLIST, 2 = CURRENT
+        let audioCtx, audio, source, bass, gain, compressor, playlist = [], index = -1, loopMode = 0;
 
         function formatTime(s) {
             if (isNaN(s)) return "0:00";
@@ -314,34 +334,24 @@
             return min + ":" + (sec < 10 ? "0" + sec : sec);
         }
 
-        // IOS 12 Engine Fix: Initialize with prefixes and unlock context
         function startEngine() {
             document.getElementById('spin').style.display = 'block';
-            
-            // Fallback for iOS 12/Safari
             window.AudioContext = window.AudioContext || window.webkitAudioContext;
             
             setTimeout(() => {
                 audioCtx = new AudioContext();
                 audio = new Audio();
                 
-                // Explicitly resume on user gesture (iOS Requirement)
                 if (audioCtx.state === 'suspended') {
                     audioCtx.resume();
                 }
 
-                // Setup routing
                 source = audioCtx.createMediaElementSource(audio);
-                
-                // Bass Filter
                 bass = audioCtx.createBiquadFilter();
                 bass.type = "lowshelf";
                 bass.frequency.value = 200;
-                
-                // Volume/Gain Booster Node
                 gain = audioCtx.createGain();
                 
-                // Limiter/Compressor to prevent clipping at high boost levels
                 compressor = audioCtx.createDynamicsCompressor();
                 compressor.threshold.setValueAtTime(-1.0, audioCtx.currentTime);
                 compressor.knee.setValueAtTime(40, audioCtx.currentTime);
@@ -349,10 +359,8 @@
                 compressor.attack.setValueAtTime(0, audioCtx.currentTime);
                 compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
 
-                // Chain: Source -> Bass -> Volume -> Compressor (Limiter) -> Output
                 source.connect(bass).connect(gain).connect(compressor).connect(audioCtx.destination);
 
-                // Update progress UI
                 audio.addEventListener('timeupdate', () => {
                     const pct = (audio.currentTime / audio.duration) * 100 || 0;
                     document.getElementById('progress-fill').style.width = pct + "%";
@@ -362,16 +370,41 @@
                     }
                 });
 
-                audio.onended = next;
+                audio.onended = handleEnded;
 
                 document.getElementById('shield-screen').style.display = 'none';
                 document.getElementById('app').style.display = 'flex';
                 
-                // Check if context is still stuck (Mute Switch check)
                 setTimeout(() => {
                     if(audioCtx.state === 'suspended') document.getElementById('mute-warning').style.display = 'block';
                 }, 2000);
             }, 800);
+        }
+
+        function handleEnded() {
+            if (loopMode === 2) {
+                // Loop Current
+                audio.currentTime = 0;
+                audio.play();
+            } else if (loopMode === 1) {
+                // Loop Playlist
+                next();
+            } else {
+                // No Loop
+                if (index < playlist.length - 1) {
+                    next();
+                } else {
+                    document.getElementById('play-btn').innerText = "▶";
+                }
+            }
+        }
+
+        function toggleLoop() {
+            loopMode = (loopMode + 1) % 3;
+            const btn = document.getElementById('loop-btn');
+            const modes = ["OFF", "PLAYLIST", "TRACK"];
+            btn.innerText = modes[loopMode];
+            btn.classList.toggle('active', loopMode > 0);
         }
 
         function loadFiles(e) {
@@ -420,8 +453,22 @@
 
         function toggle() {
             if(!audio.src) return;
-            if(audio.paused) { audio.play(); document.getElementById('play-btn').innerText = "||"; }
-            else { audio.pause(); document.getElementById('play-btn').innerText = "▶"; }
+            
+            // Replay Bug Fix: If song ended, go back to start
+            if (audio.ended || Math.abs(audio.currentTime - audio.duration) < 0.1) {
+                audio.currentTime = 0;
+                audio.play();
+                document.getElementById('play-btn').innerText = "||";
+                return;
+            }
+
+            if(audio.paused) { 
+                audio.play(); 
+                document.getElementById('play-btn').innerText = "||"; 
+            } else { 
+                audio.pause(); 
+                document.getElementById('play-btn').innerText = "▶"; 
+            }
         }
 
         function seek(e) {
@@ -439,18 +486,23 @@
 
         function setVol(v) {
             if(!gain) return;
-            // Boost up to 300% (3.0 gain factor)
             gain.gain.setTargetAtTime(v/100, audioCtx.currentTime, 0.1);
             document.getElementById('v-val').innerText = v + "%";
         }
 
-        function next() { play((index + 1) % playlist.length); }
-        function prev() { play((index - 1 + playlist.length) % playlist.length); }
+        function next() { 
+            if (playlist.length === 0) return;
+            play((index + 1) % playlist.length); 
+        }
+        
+        function prev() { 
+            if (playlist.length === 0) return;
+            play((index - 1 + playlist.length) % playlist.length); 
+        }
 
-        // Animation update
         function loop() {
             if(audio && !audio.paused && bass) {
-                const scale = 1 + (bass.gain.value / 40) * 0.2;
+                const scale = 1 + (bass.gain.value / 40) * 0.15;
                 document.getElementById('disk').style.transform = `scale(${scale})`;
             }
             requestAnimationFrame(loop);
