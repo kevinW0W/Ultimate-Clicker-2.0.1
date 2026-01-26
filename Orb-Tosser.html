@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Orb Tosser</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
         #ui {
             position: absolute;
             top: 20px;
@@ -452,8 +452,13 @@
                 setupDragDrop();
                 document.getElementById('health-display').style.bottom = '120px'; // Move up for controls
                 document.getElementById('mobile-sensitivity').style.display = 'block';
-                document.addEventListener('touchstart', preventZoom, { passive: false });
-                document.addEventListener('wheel', preventZoom, { passive: false });
+                
+                // iOS Optimization: Prevent scrolling/zooming but allow UI interaction
+                document.addEventListener('touchmove', (e) => {
+                    if (e.target.closest('#overlay') || e.target.closest('#settings-menu')) return;
+                    e.preventDefault();
+                }, { passive: false });
+                document.addEventListener('gesturestart', (e) => e.preventDefault()); // Block pinch-zoom
             }
 
             // Enforce initial UI state
@@ -1279,7 +1284,7 @@
                 }
             });
             document.addEventListener('contextmenu', e => {
-                if (document.pointerLockElement) e.preventDefault();
+                e.preventDefault();
             });
             
             // Mobile Aim
@@ -2712,28 +2717,6 @@
         }
 
         window.onload = init;
-    </script>
-    <script>
-     //Disable Right Click
-     document.addEventListener('contextmenu', function(e) {
-
-       e.preventDefault();
-     });
-
-
-
-
-    //Disable Zoom
-    function preventZoom(event) {
-      if (event.touches.length > 1) {
-        event.preventDefault();
-      }
-    }
-    document.addEventListener('touchmove', function(event) {
-      if (event.touches.length > 1) {
-        event.preventDefault();
-      }
-    }, { passive: false });
     </script>
 
 
