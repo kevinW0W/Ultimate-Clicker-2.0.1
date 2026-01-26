@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Orb Tosser</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; overflow: hidden; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
         #ui {
             position: absolute;
             top: 20px;
@@ -224,6 +224,7 @@
         <div style="display:flex; justify-content:space-between;"><span>FOV</span> <input type="range" id="fov-slider" min="60" max="120" step="1" value="75" oninput="updateSettings()"> <span id="fov-val">75</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="20" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Aim Snap</span> <input type="range" id="snap-slider" min="0" max="10" step="1" value="0" oninput="updateSettings()"> <span id="snap-val">0</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Low Power Mode</span> <input type="checkbox" id="low-power-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Glossy Sky</span> <input type="checkbox" id="glossy-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>BGM Track</span> <select id="bgm-select" onchange="updateSettings()" style="background:#333; color:#fff; border:1px solid #555; width:100px; border-radius: 4px;">
             <option value="0">Action</option>
@@ -307,6 +308,7 @@
         let isChargingKnife = false;
         let knifeChargeStartTime = 0;
         let gamepadConnected = false;
+        let isLowPowerMode = false;
         let isEditingLayout = false;
         let menuSelectionIndex = 0;
         let currentMenuItems = [];
@@ -922,7 +924,12 @@
             respawnEntity(null, true);
             
             document.getElementById('overlay').style.display = 'none';
-            renderer.domElement.requestPointerLock();
+            if (isMobile) {
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('mobile-pause-btn').style.display = 'flex';
+            } else {
+                renderer.domElement.requestPointerLock();
+            }
             initAudio();
             menuBgm.pause();
             // Stop intro music if it's still playing
@@ -948,7 +955,12 @@
             }
             respawnEntity(null, true);
             document.getElementById('overlay').style.display = 'none';
-            renderer.domElement.requestPointerLock();
+            if (isMobile) {
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('mobile-pause-btn').style.display = 'flex';
+            } else {
+                renderer.domElement.requestPointerLock();
+            }
             initAudio();
             if (gameBgm.paused && gameBgm.volume > 0) {
                 gameBgm.play().catch(e => console.warn(e));
@@ -1036,6 +1048,7 @@
         }
 
         function updateSettings() {
+            isLowPowerMode = document.getElementById('low-power-check').checked;
             mouseSensitivity = document.getElementById('sens-slider').value * 0.001;
             document.getElementById('sens-val').innerText = document.getElementById('sens-slider').value;
             controllerSensitivity = parseFloat(document.getElementById('cont-sens-slider').value);
@@ -1048,7 +1061,7 @@
             document.getElementById('snap-val').innerText = aimSnap;
             
             const useGlossy = document.getElementById('glossy-check').checked;
-            if (useGlossy) {
+            if (useGlossy && !isLowPowerMode) {
                 if (!glossyTexture) glossyTexture = new THREE.TextureLoader().load('https://static.pbslearningmedia.org/media/assets/buac18-vid-sunpattern-poster.png');
                 scene.background = glossyTexture;
                 scene.environment = glossyTexture;
@@ -1079,7 +1092,11 @@
                 else if (vol === 0 && !menuBgm.paused) menuBgm.pause();
             }
             
-            renderer.setPixelRatio(parseFloat(document.getElementById('res-slider').value));
+            if (isLowPowerMode) {
+                renderer.setPixelRatio(0.5);
+            } else {
+                renderer.setPixelRatio(parseFloat(document.getElementById('res-slider').value));
+            }
             document.getElementById('res-val').innerText = document.getElementById('res-slider').value;
         }
 
@@ -1221,7 +1238,7 @@
                             playerHealth = 0;
                             document.getElementById('health-display').innerText = "DEAD";
                             document.getElementById('health-display').style.color = "#f00";
-                            document.exitPointerLock();
+                            handlePlayerDeath();
                             logFeed(`<span style="color:#f88">You committed suicide</span>`);
                         }
                         break;
@@ -1387,13 +1404,20 @@
             let lastLookX = 0, lastLookY = 0, lookTouchId = null;
 
             document.addEventListener('touchstart', (e) => {
-                if (isEditingLayout || lookTouchId !== null) return; // A look touch is already in progress
+                if (isEditingLayout || lookTouchId !== null) return;
 
                 const t = e.changedTouches[0];
                 const targetElement = document.elementFromPoint(t.clientX, t.clientY);
 
-                // A "look" touch can start anywhere that isn't the joystick.
-                if (targetElement && targetElement.closest('.joystick-area')) {
+                // Don't look if interacting with UI or Joystick
+                if (targetElement && (
+                    targetElement.closest('.joystick-area') || 
+                    targetElement.closest('#overlay') || 
+                    targetElement.closest('#main-menu') || 
+                    targetElement.closest('#pause-menu') || 
+                    targetElement.closest('#settings-menu') ||
+                    targetElement.closest('#game-over-screen')
+                )) {
                     return;
                 }
 
@@ -1750,6 +1774,21 @@
             lastGamepadButtons = currentButtons;
         }
 
+        function handlePlayerDeath() {
+            if (document.pointerLockElement) document.exitPointerLock();
+            
+            // Force UI update for mobile or if pointerlock doesn't fire
+            document.getElementById('respawn-btn').style.display = 'block';
+            document.getElementById('overlay').style.display = 'flex';
+            document.getElementById('pause-menu').style.display = 'none';
+            document.getElementById('gamemode-select').style.display = 'none';
+            
+            if (isMobile) {
+                document.getElementById('mobile-controls').style.display = 'none';
+                document.getElementById('mobile-pause-btn').style.display = 'none';
+            }
+        }
+
         function reload() {
             const invItem = playerInventory[activeSlot];
             if (isReloading || invItem.ammo === currentWeapon.maxAmmo || currentWeapon.isMelee || currentWeapon.isThrown) return;
@@ -1812,7 +1851,7 @@
             p.userData = { 
                 vel: dir.multiplyScalar(40), // Faster than bullets
                 ownerId: "player", ownerName: "Player", 
-                life: 15.0, damage: totalDamage,
+                life: isLowPowerMode ? 5.0 : 15.0, damage: totalDamage,
                 isKnife: true, // Identifier for spinning
                 isPickup: false
             };
@@ -1910,7 +1949,7 @@
                 
                 p.userData = { 
                     vel: dir.multiplyScalar(35), ownerId: ownerData.id, ownerName: ownerData.name, 
-                    life: 5.0, damage: weapon.damage, isKnife: true, isPickup: false, team: ownerData.team
+                    life: isLowPowerMode ? 2.0 : 5.0, damage: weapon.damage, isKnife: true, isPickup: false, team: ownerData.team
                 };
                 scene.add(p);
                 projectiles.push(p);
@@ -1970,7 +2009,7 @@
                                 logFeed(`<span style="color:#f88">${ownerData.name} knifed YOU!</span>`);
                                 const killer = scores.find(s => s.name === ownerData.name);
                                 if(killer) killer.score += 100;
-                                document.exitPointerLock();
+                                handlePlayerDeath();
                             }
                         }
                     }
@@ -2019,7 +2058,7 @@
                     vel: dir.multiplyScalar(35), 
                     ownerId: ownerData.id, 
                     ownerName: ownerData.name, 
-                    life: 2.5,
+                    life: isLowPowerMode ? 1.0 : 2.5,
                     damage: weapon.damage,
                     team: ownerData.team || (ownerData.id === 'player' ? 'blue' : 'red') // Default assignment
                 };
@@ -2136,7 +2175,12 @@
             }
             for(let i=0; i<botCount; i++) spawnBot();
             respawnEntity(null, true);
-            renderer.domElement.requestPointerLock();
+            if (isMobile) {
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('mobile-pause-btn').style.display = 'flex';
+            } else {
+                renderer.domElement.requestPointerLock();
+            }
         }
 
         function animate() {
@@ -2628,7 +2672,7 @@
                             logFeed(`<span style="color:#f88">${p.userData.ownerName} killed YOU!</span>`);
                             const killer = scores.find(s => s.name === p.userData.ownerName);
                             if(killer) killer.score += 100;
-                            document.exitPointerLock();
+                            handlePlayerDeath();
                         } else {
                             // Hit marker effect?
                         }
