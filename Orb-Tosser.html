@@ -1383,36 +1383,58 @@
                 knob.style.transform = `translate(-50%, -50%)`;
             });
 
-            // Touch Look Logic
-            const lookZone = document.getElementById('look-zone');
+            // Touch Look Logic - Document-level listeners for robust swipe detection
             let lastLookX = 0, lastLookY = 0, lookTouchId = null;
-            
-            lookZone.addEventListener('touchstart', (e) => {
-                if (isEditingLayout) return;
-                e.preventDefault();
+
+            document.addEventListener('touchstart', (e) => {
+                if (isEditingLayout || lookTouchId !== null) return; // A look touch is already in progress
+
                 const t = e.changedTouches[0];
+                const targetElement = document.elementFromPoint(t.clientX, t.clientY);
+
+                // A "look" touch can start anywhere that isn't the joystick.
+                if (targetElement && targetElement.closest('.joystick-area')) {
+                    return;
+                }
+
+                // This is a potential look touch.
                 lookTouchId = t.identifier;
                 lastLookX = t.clientX;
                 lastLookY = t.clientY;
-            });
+                // We don't preventDefault here to allow button taps to register.
+            }, { passive: false });
 
-            lookZone.addEventListener('touchmove', (e) => {
-                if (isEditingLayout) return;
-                e.preventDefault();
-                for(let i=0; i<e.changedTouches.length; i++) {
-                    if(e.changedTouches[i].identifier === lookTouchId) {
+            document.addEventListener('touchmove', (e) => {
+                if (isEditingLayout || lookTouchId === null) return;
+
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === lookTouchId) {
+                        e.preventDefault(); // Prevent scrolling while looking.
+
                         const t = e.changedTouches[i];
                         const dx = t.clientX - lastLookX;
                         const dy = t.clientY - lastLookY;
-                        const sens = 0.005 * (parseFloat(document.getElementById('sens-slider').value) || 1.0);
-                        const aimMult = isAiming ? 0.4 : 1.0;
                         
+                        const sensSetting = document.getElementById('mobile-sensitivity').value;
+                        const sens = 0.005 * (parseFloat(sensSetting) || 1.0);
+                        const aimMult = (isAiming || ctrlIsAiming) ? 0.4 : 1.0;
+
                         camera.rotation.y -= dx * sens * aimMult;
                         camera.rotation.x -= dy * sens * aimMult;
-                        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-                        
+                        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
                         lastLookX = t.clientX;
                         lastLookY = t.clientY;
+                        break;
+                    }
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchend', (e) => {
+                if (lookTouchId === null) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === lookTouchId) {
+                        lookTouchId = null;
                         break;
                     }
                 }
