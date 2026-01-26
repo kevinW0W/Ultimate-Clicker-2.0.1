@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Orb Tosser</title>
     <style>
-        body { margin: 0; overflow: hidden; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
+        body { margin: 0; overflow: hidden; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
         #ui {
             position: absolute;
             top: 20px;
@@ -175,6 +175,7 @@
             <option value="ffa">Free For All</option>
             <option value="tdm">Team Deathmatch</option>
             <option value="ctf">Capture the Flag</option>
+            <option value="gungame">Gun Game</option>
         </select>
 
         <button id="respawn-btn" class="btn" onclick="respawnSameLoadout()">RESPAWN (KEEP LOADOUT)</button>
@@ -311,6 +312,7 @@
         let isLowPowerMode = false;
         let isEditingLayout = false;
         let menuSelectionIndex = 0;
+        let playerGunGameIndex = 0;
         let currentMenuItems = [];
         let activeMenu = null;
         let cursorX = window.innerWidth / 2;
@@ -385,6 +387,13 @@
             { id: 'blaster', name: "Blaster", base: 'rifle', damage: 25, delay: 200, ammo: 50, color: 0xff00ff },
             { id: 'musket', name: "Musket", base: 'sniper', damage: 120, delay: 3000, ammo: 1, color: 0x8b4513 },
             { id: 'kunai', name: "Kunai", base: 'throwing_knife', damage: 45, delay: 400, color: 0x222222 }
+        ];
+
+        const GUN_GAME_PROGRESSION = [
+            'rifle', 'ak47', 'm4a1', 'famas', 'galil',
+            'smg', 'mp5', 'p90', 'ump45',
+            'lmg', 'm249',
+            'sniper', 'awp', 'shotgun', 'spas12', 'revolver', 'deagle', 'pistol', 'glock', 'knife'
         ];
 
         extraGuns.forEach(g => {
@@ -813,6 +822,12 @@
             const bot = new THREE.Group();
             const keys = Object.keys(WEAPONS);
             const randomWeaponKey = keys[Math.floor(Math.random() * keys.length)];
+            let weaponData = WEAPONS[randomWeaponKey];
+
+            if (gameMode === 'gungame') {
+                bot.userData = { gunGameIndex: 0 };
+                weaponData = WEAPONS[GUN_GAME_PROGRESSION[0]];
+            }
             
             const botMat = new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff });
             const body = new THREE.Mesh(botBodyGeo, botMat);
@@ -822,13 +837,13 @@
             bottom.position.y = -0.5;
             
             // Weapon Model
-            const weaponData = WEAPONS[keys[Math.floor(Math.random() * keys.length)]];
             const gun = createWeaponMesh(weaponData.name, weaponData.color);
             gun.position.set(0, 0.1, 0.5);
             
             bot.add(body, top, bottom, gun);
             bot.position.y = 0.9;
             bot.userData = { 
+                ...bot.userData,
                 id: Math.random().toString(36).substr(2, 9), 
                 name: (() => {
                     if (availableBotNames.length === 0) availableBotNames = [...BASE_BOT_NAMES];
@@ -896,12 +911,19 @@
             availableBotNames = [...BASE_BOT_NAMES]; // Reset names
 
             gameHasStarted = true;
-            // Setup Inventory: Primary, Secondary (Pistol), Melee (Knife)
-            playerInventory = [
-                { def: WEAPONS[weaponType], ammo: WEAPONS[weaponType].maxAmmo },
-                { def: WEAPONS.pistol, ammo: WEAPONS.pistol.maxAmmo },
-                { def: WEAPONS.knife, ammo: Infinity }
-            ];
+            
+            if (gameMode === 'gungame') {
+                playerGunGameIndex = 0;
+                const startWep = WEAPONS[GUN_GAME_PROGRESSION[0]];
+                playerInventory = [{ def: startWep, ammo: startWep.maxAmmo }];
+            } else {
+                // Setup Inventory: Primary, Secondary (Pistol), Melee (Knife)
+                playerInventory = [
+                    { def: WEAPONS[weaponType], ammo: WEAPONS[weaponType].maxAmmo },
+                    { def: WEAPONS.pistol, ammo: WEAPONS.pistol.maxAmmo },
+                    { def: WEAPONS.knife, ammo: Infinity }
+                ];
+            }
             activeSlot = 0;
             switchWeapon(0);
             
@@ -1893,6 +1915,45 @@
             }, 100);
         }
 
+        function promotePlayer() {
+            if (playerGunGameIndex < GUN_GAME_PROGRESSION.length - 1) {
+                playerGunGameIndex++;
+                const nextWep = WEAPONS[GUN_GAME_PROGRESSION[playerGunGameIndex]];
+                playerInventory = [{ def: nextWep, ammo: nextWep.maxAmmo }];
+                switchWeapon(0);
+                logFeed(`<span style="color:#0f0">PROMOTED to ${nextWep.name}</span>`);
+                playReloadSound();
+            } else {
+                isGameOver = true;
+                document.getElementById('game-over-screen').style.display = 'flex';
+                document.getElementById('final-scores').innerHTML = `<h1 style="color:#0f0">YOU WON!</h1>` + document.getElementById('leaderboard').innerHTML;
+                document.exitPointerLock();
+            }
+        }
+
+        function promoteBot(bot) {
+            if (!bot) return;
+            if (typeof bot.userData.gunGameIndex === 'undefined') bot.userData.gunGameIndex = 0;
+            
+            if (bot.userData.gunGameIndex < GUN_GAME_PROGRESSION.length - 1) {
+                bot.userData.gunGameIndex++;
+                const nextWep = WEAPONS[GUN_GAME_PROGRESSION[bot.userData.gunGameIndex]];
+                bot.userData.weapon = nextWep;
+                
+                const oldGun = bot.children.find(c => c.type === 'Group' && c.position.y < 0.8);
+                if (oldGun) bot.remove(oldGun);
+
+                const gun = createWeaponMesh(nextWep.name, nextWep.color);
+                gun.position.set(0, 0.1, 0.5);
+                bot.add(gun);
+            } else {
+                isGameOver = true;
+                document.getElementById('game-over-screen').style.display = 'flex';
+                document.getElementById('final-scores').innerHTML = `<h1 style="color:#f00">${bot.userData.name} WON!</h1>` + document.getElementById('leaderboard').innerHTML;
+                document.exitPointerLock();
+            }
+        }
+
         function fireProjectile(source, ownerData) {
             if(isGameOver) return;
             
@@ -1982,6 +2043,10 @@
                                 logFeed(`${ownerData.name} knifed ${botGroup.userData.name}`);
                                 const killer = scores.find(s => s.name === ownerData.name);
                                 if(killer) killer.score += 100;
+                                if (gameMode === 'gungame') {
+                                    promotePlayer();
+                                    if (botGroup.userData.gunGameIndex > 0) botGroup.userData.gunGameIndex--; // Demote bot
+                                }
                                 respawnEntity(botGroup, false);
                             } else {
                                 // Hit effect
@@ -2009,6 +2074,16 @@
                                 logFeed(`<span style="color:#f88">${ownerData.name} knifed YOU!</span>`);
                                 const killer = scores.find(s => s.name === ownerData.name);
                                 if(killer) killer.score += 100;
+                                if (gameMode === 'gungame') {
+                                    promoteBot(bots.find(b => b.userData.id === ownerData.id));
+                                    if (playerGunGameIndex > 0) {
+                                        playerGunGameIndex--; 
+                                        const prevWep = WEAPONS[GUN_GAME_PROGRESSION[playerGunGameIndex]];
+                                        playerInventory = [{ def: prevWep, ammo: prevWep.maxAmmo }];
+                                        switchWeapon(0);
+                                        logFeed(`<span style="color:#f00">DEMOTED to ${prevWep.name}</span>`);
+                                    }
+                                }
                                 handlePlayerDeath();
                             }
                         }
@@ -2031,6 +2106,10 @@
                                 logFeed(`${ownerData.name} knifed ${b.userData.name}`);
                                 const killer = scores.find(s => s.name === ownerData.name);
                                 if(killer) killer.score += 100;
+                                if (gameMode === 'gungame') {
+                                    promoteBot(bots.find(bot => bot.userData.id === ownerData.id));
+                                    if (b.userData.gunGameIndex > 0) b.userData.gunGameIndex--;
+                                }
                                 respawnEntity(b, false);
                             }
                         }
@@ -2165,6 +2244,13 @@
             document.getElementById('health-display').style.color = "#0f0";
             document.getElementById('ammo-display').innerText = `${ammo} / ${currentWeapon.maxAmmo}`;
             
+            if (gameMode === 'gungame') {
+                playerGunGameIndex = 0;
+                const startWep = WEAPONS[GUN_GAME_PROGRESSION[0]];
+                playerInventory = [{ def: startWep, ammo: startWep.maxAmmo }];
+                switchWeapon(0);
+            }
+
             bots.forEach(b => scene.remove(b));
             bots = [];
             flags.forEach(f => scene.remove(f.mesh));
@@ -2682,6 +2768,7 @@
                     scene.remove(p); projectiles.splice(i, 1); continue;
                 }
 
+                let hitBot = false;
                 for(let bIdx = 0; bIdx < bots.length; bIdx++) {
                     const bot = bots[bIdx];
                     // Friendly Fire Check
@@ -2696,6 +2783,9 @@
                         if (p.userData.ownerId === "player" && bot.userData.hp <= 0) {
                             playerKillstreak++;
                             checkKillstreakRewards();
+                            if (gameMode === 'gungame') {
+                                promotePlayer();
+                            }
                         }
                         
                         // Update Health Bar
@@ -2720,6 +2810,9 @@
                             }
                             const killer = scores.find(s => s.name === p.userData.ownerName);
                             if(killer) killer.score += 100;
+                            if (gameMode === 'gungame' && p.userData.ownerId !== 'player') {
+                                promoteBot(bots.find(b => b.userData.id === p.userData.ownerId));
+                            }
                             respawnEntity(bot, false);
                         } else {
                             // Flash bot red
