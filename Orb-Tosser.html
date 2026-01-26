@@ -78,6 +78,8 @@
             padding-bottom: 50px;
             color: #0ff;
             z-index: 100;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
         }
         #overlay::-webkit-scrollbar { width: 8px; }
         #overlay::-webkit-scrollbar-track { background: #000; }
@@ -184,11 +186,6 @@
         <button class="btn" onclick="saveLayout()">SAVE & EXIT</button>
         <button class="btn" onclick="resetLayout()" style="background: #900;">RESET DEFAULT</button>
     </div>
-    <select id="mobile-sensitivity" style="position:absolute; top:10px; right:10px; z-index:500; display:none;">
-        <option value="1.0">Sensitivity: Normal</option>
-        <option value="0.5">Sensitivity: Slow</option>
-        <option value="2.0">Sensitivity: Fast</option>
-    </select>
     
     <div id="intro-screen" style="position:absolute; top:0; left:0; width:100%; height:100%; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:400; opacity:1; transition: opacity 1s ease;">
         <h1 style="font-size: 60px; color: #0ff; animation: flicker 3s infinite alternate;">ORB TOSSER</h1>
@@ -220,7 +217,7 @@
         <button class="btn" onclick="quitGame()" style="background: #900; color: #fff; margin-top: 10px;">QUIT GAME</button>
     </div>
 
-    <div id="settings-menu" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); padding:40px; border:2px solid #0ff; border-radius:10px; flex-direction:column; gap:20px; z-index:300; color:#0ff; width:400px;">
+    <div id="settings-menu" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); padding:40px; border:2px solid #0ff; border-radius:10px; flex-direction:column; gap:20px; z-index:300; color:#0ff; width:400px; touch-action: pan-y; -webkit-overflow-scrolling: touch; max-height: 90vh; overflow-y: auto;">
         <h2 style="text-align:center; margin-top:0;">SETTINGS</h2>
         <div style="display:flex; justify-content:space-between;"><span>Sensitivity</span> <input type="range" id="sens-slider" min="0.1" max="5.0" step="0.1" value="1.2" oninput="updateSettings()"> <span id="sens-val">1.2</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Controller Sens</span> <input type="range" id="cont-sens-slider" min="1.0" max="50.0" step="1.0" value="23.0" oninput="updateSettings()"> <span id="cont-sens-val">23.0</span></div>
@@ -451,7 +448,6 @@
                 loadLayout();
                 setupDragDrop();
                 document.getElementById('health-display').style.bottom = '120px'; // Move up for controls
-                document.getElementById('mobile-sensitivity').style.display = 'block';
                 
                 // iOS Optimization: Prevent scrolling/zooming but allow UI interaction
                 document.addEventListener('touchmove', (e) => {
@@ -565,7 +561,6 @@
                 btn.style.width = '180px';
                 btn.innerText = w.name.toUpperCase();
                 btn.onclick = () => startGame(key);
-                btn.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(key); });
                 const c = w.color.toString(16).padStart(6, '0');
                 btn.style.borderLeft = `5px solid #${c}`;
                 grid.appendChild(btn);
@@ -1420,8 +1415,7 @@
                         const dx = t.clientX - lastLookX;
                         const dy = t.clientY - lastLookY;
                         
-                        const sensSetting = document.getElementById('mobile-sensitivity').value;
-                        const sens = 0.005 * (parseFloat(sensSetting) || 1.0);
+                        const sens = 0.005 * 2.0; // Default to Fast (2.0)
                         const aimMult = (isAiming || ctrlIsAiming) ? 0.4 : 1.0;
 
                         camera.rotation.y -= dx * sens * aimMult;
