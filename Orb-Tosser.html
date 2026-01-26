@@ -226,6 +226,7 @@
         <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="20" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Aim Snap</span> <input type="range" id="snap-slider" min="0" max="10" step="1" value="0" oninput="updateSettings()"> <span id="snap-val">0</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Low Power Mode</span> <input type="checkbox" id="low-power-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mobile Toggle Aim</span> <input type="checkbox" id="toggle-aim-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Glossy Sky</span> <input type="checkbox" id="glossy-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>BGM Track</span> <select id="bgm-select" onchange="updateSettings()" style="background:#333; color:#fff; border:1px solid #555; width:100px; border-radius: 4px;">
             <option value="0">Action</option>
@@ -309,6 +310,7 @@
         let isChargingKnife = false;
         let knifeChargeStartTime = 0;
         let gamepadConnected = false;
+        let isToggleAim = false;
         let isLowPowerMode = false;
         let isEditingLayout = false;
         let menuSelectionIndex = 0;
@@ -1071,6 +1073,7 @@
 
         function updateSettings() {
             isLowPowerMode = document.getElementById('low-power-check').checked;
+            isToggleAim = document.getElementById('toggle-aim-check').checked;
             mouseSensitivity = document.getElementById('sens-slider').value * 0.001;
             document.getElementById('sens-val').innerText = document.getElementById('sens-slider').value;
             controllerSensitivity = parseFloat(document.getElementById('cont-sens-slider').value);
@@ -1325,14 +1328,31 @@
             const aimBtn = document.getElementById('aim-btn');
             aimBtn.addEventListener('touchstart', (e) => { 
                 if (isEditingLayout) return;
-                e.preventDefault(); isAiming = true; aimBtn.style.background = "rgba(255,255,0,0.5)"; 
-                document.getElementById('crosshair').style.opacity = '0';
-                document.getElementById('aim-dot').style.opacity = '1';
+                e.preventDefault(); 
+                if (isToggleAim) {
+                    isAiming = !isAiming;
+                    if (isAiming) {
+                        aimBtn.style.background = "rgba(255,255,0,0.5)"; 
+                        document.getElementById('crosshair').style.opacity = '0';
+                        document.getElementById('aim-dot').style.opacity = '1';
+                    } else {
+                        aimBtn.style.background = "rgba(255,255,0,0.2)"; 
+                        document.getElementById('crosshair').style.opacity = '1';
+                        document.getElementById('aim-dot').style.opacity = '0';
+                    }
+                } else {
+                    isAiming = true; aimBtn.style.background = "rgba(255,255,0,0.5)"; 
+                    document.getElementById('crosshair').style.opacity = '0';
+                    document.getElementById('aim-dot').style.opacity = '1';
+                }
             });
             aimBtn.addEventListener('touchend', (e) => { 
-                e.preventDefault(); isAiming = false; aimBtn.style.background = "rgba(255,255,0,0.2)"; 
-                document.getElementById('crosshair').style.opacity = '1';
-                document.getElementById('aim-dot').style.opacity = '0';
+                e.preventDefault(); 
+                if (!isToggleAim) {
+                    isAiming = false; aimBtn.style.background = "rgba(255,255,0,0.2)"; 
+                    document.getElementById('crosshair').style.opacity = '1';
+                    document.getElementById('aim-dot').style.opacity = '0';
+                }
             });
             
             // Mobile Fire
@@ -1808,6 +1828,14 @@
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'none';
                 document.getElementById('mobile-pause-btn').style.display = 'none';
+            }
+
+            if (isAiming) {
+                isAiming = false;
+                document.getElementById('crosshair').style.opacity = '1';
+                document.getElementById('aim-dot').style.opacity = '0';
+                const aimBtn = document.getElementById('aim-btn');
+                if(aimBtn) aimBtn.style.background = "rgba(255,255,0,0.2)";
             }
         }
 
