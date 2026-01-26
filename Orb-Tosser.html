@@ -256,11 +256,11 @@
     <div id="mobile-controls">
         <div id="look-zone" style="position:absolute; top:0; right:0; width:60%; height:100%; z-index:15; touch-action:none;"></div>
         <div id="move-stick" class="joystick-area" style="position:absolute; bottom:40px; left:40px;"></div>
-        <div id="fire-btn" class="fire-button" style="position:absolute; bottom:40px; right:40px; width:80px; height:80px; z-index:20;">FIRE</div>
-        <div id="jump-btn" class="fire-button" style="position:absolute; bottom:140px; right:30px; width:60px; height:60px; font-size:12px; z-index:20;">JUMP</div>
-        <div id="crouch-btn" class="fire-button" style="position:absolute; bottom:30px; right:140px; width:60px; height:60px; font-size:12px; z-index:20;">SLIDE</div>
-        <div id="aim-btn" class="fire-button" style="position:absolute; bottom:130px; right:110px; width:60px; height:60px; font-size:12px; z-index:20;">AIM</div>
-        <div id="reload-btn" class="fire-button" style="position:absolute; bottom:200px; right:20px; width:50px; height:50px; font-size:10px; z-index:20;">RELOAD</div>
+        <div id="fire-btn" class="fire-button" style="position:absolute; bottom:60px; right:100px; width:80px; height:80px; z-index:20;">FIRE</div>
+        <div id="jump-btn" class="fire-button" style="position:absolute; bottom:20px; right:20px; width:60px; height:60px; font-size:12px; z-index:20;">JUMP</div>
+        <div id="crouch-btn" class="fire-button" style="position:absolute; bottom:20px; right:200px; width:60px; height:60px; font-size:12px; z-index:20;">SLIDE</div>
+        <div id="aim-btn" class="fire-button" style="position:absolute; bottom:140px; right:30px; width:60px; height:60px; font-size:12px; z-index:20;">AIM</div>
+        <div id="reload-btn" class="fire-button" style="position:absolute; bottom:220px; right:30px; width:50px; height:50px; font-size:10px; z-index:20;">RELOAD</div>
     </div>
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
@@ -2018,6 +2018,10 @@
             bots = [];
             flags.forEach(f => scene.remove(f.mesh));
             flags = [];
+            if (gameMode === 'ctf') {
+                flags.push(createFlag('blue', 0, -35));
+                flags.push(createFlag('red', 0, 35));
+            }
             for(let i=0; i<botCount; i++) spawnBot();
             respawnEntity(null, true);
             renderer.domElement.requestPointerLock();
@@ -2060,10 +2064,9 @@
                         flag.mesh.position.y = 2; // Above head
 
                         // Check for capture (touching own base)
-                        const ownBase = flags.find(f => f.team !== flag.team); // The other flag is at our base? No, find flag of MY team
                         const myFlag = flags.find(f => f.team === (flag.carrier === 'player' ? 'blue' : flag.carrier.userData.team));
                         
-                        if (myFlag.isHome) {
+                        if (myFlag && myFlag.isHome) {
                             const distToBase = pos.distanceTo(myFlag.basePos);
                             if (distToBase < 2.0) {
                                 // CAPTURE!
