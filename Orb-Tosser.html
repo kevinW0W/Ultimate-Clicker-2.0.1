@@ -82,6 +82,10 @@
         #overlay::-webkit-scrollbar { width: 8px; }
         #overlay::-webkit-scrollbar-track { background: #000; }
         #overlay::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
+        #layout-editor-ui {
+            display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 600; gap: 10px;
+        }
         #main-menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: none;
@@ -176,6 +180,10 @@
         <button class="btn" onclick="openSettings()" style="margin-top: 20px; background: #555; color: #fff;">SETTINGS</button>
         <p style="font-size: 14px; color: #fff; margin-top: 30px;">WASD to Move | SPACE to Jump | MOUSE to Look & Shoot</p>
     </div>
+    <div id="layout-editor-ui">
+        <button class="btn" onclick="saveLayout()">SAVE & EXIT</button>
+        <button class="btn" onclick="resetLayout()" style="background: #900;">RESET DEFAULT</button>
+    </div>
     <select id="mobile-sensitivity" style="position:absolute; top:10px; right:10px; z-index:500; display:none;">
         <option value="1.0">Sensitivity: Normal</option>
         <option value="0.5">Sensitivity: Slow</option>
@@ -228,6 +236,7 @@
         <div style="display:flex; justify-content:space-between;"><span>Music Vol</span> <input type="range" id="music-slider" min="0" max="1" step="0.1" value="0.3" oninput="updateSettings()"> <span id="music-val">0.3</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Render Scale</span> <input type="range" id="res-slider" min="0.2" max="1.5" step="0.1" value="1.0" oninput="updateSettings()"> <span id="res-val">1.0</span></div>
         <div style="text-align:center; margin-top:10px; font-size:12px; color:#aaa;">LOWER SCALE = HIGHER FPS</div>
+        <button class="btn" onclick="startLayoutEdit()" style="width:100%; margin-top:10px; background:#008888;">EDIT MOBILE LAYOUT</button>
         <div style="display:flex; justify-content:center; margin-top:20px;">
             <button class="btn" onclick="closeSettings()">CLOSE</button>
         </div>
@@ -254,13 +263,14 @@
     <div id="aim-dot"></div>
     
     <div id="mobile-controls">
-        <div id="look-zone" style="position:absolute; top:0; right:0; width:60%; height:100%; z-index:15; touch-action:none;"></div>
+        <div id="look-zone" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:15; touch-action:none; pointer-events: auto;"></div>
         <div id="move-stick" class="joystick-area" style="position:absolute; bottom:40px; left:40px;"></div>
-        <div id="fire-btn" class="fire-button" style="position:absolute; bottom:60px; right:100px; width:80px; height:80px; z-index:20;">FIRE</div>
-        <div id="jump-btn" class="fire-button" style="position:absolute; bottom:20px; right:20px; width:60px; height:60px; font-size:12px; z-index:20;">JUMP</div>
-        <div id="crouch-btn" class="fire-button" style="position:absolute; bottom:20px; right:200px; width:60px; height:60px; font-size:12px; z-index:20;">SLIDE</div>
-        <div id="aim-btn" class="fire-button" style="position:absolute; bottom:140px; right:30px; width:60px; height:60px; font-size:12px; z-index:20;">AIM</div>
-        <div id="reload-btn" class="fire-button" style="position:absolute; bottom:220px; right:30px; width:50px; height:50px; font-size:10px; z-index:20;">RELOAD</div>
+        <!-- Pro Layout inspired by popular mobile FPS games -->
+        <div id="crouch-btn" class="fire-button" style="position:absolute; bottom:40px; left:160px; width:70px; height:70px; font-size:12px; z-index:20;">SLIDE</div>
+        <div id="fire-btn" class="fire-button" style="position:absolute; bottom:40px; right:40px; width:90px; height:90px; z-index:20;">FIRE</div>
+        <div id="reload-btn" class="fire-button" style="position:absolute; bottom:50px; right:150px; width:60px; height:60px; font-size:10px; z-index:20;">RELOAD</div>
+        <div id="jump-btn" class="fire-button" style="position:absolute; bottom:150px; right:140px; width:70px; height:70px; font-size:12px; z-index:20;">JUMP</div>
+        <div id="aim-btn" class="fire-button" style="position:absolute; bottom:150px; right:40px; width:70px; height:70px; font-size:12px; z-index:20;">AIM</div>
     </div>
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
@@ -300,6 +310,7 @@
         let isChargingKnife = false;
         let knifeChargeStartTime = 0;
         let gamepadConnected = false;
+        let isEditingLayout = false;
         let menuSelectionIndex = 0;
         let currentMenuItems = [];
         let activeMenu = null;
@@ -437,6 +448,8 @@
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
                 document.getElementById('mobile-pause-btn').style.display = 'flex';
+                loadLayout();
+                setupDragDrop();
                 document.getElementById('health-display').style.bottom = '120px'; // Move up for controls
                 document.getElementById('mobile-sensitivity').style.display = 'block';
                 document.addEventListener('touchstart', preventZoom, { passive: false });
@@ -1272,6 +1285,7 @@
             // Mobile Aim
             const aimBtn = document.getElementById('aim-btn');
             aimBtn.addEventListener('touchstart', (e) => { 
+                if (isEditingLayout) return;
                 e.preventDefault(); isAiming = true; aimBtn.style.background = "rgba(255,255,0,0.5)"; 
                 document.getElementById('crosshair').style.opacity = '0';
                 document.getElementById('aim-dot').style.opacity = '1';
@@ -1285,6 +1299,7 @@
             // Mobile Fire
             const fireBtn = document.getElementById('fire-btn');
             fireBtn.addEventListener('touchstart', (e) => { 
+                if (isEditingLayout) return;
                 e.preventDefault(); 
                 isFiring = true;
                 fireProjectile(camera, { name: "Player", id: "player" }); 
@@ -1293,11 +1308,15 @@
             fireBtn.addEventListener('touchend', (e) => { e.preventDefault(); isFiring = false; fireBtn.style.background = "rgba(0,255,255,0.2)"; });
 
             const reloadBtn = document.getElementById('reload-btn');
-            reloadBtn.addEventListener('touchstart', (e) => { e.preventDefault(); reload(); reloadBtn.style.background = "rgba(255,255,255,0.5)"; });
+            reloadBtn.addEventListener('touchstart', (e) => { 
+                if (isEditingLayout) return;
+                e.preventDefault(); reload(); reloadBtn.style.background = "rgba(255,255,255,0.5)"; 
+            });
             reloadBtn.addEventListener('touchend', (e) => { e.preventDefault(); reloadBtn.style.background = "rgba(255,255,255,0.2)"; });
 
             const jumpBtn = document.getElementById('jump-btn');
             jumpBtn.addEventListener('touchstart', (e) => { 
+                if (isEditingLayout) return;
                 e.preventDefault(); 
                 if(canJump && !isSliding) { velocity.y = JUMP_FORCE; canJump = false; }
                 jumpBtn.style.background = "rgba(255,255,255,0.5)"; 
@@ -1306,6 +1325,7 @@
 
             const crouchBtn = document.getElementById('crouch-btn');
             crouchBtn.addEventListener('touchstart', (e) => { 
+                if (isEditingLayout) return;
                 e.preventDefault(); 
                 if (isSprinting && canJump) {
                     isSliding = true; isCrouching = true; slideEndTime = Date.now() + 700;
@@ -1320,6 +1340,7 @@
 
             const pauseBtn = document.getElementById('mobile-pause-btn');
             pauseBtn.addEventListener('touchstart', (e) => { 
+                if (isEditingLayout) return;
                 e.preventDefault(); 
                 document.getElementById('pause-menu').style.display = 'flex';
             });
@@ -1331,6 +1352,7 @@
             joystick.appendChild(knob);
 
             const handleJoystick = (e) => {
+                if (isEditingLayout) return;
                 e.preventDefault();
                 const touch = e.targetTouches ? e.targetTouches[0] : e;
                 const rect = joystick.getBoundingClientRect();
@@ -1366,6 +1388,7 @@
             let lastLookX = 0, lastLookY = 0, lookTouchId = null;
             
             lookZone.addEventListener('touchstart', (e) => {
+                if (isEditingLayout) return;
                 e.preventDefault();
                 const t = e.changedTouches[0];
                 lookTouchId = t.identifier;
@@ -1374,6 +1397,7 @@
             });
 
             lookZone.addEventListener('touchmove', (e) => {
+                if (isEditingLayout) return;
                 e.preventDefault();
                 for(let i=0; i<e.changedTouches.length; i++) {
                     if(e.changedTouches[i].identifier === lookTouchId) {
@@ -1393,6 +1417,73 @@
                     }
                 }
             });
+        }
+
+        function setupDragDrop() {
+            const draggables = document.querySelectorAll('.fire-button, .joystick-area');
+            let activeDrag = null;
+            let offset = { x: 0, y: 0 };
+
+            draggables.forEach(el => {
+                el.addEventListener('touchstart', (e) => {
+                    if (!isEditingLayout) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    activeDrag = el;
+                    const touch = e.touches[0];
+                    const rect = el.getBoundingClientRect();
+                    offset.x = touch.clientX - rect.left;
+                    offset.y = touch.clientY - rect.top;
+                }, { passive: false });
+            });
+
+            document.addEventListener('touchmove', (e) => {
+                if (!isEditingLayout || !activeDrag) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                activeDrag.style.position = 'absolute';
+                activeDrag.style.right = 'auto';
+                activeDrag.style.bottom = 'auto';
+                activeDrag.style.left = (touch.clientX - offset.x) + 'px';
+                activeDrag.style.top = (touch.clientY - offset.y) + 'px';
+            }, { passive: false });
+
+            document.addEventListener('touchend', () => { activeDrag = null; });
+        }
+
+        function startLayoutEdit() {
+            isEditingLayout = true;
+            closeSettings();
+            document.getElementById('mobile-controls').style.display = 'block';
+            document.getElementById('layout-editor-ui').style.display = 'flex';
+            document.querySelectorAll('.fire-button, .joystick-area').forEach(el => {
+                el.style.border = '2px dashed #ff0';
+                el.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
+            });
+        }
+
+        function saveLayout() {
+            const controls = ['move-stick', 'crouch-btn', 'fire-btn', 'reload-btn', 'jump-btn', 'aim-btn'];
+            const config = {};
+            controls.forEach(id => {
+                const el = document.getElementById(id);
+                config[id] = { left: el.style.left, top: el.style.top };
+            });
+            localStorage.setItem('orbTosserLayout', JSON.stringify(config));
+            isEditingLayout = false;
+            document.getElementById('layout-editor-ui').style.display = 'none';
+            document.querySelectorAll('.fire-button, .joystick-area').forEach(el => { el.style.border = ''; el.style.backgroundColor = ''; });
+            openSettings();
+        }
+
+        function resetLayout() { localStorage.removeItem('orbTosserLayout'); location.reload(); }
+
+        function loadLayout() {
+            const layout = localStorage.getItem('orbTosserLayout');
+            if (layout) {
+                const config = JSON.parse(layout);
+                for (const id in config) { const el = document.getElementById(id); if (el) { el.style.left = config[id].left; el.style.top = config[id].top; el.style.right = 'auto'; el.style.bottom = 'auto'; } }
+            }
         }
 
         function updateMenuNavigation() {
