@@ -254,11 +254,15 @@
     <div id="aim-dot"></div>
     
     <div id="mobile-controls">
-        <div id="move-stick" class="joystick-area"></div>
-        <div id="aim-btn" class="fire-button">AIM</div>
-        <div id="fire-btn" class="fire-button">TOSS</div>
-        <div id="reload-btn" class="fire-button" style="position:absolute; bottom:120px; right:40px; width:50px; height:50px; font-size:10px;">RELOAD</div>
+        <div id="look-zone" style="position:absolute; top:0; right:0; width:60%; height:100%; z-index:15; touch-action:none;"></div>
+        <div id="move-stick" class="joystick-area" style="position:absolute; bottom:40px; left:40px;"></div>
+        <div id="fire-btn" class="fire-button" style="position:absolute; bottom:40px; right:40px; width:80px; height:80px; z-index:20;">FIRE</div>
+        <div id="jump-btn" class="fire-button" style="position:absolute; bottom:140px; right:30px; width:60px; height:60px; font-size:12px; z-index:20;">JUMP</div>
+        <div id="crouch-btn" class="fire-button" style="position:absolute; bottom:30px; right:140px; width:60px; height:60px; font-size:12px; z-index:20;">SLIDE</div>
+        <div id="aim-btn" class="fire-button" style="position:absolute; bottom:130px; right:110px; width:60px; height:60px; font-size:12px; z-index:20;">AIM</div>
+        <div id="reload-btn" class="fire-button" style="position:absolute; bottom:200px; right:20px; width:50px; height:50px; font-size:10px; z-index:20;">RELOAD</div>
     </div>
+    <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
@@ -431,10 +435,9 @@
             const isIpad = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             isMobile = isTouch && (isMobileUA || isIpad || window.innerWidth < 1100); // Hides on touch laptops
             if (isMobile) {
-                document.getElementById('mobile-controls').style.display = 'flex';
+                document.getElementById('mobile-controls').style.display = 'block';
+                document.getElementById('mobile-pause-btn').style.display = 'flex';
                 document.getElementById('health-display').style.bottom = '120px'; // Move up for controls
-                document.getElementById('aim-btn').style.right = '120px';
-                document.getElementById('fire-btn').style.right = '40px';
                 document.getElementById('mobile-sensitivity').style.display = 'block';
                 document.addEventListener('touchstart', preventZoom, { passive: false });
                 document.addEventListener('wheel', preventZoom, { passive: false });
@@ -966,7 +969,11 @@
         }
 
         function resumeGame() {
-            renderer.domElement.requestPointerLock();
+            if (isMobile) {
+                document.getElementById('pause-menu').style.display = 'none';
+            } else {
+                renderer.domElement.requestPointerLock();
+            }
         }
 
         function quitGame() {
@@ -1289,6 +1296,34 @@
             reloadBtn.addEventListener('touchstart', (e) => { e.preventDefault(); reload(); reloadBtn.style.background = "rgba(255,255,255,0.5)"; });
             reloadBtn.addEventListener('touchend', (e) => { e.preventDefault(); reloadBtn.style.background = "rgba(255,255,255,0.2)"; });
 
+            const jumpBtn = document.getElementById('jump-btn');
+            jumpBtn.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                if(canJump && !isSliding) { velocity.y = JUMP_FORCE; canJump = false; }
+                jumpBtn.style.background = "rgba(255,255,255,0.5)"; 
+            });
+            jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); jumpBtn.style.background = "rgba(0,255,255,0.2)"; });
+
+            const crouchBtn = document.getElementById('crouch-btn');
+            crouchBtn.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                if (isSprinting && canJump) {
+                    isSliding = true; isCrouching = true; slideEndTime = Date.now() + 700;
+                    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
+                    velocity.x += forward.x * 15; velocity.z += forward.z * 15; canJump = false;
+                } else { isCrouching = true; }
+                crouchBtn.style.background = "rgba(255,255,255,0.5)"; 
+            });
+            crouchBtn.addEventListener('touchend', (e) => { 
+                e.preventDefault(); isCrouching = false; crouchBtn.style.background = "rgba(0,255,255,0.2)"; 
+            });
+
+            const pauseBtn = document.getElementById('mobile-pause-btn');
+            pauseBtn.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                document.getElementById('pause-menu').style.display = 'flex';
+            });
+
             // Joystick Logic
             const joystick = document.getElementById('move-stick');
             const knob = document.createElement('div');
@@ -1324,6 +1359,39 @@
                 e.preventDefault();
                 joystickVector = { x: 0, y: 0 };
                 knob.style.transform = `translate(-50%, -50%)`;
+            });
+
+            // Touch Look Logic
+            const lookZone = document.getElementById('look-zone');
+            let lastLookX = 0, lastLookY = 0, lookTouchId = null;
+            
+            lookZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const t = e.changedTouches[0];
+                lookTouchId = t.identifier;
+                lastLookX = t.clientX;
+                lastLookY = t.clientY;
+            });
+
+            lookZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for(let i=0; i<e.changedTouches.length; i++) {
+                    if(e.changedTouches[i].identifier === lookTouchId) {
+                        const t = e.changedTouches[i];
+                        const dx = t.clientX - lastLookX;
+                        const dy = t.clientY - lastLookY;
+                        const sens = 0.005 * (parseFloat(document.getElementById('sens-slider').value) || 1.0);
+                        const aimMult = isAiming ? 0.4 : 1.0;
+                        
+                        camera.rotation.y -= dx * sens * aimMult;
+                        camera.rotation.x -= dy * sens * aimMult;
+                        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+                        
+                        lastLookX = t.clientX;
+                        lastLookY = t.clientY;
+                        break;
+                    }
+                }
             });
         }
 
