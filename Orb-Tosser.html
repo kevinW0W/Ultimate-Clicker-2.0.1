@@ -2080,6 +2080,9 @@
                                 if (gameMode === 'gungame') {
                                     promotePlayer();
                                     if (botGroup.userData.gunGameIndex > 0) botGroup.userData.gunGameIndex--; // Demote bot
+                                } else if (gameMode === 'tdm') {
+                                    teamScores.blue++;
+                                    updateTeamScores();
                                 }
                                 respawnEntity(botGroup, false);
                             } else {
@@ -2117,6 +2120,9 @@
                                         switchWeapon(0);
                                         logFeed(`<span style="color:#f00">DEMOTED to ${prevWep.name}</span>`);
                                     }
+                                } else if (gameMode === 'tdm') {
+                                    if (ownerData.team === 'red') teamScores.red++;
+                                    updateTeamScores();
                                 }
                                 handlePlayerDeath();
                             }
@@ -2579,7 +2585,25 @@
 
                 // Idle behavior if no target
                 if (!target) {
-                    bot.rotation.y += 0.01; // Slowly look around
+                    // Roaming Logic
+                    if (!bot.userData.roamTarget || bot.position.distanceTo(bot.userData.roamTarget) < 3) {
+                        // Pick a random spot within map bounds
+                        bot.userData.roamTarget = new THREE.Vector3(
+                            (Math.random() - 0.5) * 60,
+                            0.9,
+                            (Math.random() - 0.5) * 60
+                        );
+                    }
+                    
+                    bot.lookAt(bot.userData.roamTarget.x, 0.9, bot.userData.roamTarget.z);
+                    const moveDir = new THREE.Vector3(0, 0, 1).applyQuaternion(bot.quaternion);
+                    const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
+                    
+                    if(!checkCollision(nextPos.x, nextPos.z)) {
+                        bot.position.copy(nextPos);
+                    } else {
+                        bot.userData.roamTarget = null;
+                    }
                     return;
                 }
 
@@ -2792,6 +2816,10 @@
                             logFeed(`<span style="color:#f88">${p.userData.ownerName} killed YOU!</span>`);
                             const killer = scores.find(s => s.name === p.userData.ownerName);
                             if(killer) killer.score += 100;
+                            if (gameMode === 'tdm') {
+                                if (p.userData.team === 'red') teamScores.red++;
+                                updateTeamScores();
+                            }
                             handlePlayerDeath();
                         } else {
                             // Hit marker effect?
@@ -2844,6 +2872,11 @@
                             }
                             const killer = scores.find(s => s.name === p.userData.ownerName);
                             if(killer) killer.score += 100;
+                            if (gameMode === 'tdm') {
+                                if (p.userData.team === 'blue') teamScores.blue++;
+                                else if (p.userData.team === 'red') teamScores.red++;
+                                updateTeamScores();
+                            }
                             if (gameMode === 'gungame' && p.userData.ownerId !== 'player') {
                                 promoteBot(bots.find(b => b.userData.id === p.userData.ownerId));
                             }
