@@ -2428,8 +2428,26 @@
                 gameTime = 0;
                 isGameOver = true;
                 document.getElementById('game-over-screen').style.display = 'flex';
-                document.getElementById('final-scores').innerHTML = document.getElementById('leaderboard').innerHTML;
-                document.exitPointerLock();
+                
+                let winMsg = "";
+                if (gameMode === 'tdm' || gameMode === 'ctf') {
+                    if (teamScores.blue > teamScores.red) {
+                        winMsg = `<h1 style="color:#44f">BLUE TEAM WINS!</h1>`;
+                    } else if (teamScores.red > teamScores.blue) {
+                        winMsg = `<h1 style="color:#f44">RED TEAM WINS!</h1>`;
+                    } else {
+                        winMsg = `<h1 style="color:#fff">MATCH TIED!</h1>`;
+                    }
+                } else {
+                    scores.sort((a, b) => b.score - a.score);
+                    const winner = scores[0];
+                    winMsg = (winner.name === 'Player') ? 
+                        `<h1 style="color:#0f0">YOU WON!</h1>` : 
+                        `<h1 style="color:#f00">${winner.name} WON!</h1>`;
+                }
+
+                document.getElementById('final-scores').innerHTML = winMsg + document.getElementById('leaderboard').innerHTML;
+                if (document.pointerLockElement) document.exitPointerLock();
                 return;
             }
             const mins = Math.floor(gameTime / 60);
