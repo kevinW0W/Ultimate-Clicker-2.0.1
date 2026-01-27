@@ -2344,7 +2344,7 @@
                         
                         if (myFlag && myFlag.isHome) {
                             const distToBase = pos.distanceTo(myFlag.basePos);
-                            if (distToBase < 2.0) {
+                            if (distToBase < 2.5) {
                                 // CAPTURE!
                                 teamScores[myFlag.team]++;
                                 updateTeamScores();
@@ -2360,7 +2360,7 @@
                     } else {
                         // Check for pickup
                         // Player
-                        if (playerHealth > 0 && camera.position.distanceTo(flag.mesh.position) < 1.5) {
+                        if (playerHealth > 0 && camera.position.distanceTo(flag.mesh.position) < 2.5) {
                             if (flag.team !== 'blue') { // Enemy flag
                                 flag.carrier = 'player';
                                 flag.isHome = false;
@@ -2375,7 +2375,7 @@
                         }
                         // Bots
                         bots.forEach(bot => {
-                            if (bot.userData.hp > 0 && bot.position.distanceTo(flag.mesh.position) < 1.5) {
+                            if (bot.userData.hp > 0 && bot.position.distanceTo(flag.mesh.position) < 2.5) {
                                 if (flag.team !== bot.userData.team) {
                                     flag.carrier = bot;
                                     flag.isHome = false;
