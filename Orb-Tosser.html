@@ -483,7 +483,7 @@
             projectileGeo = new THREE.SphereGeometry(0.1, 6, 6); // Lower poly
             projectileMatPlayer = new THREE.MeshBasicMaterial({ color: 0x00ffff });
             projectileMatEnemy = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-            wallMat = new THREE.MeshStandardMaterial({ color: 0xccbb77, roughness: 0.05, metalness: 0.6 });
+            wallMat = new THREE.MeshStandardMaterial({ color: 0xccbb77, roughness: 0.1, metalness: 0.6 });
             botBodyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.0, 8);
             botHeadGeo = new THREE.SphereGeometry(0.4, 8, 8);
 
@@ -502,12 +502,19 @@
             renderer.shadowMap.enabled = false; // Disable shadows for performance
             document.body.appendChild(renderer.domElement);
 
-            const cubeLoader = new THREE.CubeTextureLoader();
-            const envMap = cubeLoader.load([
-                'https://threejs.org/examples/textures/cube/Park3Med/px.jpg', 'https://threejs.org/examples/textures/cube/Park3Med/nx.jpg',
-                'https://threejs.org/examples/textures/cube/Park3Med/py.jpg', 'https://threejs.org/examples/textures/cube/Park3Med/ny.jpg',
-                'https://threejs.org/examples/textures/cube/Park3Med/pz.jpg', 'https://threejs.org/examples/textures/cube/Park3Med/nz.jpg'
-            ]);
+           const cubeLoader = new THREE.CubeTextureLoader();
+
+
+// This path is verified on the JSDelivr CDN
+const baseUrl = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r150/examples/textures/cube/Park2/';
+
+const envMap = cubeLoader.load([
+    baseUrl + 'posx.jpg', baseUrl + 'negx.jpg',
+    baseUrl + 'posy.jpg', baseUrl + 'negy.jpg',
+    baseUrl + 'posz.jpg', baseUrl + 'negz.jpg'
+]);
+
+
             defaultEnvMap = envMap;
             scene.environment = envMap;
 
@@ -526,7 +533,7 @@
             const floorGeo = new THREE.PlaneGeometry(200, 200);
             const floorMat = new THREE.MeshStandardMaterial({ 
                 color: 0x998844,
-                roughness: 0.05,
+                roughness: 0.1,
                 metalness: 0.6
             });
             const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -542,7 +549,7 @@
             }
 
             // Create a reusable mesh for the thrown knife
-            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5, metalness: 0.2 }));
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.09, metalness: 0.2 }));
             const blade = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.03, 0.25), new THREE.MeshLambertMaterial({color: 0xcccccc}));
             blade.position.z = 0.2;
             thrownKnifeMesh = new THREE.Group();
@@ -589,8 +596,8 @@
 
         function createWeaponMesh(type, color) {
             const group = new THREE.Group();
-            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.2, metalness: 0.8 });
-            const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2, metalness: 0.5 });
+            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.09, metalness: 0.8 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.09, metalness: 0.5 });
             
             if (type.includes('Sniper') || type === 'AWP' || type === 'SSG 08' || type === 'Barrett .50' || type === 'Kar98k' || type === 'Musket') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.6), mat);
@@ -622,7 +629,7 @@
                 box.position.set(0, -0.1, 0.2);
                 group.add(body, barrel, box);
             } else if (type.includes('Knife') || type.includes('Kunai') || type === 'Karambit' || type === 'Butterfly Knife' || type === 'M9 Bayonet' || type === 'Huntsman Knife' || type === 'Bowie Knife' || type === 'Shadow Daggers') {
-                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5, metalness: 0.2 }));
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.09, metalness: 0.2 }));
                 const blade = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.03, 0.25), new THREE.MeshLambertMaterial({color: 0xcccccc}));
                 blade.position.z = 0.2;
                 group.add(handle, blade);
@@ -1091,15 +1098,23 @@
             aimSnap = parseInt(document.getElementById('snap-slider').value);
             document.getElementById('snap-val').innerText = aimSnap;
             
-            const useGlossy = document.getElementById('glossy-check').checked;
-            if (useGlossy && !isLowPowerMode) {
-                if (!glossyTexture) glossyTexture = new THREE.TextureLoader().load('https://static.pbslearningmedia.org/media/assets/buac18-vid-sunpattern-poster.png');
-                scene.background = glossyTexture;
-                scene.environment = glossyTexture;
-            } else {
-                scene.background = new THREE.Color(0xd2b48c);
-                scene.environment = defaultEnvMap;
-            }
+           const glossyCheck = document.getElementById('glossy-check');
+const useGlossy = glossyCheck ? glossyCheck.checked : false;
+
+if (useGlossy && !isLowPowerMode) {
+    if (!glossyTexture) {
+        glossyTexture = new THREE.TextureLoader().load('https://static.pbslearningmedia.org/media/assets/buac18-vid-sunpattern-poster.png');
+        
+        // This line is the CRITICAL fix:
+        glossyTexture.mapping = THREE.EquirectangularReflectionMapping;
+    }
+    
+    scene.background = glossyTexture;
+    scene.environment = glossyTexture;
+} else {
+    scene.background = new THREE.Color(0xd2b48c);
+    scene.environment = defaultEnvMap; 
+}
             
             const vol = parseFloat(document.getElementById('music-slider').value);
             gameBgm.volume = vol;
