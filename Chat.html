@@ -8,8 +8,6 @@
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- MQTT.js for Real-time messaging -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap');
@@ -109,7 +107,7 @@
       
       <!-- System Controls & Custom Domain / Local status indicator -->
       <div class="flex items-center space-x-2 text-xs mt-1 sm:mt-0">
-        <span id="networkStatus" class="px-2 py-1 bg-green-950 border border-green-500 text-green-400 rounded">
+        <span id="networkStatus" class="px-2 py-1 bg-green-950 border border-green-500 text-green-400 rounded font-bold uppercase">
           LOCAL_IP / WAN
         </span>
         <button id="themeToggle" class="px-2 py-1 bg-neutral-900 border border-green-500 hover:bg-green-500 hover:text-black rounded transition text-xs">
@@ -194,7 +192,7 @@
         <!-- CRT Top Panel Banner -->
         <div class="bg-neutral-900 px-3 py-1.5 flex justify-between items-center text-xs border-b border-green-500/30">
           <span class="font-mono text-neutral-400">TTY: /dev/pts/1 - ACTIVE PORT</span>
-          <span id="connectionStatusText" class="text-red-500 animate-pulse uppercase">DISCONNECTED</span>
+          <span id="connectionStatusText" class="text-green-500 uppercase font-bold">ONLINE</span>
         </div>
 
         <!-- REPLIES / QUOTE INDICATOR OVERLAY -->
@@ -263,7 +261,7 @@
       </div>
 
       <div class="mt-3 flex justify-between items-center text-xs text-neutral-400">
-        <span>Requires: <code class="text-cyan-300 font-bold">pip install paho-mqtt</code></span>
+        <span>No installation required! Uses Python standard libraries.</span>
         <button onclick="toggleTerminalCodeModal()" class="px-4 py-1.5 border border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black rounded font-bold transition">
           DONE
         </button>
@@ -304,12 +302,9 @@
     var replyTarget = null; // Currently selected message for reply quote
     var latestReplyQuotes = []; // Last 5 quote blocks saved (History replies limit 5)
     var clientID = "client_" + Math.floor(Math.random() * 100000);
-    var mqttClient = null;
 
-    // Dual Engine Fallback Tracking
-    var isFallbackMode = false; 
-    var lastFallbackPollTimestamp = 0;
-    var fallbackPollInterval = null;
+    var lastPollTimestamp = 0;
+    var pollInterval = null;
 
     // AUDIO CONTEXT for iOS safe beep notification (WebKit Fallback)
     var AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -339,9 +334,14 @@
     }
 
     // Set Domain/Local info
-    document.getElementById('networkStatus').innerText = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-      ? "LOCAL_HOST" 
-      : (window.location.hostname || "SANDBOX_MESSENGER");
+    var hostName = window.location.hostname || "SANDBOX_MESSENGER";
+    if (hostName === 'localhost' || hostName === '127.0.0.1') {
+      document.getElementById('networkStatus').innerText = "HOST: LOCALHOST";
+    } else if (hostName === "SANDBOX_MESSENGER") {
+      document.getElementById('networkStatus').innerText = "HOST: CANVAS PORTAL";
+    } else {
+      document.getElementById('networkStatus').innerText = "HOST: " + hostName.toUpperCase();
+    }
 
     // Initialize Theme
     function applyTheme(theme) {
@@ -388,21 +388,13 @@
 # CYBER-NET CLIENT: PORTABLE TERMINAL CHAT
 # ==========================================
 # Run on any device linked to Wifi! Keep terminal chat synchronized.
-# Requires: pip install paho-mqtt
+# Built using standard libraries -- NO extra installations needed!
 #
-import os, sys, json, time, threading
-
-try:
-    import paho.mqtt.client as mqtt
-except ImportError:
-    print("[ERROR] Please install paho-mqtt to proceed! Command: pip install paho-mqtt")
-    sys.exit(1)
+import os, sys, json, time, threading, urllib.request, urllib.parse
 
 # App parameters
-BROKER = "broker.hivemq.com"
-PORT = 1883
 CHANNEL = "${channelName}"
-TOPIC = f"cybernet/mesh/{CHANNEL}"
+FALLBACK_URL = f"https://ntfy.sh/cybernet_mesh_{CHANNEL}"
 CLIENT_ID = f"py_cli_{int(time.time())}"
 
 # User Preferences
@@ -412,6 +404,7 @@ PEERS = {}  # Track online users
 MY_LOGS = [] # Track last sent messages for /edit capability
 MESSAGE_HISTORY = []  # Maintain up to 50 logs of others
 RECENT_QUOTES = []    # Cache last 5 quote triggers
+LAST_POLL_TIMESTAMP = int(time.time()) - 2
 
 def print_beep():
     if BEEP_ALERT:
@@ -445,87 +438,112 @@ def redraw_screen(user_input_buffer=""):
     sys.stdout.write(f"{USERNAME}@cyber:~# " + user_input_buffer)
     sys.stdout.flush()
 
-def on_connect(client, userdata, flags, rc):
-    client.subscribe(TOPIC)
-    # Broadcast discovery hello
-    discovery_payload = {
-        "type": "hello",
-        "sender": USERNAME,
-        "clientId": CLIENT_ID
-    }
-    client.publish(TOPIC, json.dumps(discovery_payload))
-
-def on_message(client, userdata, msg):
+def publish_event(data):
+    data["clientId"] = CLIENT_ID
     try:
-        data = json.loads(msg.payload.decode('utf-8'))
-        msg_type = data.get("type", "chat")
-        sender = data.get("sender", "System")
-        sender_id = data.get("clientId", "")
-
-        if sender_id == CLIENT_ID:
-            return  # Ignore self messages processed on input thread
-
-        if msg_type == "hello":
-            PEERS[sender_id] = {"username": sender, "lastSeen": time.time()}
-            # Respond with hello acknowledgment
-            ack_payload = {"type": "hello_ack", "sender": USERNAME, "clientId": CLIENT_ID}
-            client.publish(TOPIC, json.dumps(ack_payload))
-        elif msg_type == "hello_ack":
-            PEERS[sender_id] = {"username": sender, "lastSeen": time.time()}
-        elif msg_type == "chat":
-            PEERS[sender_id] = {"username": sender, "lastSeen": time.time()}
-            timestamp = time.strftime("%H:%M:%S", time.localtime())
-            
-            payload_msg = data.get("message", "")
-            # Check if mentioned
-            is_reply_to_me = False
-            rep_info = data.get("reply_info", None)
-            if rep_info and rep_info.get("user") == USERNAME:
-                is_reply_to_me = True
-
-            MESSAGE_HISTORY.append({
-                "time": timestamp,
-                "sender": sender,
-                "message": payload_msg,
-                "reply_info": rep_info,
-                "id": data.get("msgId", "")
-            })
-            
-            # Save to quote cache
-            if payload_msg:
-                RECENT_QUOTES.insert(0, {"user": sender, "text": payload_msg})
-                if len(RECENT_QUOTES) > 5: RECENT_QUOTES.pop()
-                
-            if is_reply_to_me:
-                print_beep()
-            elif BEEP_ALERT:
-                print_beep()
-                
-            redraw_screen(input_thread_state["current_text"])
-        elif msg_type == "edit":
-            edited_id = data.get("msgId", "")
-            new_text = data.get("message", "")
-            for m in MESSAGE_HISTORY:
-                if m.get("id") == edited_id:
-                    m["message"] = new_text + " (Edited)"
-            redraw_screen(input_thread_state["current_text"])
+        req = urllib.request.Request(
+            FALLBACK_URL, 
+            data=json.dumps(data).encode('utf-8'),
+            headers={
+                "Title": "Cyber Mesh Event",
+                "Tags": "cyberchat",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req) as response:
+            pass
     except Exception as e:
         pass
+
+def handle_incoming_event(data):
+    msg_type = data.get("type", "chat")
+    sender = data.get("sender", "System")
+    sender_id = data.get("clientId", "")
+
+    if sender_id == CLIENT_ID:
+        return  # Ignore self messages processed on input thread
+
+    if msg_type == "hello":
+        PEERS[sender_id] = {"username": sender, "lastSeen": time.time()}
+        # Respond with hello acknowledgment
+        ack_payload = {"type": "hello_ack", "sender": USERNAME, "clientId": CLIENT_ID}
+        publish_event(ack_payload)
+    elif msg_type == "hello_ack":
+        PEERS[sender_id] = {"username": sender, "lastSeen": time.time()}
+    elif msg_type == "chat":
+        PEERS[sender_id] = {"username": sender, "lastSeen": time.time()}
+        timestamp = time.strftime("%H:%M:%S", time.localtime())
+        
+        payload_msg = data.get("message", "")
+        # Check if mentioned
+        is_reply_to_me = False
+        rep_info = data.get("reply_info", None)
+        if rep_info and rep_info.get("user") == USERNAME:
+            is_reply_to_me = True
+
+        MESSAGE_HISTORY.append({
+            "time": timestamp,
+            "sender": sender,
+            "message": payload_msg,
+            "reply_info": rep_info,
+            "id": data.get("msgId", "")
+        })
+        
+        # Save to quote cache
+        if payload_msg:
+            RECENT_QUOTES.insert(0, {"user": sender, "text": payload_msg})
+            if len(RECENT_QUOTES) > 5: RECENT_QUOTES.pop()
+            
+        if is_reply_to_me:
+            print_beep()
+        elif BEEP_ALERT:
+            print_beep()
+            
+        redraw_screen(input_thread_state["current_text"])
+    elif msg_type == "edit":
+        edited_id = data.get("msgId", "")
+        new_text = data.get("message", "")
+        for m in MESSAGE_HISTORY:
+            if m.get("id") == edited_id:
+                m["message"] = new_text + " (Edited)"
+        redraw_screen(input_thread_state["current_text"])
+
+def poll_worker():
+    global LAST_POLL_TIMESTAMP
+    while True:
+        try:
+            poll_url = f"{FALLBACK_URL}/json?poll=1&since={LAST_POLL_TIMESTAMP}"
+            with urllib.request.urlopen(poll_url, timeout=5) as response:
+                text = response.read().decode('utf-8')
+                if text:
+                    lines = text.strip().split("\\n")
+                    for line in lines:
+                        if not line: continue
+                        try:
+                            envelope = json.loads(line)
+                            if "time" in envelope and envelope["time"] >= LAST_POLL_TIMESTAMP:
+                                LAST_POLL_TIMESTAMP = envelope["time"] + 1
+                            if "message" in envelope:
+                                payload = json.loads(envelope["message"])
+                                if payload.get("clientId") != CLIENT_ID:
+                                    handle_incoming_event(payload)
+                        except:
+                            pass
+        except Exception as e:
+            pass
+        time.sleep(1.5)
 
 # Maintain active state tracker safely
 input_thread_state = {"current_text": ""}
 
-def input_worker(client):
-    global USERNAME, BEEP_ALERT
+def input_worker():
+    global USERNAME, BEEP_ALERT, LAST_POLL_TIMESTAMP
     while True:
-        # Custom input collection that stores current character inputs in real-time
-        # For simplicity in native standard terminals, we do synchronous prompt:
         buffer = ""
         while True:
-            # Recreate dynamic input preservation UI using synchronous standard reading
-            # (Works reliably across Windows CMD and Unix terminals)
             try:
-                buffer = input(f"\\r{USERNAME}@cyber:~# ")
+                buffer = input()
             except (KeyboardInterrupt, EOFError):
                 sys.exit(0)
             break
@@ -593,7 +611,7 @@ def input_worker(client):
                                     "quote": chosen_quote["text"]
                                 }
                             }
-                            client.publish(TOPIC, json.dumps(payload))
+                            publish_event(payload)
                             # Add self record
                             timestamp = time.strftime("%H:%M:%S", time.localtime())
                             MESSAGE_HISTORY.append({
@@ -640,7 +658,7 @@ def input_worker(client):
                             "msgId": target_log["id"],
                             "message": revised_text
                         }
-                        client.publish(TOPIC, json.dumps(edit_payload))
+                        publish_event(edit_payload)
                 except (ValueError, IndexError):
                     print("Selection cancelled.")
                     time.sleep(1)
@@ -656,7 +674,7 @@ def input_worker(client):
                 "message": cmd,
                 "reply_info": None
             }
-            client.publish(TOPIC, json.dumps(payload))
+            publish_event(payload)
             # Cache locally
             timestamp = time.strftime("%H:%M:%S", time.localtime())
             MESSAGE_HISTORY.append({
@@ -671,27 +689,21 @@ def input_worker(client):
 
 # Run Client Process
 def main():
-    client = mqtt.Client(CLIENT_ID)
-    client.on_connect = on_connect
-    client.on_message = on_message
-    
-    try:
-        client.connect(BROKER, PORT, 60)
-    except Exception as e:
-        print(f"Connection failed: {e}")
-        return
+    # Send introductory hello announcement
+    publish_event({
+        "type": "hello",
+        "sender": USERNAME,
+        "clientId": CLIENT_ID
+    })
 
-    # Keep background polling
-    client.loop_start()
-    
     redraw_screen()
     
-    # Fire processing threads
-    input_t = threading.Thread(target=input_worker, args=(client,), daemon=True)
-    input_t.start()
+    # Start Poller Thread
+    t = threading.Thread(target=poll_worker, daemon=True)
+    t.start()
     
-    while True:
-        time.sleep(1)
+    # Run user input in main thread
+    input_worker()
 
 if __name__ == "__main__":
     main()
@@ -793,131 +805,45 @@ if __name__ == "__main__":
       document.getElementById('replyIndicator').classList.add('hidden');
     }
 
-    // DUAL-MODE NETWORK ARCHITECTURE: WebSocket Connection Core with HTTP REST Fallback
+    // DUAL-MODE NETWORK ARCHITECTURE: Secure HTTP REST Gateway Engine (ntfy.sh)
     function connectMesh() {
-      var hostStatusText = document.getElementById('connectionStatusText');
-      hostStatusText.innerText = "CONNECTING...";
-      hostStatusText.className = "text-yellow-500 animate-pulse uppercase";
-
-      // Disconnect existing Client and clean Fallback Polls
-      if(mqttClient) {
-        try { mqttClient.end(); } catch(e){}
-      }
-      if(fallbackPollInterval) {
-        clearInterval(fallbackPollInterval);
-      }
-
-      // Secure WebSockets connection string setup
-      var brokerUrl = "wss://broker.hivemq.com:8884/mqtt";
-
-      try {
-        mqttClient = mqtt.connect(brokerUrl, {
-          clientId: clientID,
-          clean: true,
-          connectTimeout: 4000,
-          keepalive: 60
-        });
-
-        mqttClient.on('connect', function() {
-          isFallbackMode = false;
-          hostStatusText.innerText = "ONLINE (MQTT)";
-          hostStatusText.className = "text-green-500 uppercase font-bold";
-          
-          var topic = "cybernet/mesh/" + channelName;
-          mqttClient.subscribe(topic, function (err) {
-            if (!err) {
-              publishEvent({
-                type: "hello",
-                sender: username,
-                clientId: clientID
-              });
-            }
-          });
-        });
-
-        mqttClient.on('message', function (topic, payload) {
-          try {
-            var data = JSON.parse(payload.toString());
-            handleIncomingEvent(data);
-          } catch(e) {
-            console.error("Message handling parsing failure", e);
-          }
-        });
-
-        // Trigger Fallback Mode when WebSocket encounters an immediate configuration error/close
-        mqttClient.on('error', function (err) {
-          console.warn("MQTT WebSockets connection encountered an error. Engaging HTTP CORS Fallback Protocol.", err);
-          engageHttpFallback();
-        });
-
-        mqttClient.on('close', function () {
-          // If connection fails to establish, fallback to secure HTTP Polling
-          setTimeout(function() {
-            if (!mqttClient || !mqttClient.connected) {
-              engageHttpFallback();
-            }
-          }, 4000);
-        });
-
-      } catch (wsSecurityErr) {
-        console.warn("Secure WebSockets Initialization blocked by browser sandboxing. Activating HTTP-Fallback Engine.", wsSecurityErr);
-        engageHttpFallback();
-      }
-    }
-
-    // HTTP FALLBACK ENGINE (Uses highly-reliable, CORS-open, HTTPS simple REST polling)
-    function engageHttpFallback() {
-      if (isFallbackMode) return; // Already engaged
-      isFallbackMode = true;
-
-      var hostStatusText = document.getElementById('connectionStatusText');
-      hostStatusText.innerText = "ONLINE (HTTP-MESH)";
-      hostStatusText.className = "text-cyan-400 font-bold uppercase animate-pulse";
-      
-      logSystemMessage("CRITICAL: WebSockets disabled in this browser container. Automatically switched to HTTP Polling fallbacks.");
-
-      // Clear any pending WebSockets connection
-      if (mqttClient) {
-        try { mqttClient.end(); } catch(e){}
+      if(pollInterval) {
+        clearInterval(pollInterval);
       }
 
       // Pre-seed polling timestamp to avoid getting flood of yesterday's logs
-      lastFallbackPollTimestamp = Math.floor(Date.now() / 1000) - 2;
+      lastPollTimestamp = Math.floor(Date.now() / 1000) - 2;
 
       // Publish dynamic join announcement via HTTP POST
-      publishHttpFallbackEvent({
+      publishHttpEvent({
         type: "hello",
         sender: username,
         clientId: clientID
       });
 
       // Start fetching fresh incoming payload blocks every 1.5 seconds
-      if (fallbackPollInterval) clearInterval(fallbackPollInterval);
-      fallbackPollInterval = setInterval(fetchHttpFallbackMessages, 1500);
+      pollInterval = setInterval(fetchMessages, 1500);
     }
 
     // HTTP Post messaging handler
-    function publishHttpFallbackEvent(data) {
+    function publishHttpEvent(data) {
       data.clientId = clientID;
-      var fallbackUrl = "https://ntfy.sh/cybernet_mesh_" + encodeURIComponent(channelName);
+      var url = "https://ntfy.sh/cybernet_mesh_" + encodeURIComponent(channelName);
       
-      fetch(fallbackUrl, {
+      // Removed custom headers (Title, Tags) to prevent CORS preflight OPTIONS block in sandboxed iframes.
+      fetch(url, {
         method: "POST",
-        body: JSON.stringify(data),
-        headers: {
-          "Title": "Cyber Mesh Event",
-          "Tags": "cyberchat"
-        }
+        body: JSON.stringify(data)
       }).catch(function(err) {
-        console.error("HTTP fallback post failed: ", err);
+        console.error("HTTP post failed: ", err);
       });
     }
 
     // Poll HTTP messaging gateway
-    function fetchHttpFallbackMessages() {
-      var fallbackPollUrl = "https://ntfy.sh/cybernet_mesh_" + encodeURIComponent(channelName) + "/json?poll=1&since=" + lastFallbackPollTimestamp;
+    function fetchMessages() {
+      var pollUrl = "https://ntfy.sh/cybernet_mesh_" + encodeURIComponent(channelName) + "/json?poll=1&since=" + lastPollTimestamp;
 
-      fetch(fallbackPollUrl)
+      fetch(pollUrl)
         .then(function(res) { return res.text(); })
         .then(function(text) {
           if (!text) return;
@@ -926,15 +852,15 @@ if __name__ == "__main__":
           var lines = text.trim().split("\n");
           lines.forEach(function(line) {
             try {
-              var ntfyEnvelope = JSON.parse(line);
+              var envelope = JSON.parse(line);
               // Update tracking timestamp to prevent duplicate fetches
-              if (ntfyEnvelope.time && ntfyEnvelope.time >= lastFallbackPollTimestamp) {
-                lastFallbackPollTimestamp = ntfyEnvelope.time + 1;
+              if (envelope.time && envelope.time >= lastPollTimestamp) {
+                lastPollTimestamp = envelope.time + 1;
               }
 
               // Inside ntfy envelope, our message payload lives in "message"
-              if (ntfyEnvelope.message) {
-                var payload = JSON.parse(ntfyEnvelope.message);
+              if (envelope.message) {
+                var payload = JSON.parse(envelope.message);
                 
                 // Do not loopback duplicate self messages
                 if (payload.clientId !== clientID) {
@@ -947,19 +873,12 @@ if __name__ == "__main__":
           });
         })
         .catch(function(err) {
-          console.warn("Fallback polling cycle error: ", err);
+          console.warn("Polling cycle error: ", err);
         });
     }
 
     function publishEvent(data) {
-      if (isFallbackMode) {
-        publishHttpFallbackEvent(data);
-        return;
-      }
-      if (!mqttClient || !mqttClient.connected) return;
-      var topic = "cybernet/mesh/" + channelName;
-      data.clientId = clientID;
-      mqttClient.publish(topic, JSON.stringify(data));
+      publishHttpEvent(data);
     }
 
     // Handle inputs from UI channel selector
@@ -1077,6 +996,13 @@ if __name__ == "__main__":
       var message = data.message || "";
       var timestamp = getFormattedTime();
 
+      // Check if this message ID has already been rendered to prevent duplicates
+      for (var i = 0; i < recentMessages.length; i++) {
+        if (recentMessages[i].msgId === msgId) {
+          return; // Already rendered locally! Bypass duplicating network polls
+        }
+      }
+
       // Track last 50 overall messages internally for client replies / editing
       recentMessages.push(data);
       if(recentMessages.length > 50) recentMessages.shift();
@@ -1120,6 +1046,14 @@ if __name__ == "__main__":
       div.innerText = ">> [SYSTEM]: " + text;
       terminal.appendChild(div);
       terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // Handle inputs from URL bar parameters (allows linking straight to custom channels)
+    var urlParams = new URLSearchParams(window.location.search);
+    var customRoomParam = urlParams.get('channel') || urlParams.get('room');
+    if (customRoomParam) {
+      channelName = customRoomParam.trim();
+      document.getElementById('channelInput').value = channelName;
     }
 
     function getFormattedTime() {
