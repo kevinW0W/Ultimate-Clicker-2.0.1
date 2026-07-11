@@ -306,6 +306,11 @@
     var clientID = "client_" + Math.floor(Math.random() * 100000);
     var mqttClient = null;
 
+    // Dual Engine Fallback Tracking
+    var isFallbackMode = false; 
+    var lastFallbackPollTimestamp = 0;
+    var fallbackPollInterval = null;
+
     // AUDIO CONTEXT for iOS safe beep notification (WebKit Fallback)
     var AudioCtx = window.AudioContext || window.webkitAudioContext;
     var audioCtxInstance = null;
@@ -788,69 +793,169 @@ if __name__ == "__main__":
       document.getElementById('replyIndicator').classList.add('hidden');
     }
 
-    // MQTT COMMUNICATION ARCHITECTURE
+    // DUAL-MODE NETWORK ARCHITECTURE: WebSocket Connection Core with HTTP REST Fallback
     function connectMesh() {
       var hostStatusText = document.getElementById('connectionStatusText');
       hostStatusText.innerText = "CONNECTING...";
       hostStatusText.className = "text-yellow-500 animate-pulse uppercase";
 
-      // Disconnect existing Client
+      // Disconnect existing Client and clean Fallback Polls
       if(mqttClient) {
         try { mqttClient.end(); } catch(e){}
       }
+      if(fallbackPollInterval) {
+        clearInterval(fallbackPollInterval);
+      }
 
-      // Establish connection with HiveMQ public broker
-      // Standardizes protocol selection (wss:// for secure contexts inside Canvas sandbox, ws:// otherwise)
-      var brokerProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-      var brokerPort = brokerProtocol === "wss://" ? 8884 : 8000;
-      var brokerUrl = brokerProtocol + "broker.hivemq.com:" + brokerPort + "/mqtt";
+      // Secure WebSockets connection string setup
+      var brokerUrl = "wss://broker.hivemq.com:8884/mqtt";
 
-      mqttClient = mqtt.connect(brokerUrl, {
-        clientId: clientID,
-        clean: true,
-        connectTimeout: 5000,
-        keepalive: 60
-      });
+      try {
+        mqttClient = mqtt.connect(brokerUrl, {
+          clientId: clientID,
+          clean: true,
+          connectTimeout: 4000,
+          keepalive: 60
+        });
 
-      mqttClient.on('connect', function() {
-        hostStatusText.innerText = "ONLINE";
-        hostStatusText.className = "text-green-500 uppercase font-bold";
-        
-        // Subscribe to specified WiFi channel/mesh
-        var topic = "cybernet/mesh/" + channelName;
-        mqttClient.subscribe(topic, function (err) {
-          if (!err) {
-            // Send join confirmation
-            publishEvent({
-              type: "hello",
-              sender: username,
-              clientId: clientID
-            });
+        mqttClient.on('connect', function() {
+          isFallbackMode = false;
+          hostStatusText.innerText = "ONLINE (MQTT)";
+          hostStatusText.className = "text-green-500 uppercase font-bold";
+          
+          var topic = "cybernet/mesh/" + channelName;
+          mqttClient.subscribe(topic, function (err) {
+            if (!err) {
+              publishEvent({
+                type: "hello",
+                sender: username,
+                clientId: clientID
+              });
+            }
+          });
+        });
+
+        mqttClient.on('message', function (topic, payload) {
+          try {
+            var data = JSON.parse(payload.toString());
+            handleIncomingEvent(data);
+          } catch(e) {
+            console.error("Message handling parsing failure", e);
           }
         });
+
+        // Trigger Fallback Mode when WebSocket encounters an immediate configuration error/close
+        mqttClient.on('error', function (err) {
+          console.warn("MQTT WebSockets connection encountered an error. Engaging HTTP CORS Fallback Protocol.", err);
+          engageHttpFallback();
+        });
+
+        mqttClient.on('close', function () {
+          // If connection fails to establish, fallback to secure HTTP Polling
+          setTimeout(function() {
+            if (!mqttClient || !mqttClient.connected) {
+              engageHttpFallback();
+            }
+          }, 4000);
+        });
+
+      } catch (wsSecurityErr) {
+        console.warn("Secure WebSockets Initialization blocked by browser sandboxing. Activating HTTP-Fallback Engine.", wsSecurityErr);
+        engageHttpFallback();
+      }
+    }
+
+    // HTTP FALLBACK ENGINE (Uses highly-reliable, CORS-open, HTTPS simple REST polling)
+    function engageHttpFallback() {
+      if (isFallbackMode) return; // Already engaged
+      isFallbackMode = true;
+
+      var hostStatusText = document.getElementById('connectionStatusText');
+      hostStatusText.innerText = "ONLINE (HTTP-MESH)";
+      hostStatusText.className = "text-cyan-400 font-bold uppercase animate-pulse";
+      
+      logSystemMessage("CRITICAL: WebSockets disabled in this browser container. Automatically switched to HTTP Polling fallbacks.");
+
+      // Clear any pending WebSockets connection
+      if (mqttClient) {
+        try { mqttClient.end(); } catch(e){}
+      }
+
+      // Pre-seed polling timestamp to avoid getting flood of yesterday's logs
+      lastFallbackPollTimestamp = Math.floor(Date.now() / 1000) - 2;
+
+      // Publish dynamic join announcement via HTTP POST
+      publishHttpFallbackEvent({
+        type: "hello",
+        sender: username,
+        clientId: clientID
       });
 
-      mqttClient.on('message', function (topic, payload) {
-        try {
-          var data = JSON.parse(payload.toString());
-          handleIncomingEvent(data);
-        } catch(e) {
-          console.error("Message handling parsing failure", e);
+      // Start fetching fresh incoming payload blocks every 1.5 seconds
+      if (fallbackPollInterval) clearInterval(fallbackPollInterval);
+      fallbackPollInterval = setInterval(fetchHttpFallbackMessages, 1500);
+    }
+
+    // HTTP Post messaging handler
+    function publishHttpFallbackEvent(data) {
+      data.clientId = clientID;
+      var fallbackUrl = "https://ntfy.sh/cybernet_mesh_" + encodeURIComponent(channelName);
+      
+      fetch(fallbackUrl, {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: {
+          "Title": "Cyber Mesh Event",
+          "Tags": "cyberchat"
         }
-      });
-
-      mqttClient.on('error', function (err) {
-        hostStatusText.innerText = "ERROR";
-        hostStatusText.className = "text-red-500 uppercase";
-      });
-
-      mqttClient.on('close', function () {
-        hostStatusText.innerText = "DISCONNECTED";
-        hostStatusText.className = "text-neutral-500 uppercase";
+      }).catch(function(err) {
+        console.error("HTTP fallback post failed: ", err);
       });
     }
 
+    // Poll HTTP messaging gateway
+    function fetchHttpFallbackMessages() {
+      var fallbackPollUrl = "https://ntfy.sh/cybernet_mesh_" + encodeURIComponent(channelName) + "/json?poll=1&since=" + lastFallbackPollTimestamp;
+
+      fetch(fallbackPollUrl)
+        .then(function(res) { return res.text(); })
+        .then(function(text) {
+          if (!text) return;
+          
+          // ntfy.sh returns newline-delimited JSON objects
+          var lines = text.trim().split("\n");
+          lines.forEach(function(line) {
+            try {
+              var ntfyEnvelope = JSON.parse(line);
+              // Update tracking timestamp to prevent duplicate fetches
+              if (ntfyEnvelope.time && ntfyEnvelope.time >= lastFallbackPollTimestamp) {
+                lastFallbackPollTimestamp = ntfyEnvelope.time + 1;
+              }
+
+              // Inside ntfy envelope, our message payload lives in "message"
+              if (ntfyEnvelope.message) {
+                var payload = JSON.parse(ntfyEnvelope.message);
+                
+                // Do not loopback duplicate self messages
+                if (payload.clientId !== clientID) {
+                  handleIncomingEvent(payload);
+                }
+              }
+            } catch (e) {
+              // Ignore standard connection-keepalive packets from ntfy
+            }
+          });
+        })
+        .catch(function(err) {
+          console.warn("Fallback polling cycle error: ", err);
+        });
+    }
+
     function publishEvent(data) {
+      if (isFallbackMode) {
+        publishHttpFallbackEvent(data);
+        return;
+      }
       if (!mqttClient || !mqttClient.connected) return;
       var topic = "cybernet/mesh/" + channelName;
       data.clientId = clientID;
@@ -863,8 +968,6 @@ if __name__ == "__main__":
       if(val !== "") {
         channelName = val;
         connectMesh();
-        
-        // Output locally in logs
         logSystemMessage("TUNNEL TRANSFERRED. NOW SYNCED WITH MESH KEY: [" + channelName + "]");
       }
     });
@@ -895,7 +998,6 @@ if __name__ == "__main__":
         // Log in registry silently
       }
       else if(data.type === "chat") {
-        // If message is directed as a reply mention to us, play high pitch beep
         var isReplyToUs = data.reply_info && data.reply_info.user === username;
         
         // Push to recent cache for quote reply selection options
@@ -917,7 +1019,6 @@ if __name__ == "__main__":
         }
       }
       else if(data.type === "edit") {
-        // Process message editing
         var msgId = data.msgId;
         var text = data.message;
         
@@ -1142,6 +1243,30 @@ if __name__ == "__main__":
           user: item.sender,
           text: item.message
         });
+      }
+    }
+
+    function initEditFromUI(msgId) {
+      var item = recentMessages.find(function(m) { return m.msgId === msgId; });
+      if(item && item.clientId === clientID) {
+        var newTxt = prompt("Revise message log text:", item.message);
+        if(newTxt && newTxt.trim() !== "") {
+          publishEvent({
+            type: "edit",
+            msgId: msgId,
+            message: newTxt.trim(),
+            sender: username
+          });
+          
+          // Apply modification locally 
+          handleIncomingEvent({
+            type: "edit",
+            clientId: clientID,
+            msgId: msgId,
+            message: newTxt.trim(),
+            sender: username
+          });
+        }
       }
     }
 
