@@ -303,7 +303,7 @@
     var latestReplyQuotes = []; // Last 5 quote blocks saved (History replies limit 5)
     var clientID = "client_" + Math.floor(Math.random() * 100000);
 
-    var lastPollTimestamp = 0;
+    var lastPollTimestamp = "30s"; // Use relative offset initially to avoid client/server clock drifts
     var pollInterval = null;
 
     // AUDIO CONTEXT for iOS safe beep notification (WebKit Fallback)
@@ -404,7 +404,7 @@ PEERS = {}  # Track online users
 MY_LOGS = [] # Track last sent messages for /edit capability
 MESSAGE_HISTORY = []  # Maintain up to 50 logs of others
 RECENT_QUOTES = []    # Cache last 5 quote triggers
-LAST_POLL_TIMESTAMP = int(time.time()) - 2
+LAST_POLL_TIMESTAMP = "30s" # Relative offset initialization to sync server time precisely
 
 def print_beep():
     if BEEP_ALERT:
@@ -445,8 +445,6 @@ def publish_event(data):
             FALLBACK_URL, 
             data=json.dumps(data).encode('utf-8'),
             headers={
-                "Title": "Cyber Mesh Event",
-                "Tags": "cyberchat",
                 "Content-Type": "application/json"
             },
             method="POST"
@@ -522,8 +520,13 @@ def poll_worker():
                         if not line: continue
                         try:
                             envelope = json.loads(line)
-                            if "time" in envelope and envelope["time"] >= LAST_POLL_TIMESTAMP:
-                                LAST_POLL_TIMESTAMP = envelope["time"] + 1
+                            if "time" in envelope:
+                                try:
+                                    env_time = int(envelope["time"])
+                                    if isinstance(LAST_POLL_TIMESTAMP, str) or env_time >= LAST_POLL_TIMESTAMP:
+                                        LAST_POLL_TIMESTAMP = env_time + 1
+                                except:
+                                    pass
                             if "message" in envelope:
                                 payload = json.loads(envelope["message"])
                                 if payload.get("clientId") != CLIENT_ID:
@@ -811,8 +814,8 @@ if __name__ == "__main__":
         clearInterval(pollInterval);
       }
 
-      // Pre-seed polling timestamp to avoid getting flood of yesterday's logs
-      lastPollTimestamp = Math.floor(Date.now() / 1000) - 2;
+      // Pre-seed polling timestamp with relative time offset (30s) to completely avoid clock-drift issues.
+      lastPollTimestamp = "30s";
 
       // Publish dynamic join announcement via HTTP POST
       publishHttpEvent({
@@ -853,9 +856,12 @@ if __name__ == "__main__":
           lines.forEach(function(line) {
             try {
               var envelope = JSON.parse(line);
-              // Update tracking timestamp to prevent duplicate fetches
-              if (envelope.time && envelope.time >= lastPollTimestamp) {
-                lastPollTimestamp = envelope.time + 1;
+              // Update tracking timestamp dynamically based on server clock returned in envelopes
+              if (envelope.time) {
+                var envTime = parseInt(envelope.time);
+                if (typeof lastPollTimestamp === 'string' || envTime >= lastPollTimestamp) {
+                  lastPollTimestamp = envTime + 1;
+                }
               }
 
               // Inside ntfy envelope, our message payload lives in "message"
@@ -1062,10 +1068,6 @@ if __name__ == "__main__":
       var mm = String(d.getMinutes()).padStart(2, '0');
       var ss = String(d.getSeconds()).padStart(2, '0');
       return hh + ":" + mm + ":" + ss;
-    }
-
-    function escapeHTML(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
     // ACTION DISPATCHER FOR CLI USER COMMANDS
