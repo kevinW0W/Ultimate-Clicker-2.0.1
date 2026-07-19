@@ -239,7 +239,12 @@
             <option value="0">Action</option>
             <option value="1">Techno</option>
             <option value="2">Ambient</option>
+            <option value="custom">Custom BG Music</option>
         </select></div>
+        <div id="custom-bgm-import" style="display:none; flex-direction:column; gap:8px;">
+            <span>Import Custom BG Music</span>
+            <input id="custom-bgm-file" type="file" accept="audio/*" onchange="importCustomBgm(event)" style="color:#fff; max-width:100%;">
+        </div>
         <div style="display:flex; justify-content:space-between;"><span>Music Vol</span> <input type="range" id="music-slider" min="0" max="1" step="0.1" value="0.3" oninput="updateSettings()"> <span id="music-val">0.3</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Render Scale</span> <input type="range" id="res-slider" min="0.2" max="1.5" step="0.1" value="1.0" oninput="updateSettings()"> <span id="res-val">1.0</span></div>
         <div style="text-align:center; margin-top:10px; font-size:12px; color:#aaa;">LOWER SCALE = HIGHER FPS</div>
@@ -482,6 +487,7 @@
         let gameBgm = new Audio(gameTracks[0]);
         gameBgm.loop = true;
         gameBgm.volume = 0.3;
+        let customBgmUrl = null;
         const COLLISION_RADIUS = 0.5; 
 
         const BASE_BOT_NAMES = ["OrbMaster", "NeonNexus", "VoidWalker", "Cipher", "Glitch", "Echo", "Spectre", "Phantom", "Viper", "Cobra", "Raven", "Wolf", "Bear", "Eagle", "Shadow", "Ghost", "Reaper", "Storm", "Blaze", "Frost", "Titan", "Onyx", "Steel", "Razor", "Blade"];
@@ -492,6 +498,7 @@
             const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
             const isIpad = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             isMobile = isTouch && (isMobileUA || isIpad || window.innerWidth < 1100); // Hides on touch laptops
+            configureCustomBgmPicker();
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
                 document.getElementById('mobile-pause-btn').style.display = 'flex';
@@ -710,6 +717,34 @@ const envMap = cubeLoader.load([
         function initAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function configureCustomBgmPicker() {
+            const picker = document.getElementById('custom-bgm-file');
+            // iOS needs an unrestricted picker; desktop browsers can filter to audio.
+            picker.accept = usesUnrestrictedCustomBgmPicker() ? '*/*' : 'audio/*';
+        }
+
+        function usesUnrestrictedCustomBgmPicker() {
+            const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
+            const isIpad = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+            return mobileUA || isIpad;
+        }
+
+        function importCustomBgm(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            if (!usesUnrestrictedCustomBgmPicker() && file.type && !file.type.startsWith('audio/')) {
+                alert('Please choose an audio file.');
+                event.target.value = '';
+                return;
+            }
+
+            if (customBgmUrl) URL.revokeObjectURL(customBgmUrl);
+            customBgmUrl = URL.createObjectURL(file);
+            document.getElementById('bgm-select').value = 'custom';
+            updateSettings();
         }
 
         function playShootSound(weaponName, sourcePos) {
@@ -1392,10 +1427,15 @@ if (useGlossy && !isLowPowerMode) {
             gameBgm.volume = vol;
             document.getElementById('music-val').innerText = vol;
             
-            const bgmIndex = parseInt(document.getElementById('bgm-select').value);
-            if (gameBgm.src !== gameTracks[bgmIndex]) {
+            const bgmSelect = document.getElementById('bgm-select');
+            const isCustomBgm = bgmSelect.value === 'custom';
+            document.getElementById('custom-bgm-import').style.display = isCustomBgm ? 'flex' : 'none';
+            const selectedBgm = isCustomBgm ? customBgmUrl : gameTracks[parseInt(bgmSelect.value, 10)];
+            if (selectedBgm && gameBgm.dataset.track !== selectedBgm) {
                 const wasPlaying = !gameBgm.paused;
-                gameBgm.src = gameTracks[bgmIndex];
+                gameBgm.src = selectedBgm;
+                gameBgm.dataset.track = selectedBgm;
+                gameBgm.load();
                 if (wasPlaying && gameHasStarted) gameBgm.play().catch(e=>{});
             }
 
@@ -1432,7 +1472,7 @@ if (useGlossy && !isLowPowerMode) {
                 lowPower: document.getElementById('low-power-check').checked,
                 toggleAim: document.getElementById('toggle-aim-check').checked,
                 glossy: document.getElementById('glossy-check').checked,
-                bgmIndex: document.getElementById('bgm-select').value,
+                bgmIndex: document.getElementById('bgm-select').value === 'custom' ? '0' : document.getElementById('bgm-select').value,
                 music: document.getElementById('music-slider').value,
                 renderScale: document.getElementById('res-slider').value
             };
