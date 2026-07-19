@@ -122,6 +122,10 @@
         }
         .btn { padding: 15px 30px; background: #0ff; color: #000; border: none; font-size: 20px; cursor: pointer; margin: 10px; border-radius: 5px; font-weight: bold; }
         .btn:hover { background: #fff; }
+        .controller-focus {
+            outline: 2px solid #0ff;
+            box-shadow: 0 0 15px rgba(0,255,255,0.6);
+        }
         
         .fire-button {
             width: 70px;
@@ -170,7 +174,7 @@
 <body>
     <div id="overlay">
         <h1 style="font-size: 48px; margin-bottom: 10px;">ORB TOSSER</h1>
-        <p style="margin-bottom: 20px;">SELECT A LOADOUT</p>
+        <p style="margin-bottom: 20px;">SELECT A LOADOUT (PRESS SPACEBAR TO DEPLOY)</p>
         
         <select id="gamemode-select" style="margin-bottom: 20px; padding: 10px; font-size: 16px; background: #000; color: #0ff; border: 2px solid #0ff; border-radius: 5px;">
             <option value="ffa">Free For All</option>
@@ -226,6 +230,8 @@
         <div style="display:flex; justify-content:space-between;"><span>FOV</span> <input type="range" id="fov-slider" min="60" max="120" step="1" value="75" oninput="updateSettings()"> <span id="fov-val">75</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="20" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Aim Snap</span> <input type="range" id="snap-slider" min="0" max="10" step="1" value="0" oninput="updateSettings()"> <span id="snap-val">0</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Absolute Aim</span> <input type="checkbox" id="abs-aim-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Control Map</span> <button class="btn" style="font-size:14px; padding:8px 12px; margin-left:10px;" onclick="openControlMap()">EDIT</button></div>
         <div style="display:flex; justify-content:space-between;"><span>Low Power Mode</span> <input type="checkbox" id="low-power-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Mobile Toggle Aim</span> <input type="checkbox" id="toggle-aim-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Glossy Sky</span> <input type="checkbox" id="glossy-check" onchange="updateSettings()"></div>
@@ -238,8 +244,18 @@
         <div style="display:flex; justify-content:space-between;"><span>Render Scale</span> <input type="range" id="res-slider" min="0.2" max="1.5" step="0.1" value="1.0" oninput="updateSettings()"> <span id="res-val">1.0</span></div>
         <div style="text-align:center; margin-top:10px; font-size:12px; color:#aaa;">LOWER SCALE = HIGHER FPS</div>
         <button class="btn" onclick="startLayoutEdit()" style="width:100%; margin-top:10px; background:#008888;">EDIT MOBILE LAYOUT</button>
-        <div style="display:flex; justify-content:center; margin-top:20px;">
+        <button class="btn" onclick="resetAllSettings()" style="width:100%; margin-top:10px; background:#900;">RESET ALL SETTINGS</button>
+        <div style="display:flex; justify-content:center; margin-top:20px; gap:10px;">
             <button class="btn" onclick="closeSettings()">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="control-map-menu" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:520px; max-width:90vw; max-height:90vh; overflow-y:auto; background:rgba(0,0,0,0.95); border:2px solid #0ff; border-radius:10px; padding:30px; z-index:500; color:#0ff;">
+        <h2 style="text-align:center; margin-top:0;">CONTROL MAP</h2>
+        <div id="control-map-list" style="display:grid; gap:8px;"></div>
+        <div id="control-map-status" style="margin-top:12px; font-size:14px; color:#afa;"></div>
+        <div style="display:flex; justify-content:center; gap:10px; margin-top:20px;">
+            <button class="btn" onclick="closeControlMap()">CLOSE</button>
         </div>
     </div>
 
@@ -322,7 +338,10 @@
         let cursorY = window.innerHeight / 2;
         let draggingSlider = null;
         let lastGamepadButtons = [];
+        let suppressGamepadWeaponSwitchUntil = 0;
         let lastKnifeThrowTime = 0;
+        let isAbsoluteAim = false;
+        let awaitingRemap = null;
         
         let gameMode = 'ffa';
         let teamScores = { red: 0, blue: 0 };
@@ -331,6 +350,23 @@
 
         let playerInventory = [];
         let activeSlot = 0;
+
+        let keyBindings = {
+            moveForward: 'KeyW', moveBackward: 'KeyS', moveLeft: 'KeyA', moveRight: 'KeyD',
+            jump: 'Space', reload: 'KeyR', sprint: 'ShiftLeft', crouch: 'KeyC',
+            weapon1: 'Digit1', weapon2: 'Digit2', weapon3: 'Digit3', weaponNext: 'KeyQ',
+            pause: 'Escape'
+        };
+
+        let gamepadBindings = {
+            jump: 0, reload: 2, switchNext: 5, switchPrev: 4, aim: 6, fire: 7,
+            pause: 9, sprint: 10, crouch: 11, dpadUp: 12, dpadDown: 13, dpadLeft: 14, dpadRight: 15
+        };
+
+        const gamepadButtonLabels = {
+            0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'LB', 5: 'RB', 6: 'LT', 7: 'RT',
+            8: 'BACK', 9: 'START', 10: 'L3', 11: 'R3', 12: 'D-UP', 13: 'D-DOWN', 14: 'D-LEFT', 15: 'D-RIGHT'
+        };
 
         // Weapon Definitions
         let WEAPONS = {
@@ -563,6 +599,8 @@ const envMap = cubeLoader.load([
 
             clock = new THREE.Clock();
             generateLoadoutButtons();
+            loadSettings();
+            loadControlMappings();
             setupControls();
             animate();
             window.addEventListener('resize', onWindowResize, false);
@@ -581,7 +619,7 @@ const envMap = cubeLoader.load([
                 btn.style.padding = '10px';
                 btn.style.width = '180px';
                 btn.innerText = w.name.toUpperCase();
-                btn.onclick = () => startGame(key);
+                btn.onclick = () => chooseLoadout(key);
                 const c = w.color.toString(16).padStart(6, '0');
                 btn.style.borderLeft = `5px solid #${c}`;
                 grid.appendChild(btn);
@@ -909,10 +947,63 @@ const envMap = cubeLoader.load([
             bots.push(bot);
         }
 
+        // Make bots rotate only around Y (yaw) so they don't pitch/lean up/down
+        function setBotYawTowards(bot, tx, tz) {
+            let targetX, targetZ;
+            if (typeof tx === 'object' && tx !== null && 'x' in tx) {
+                targetX = tx.x; targetZ = tx.z;
+            } else {
+                targetX = tx; targetZ = tz;
+            }
+            const dx = targetX - bot.position.x;
+            const dz = targetZ - bot.position.z;
+            bot.rotation.y = Math.atan2(dx, dz);
+        }
+
         function showLoadoutMenu() {
             document.getElementById('main-menu').style.display = 'none';
             document.getElementById('overlay').style.display = 'flex';
             document.getElementById('gamemode-select').style.display = 'block';
+        }
+
+        function chooseLoadout(weaponType) {
+            if (gameHasStarted && !isGameOver) {
+                if (gameMode === 'gungame') return;
+
+                const selectedWeapon = WEAPONS[weaponType];
+                if (!selectedWeapon) return;
+
+                if (!playerInventory || playerInventory.length < 3) {
+                    playerInventory = [
+                        { def: selectedWeapon, ammo: selectedWeapon.maxAmmo },
+                        { def: WEAPONS.pistol, ammo: WEAPONS.pistol.maxAmmo },
+                        { def: WEAPONS.knife, ammo: Infinity }
+                    ];
+                } else {
+                    playerInventory[0] = { def: selectedWeapon, ammo: selectedWeapon.maxAmmo };
+                    if (!playerInventory[1]) {
+                        playerInventory[1] = { def: WEAPONS.pistol, ammo: WEAPONS.pistol.maxAmmo };
+                    }
+                    if (!playerInventory[2]) {
+                        playerInventory[2] = { def: WEAPONS.knife, ammo: Infinity };
+                    }
+                }
+
+                activeSlot = 0;
+                switchWeapon(0);
+
+                if (playerHealth <= 0) {
+                    document.getElementById('overlay').style.display = 'flex';
+                    document.getElementById('respawn-btn').style.display = 'block';
+                    document.getElementById('pause-menu').style.display = 'none';
+                    document.getElementById('gamemode-select').style.display = 'none';
+                } else {
+                    document.getElementById('overlay').style.display = 'none';
+                }
+                return;
+            }
+
+            startGame(weaponType);
         }
 
         function startGame(weaponType) {
@@ -956,6 +1047,14 @@ const envMap = cubeLoader.load([
             respawnEntity(null, true);
             
             document.getElementById('overlay').style.display = 'none';
+            setControllerCursorVisibility(false);
+            activeMenu = null;
+            suppressGamepadWeaponSwitchUntil = performance.now() + 300;
+            setTimeout(() => {
+                if (gameHasStarted && activeSlot === 0) {
+                    switchWeapon(0);
+                }
+            }, 300);
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
                 document.getElementById('mobile-pause-btn').style.display = 'flex';
@@ -987,6 +1086,8 @@ const envMap = cubeLoader.load([
             }
             respawnEntity(null, true);
             document.getElementById('overlay').style.display = 'none';
+            setControllerCursorVisibility(false);
+            activeMenu = null;
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
                 document.getElementById('mobile-pause-btn').style.display = 'flex';
@@ -1021,14 +1122,179 @@ const envMap = cubeLoader.load([
             document.getElementById('weapon-name').innerText = currentWeapon.name;
         }
 
+        function setControllerCursorVisibility(visible) {
+            const cursorEl = document.getElementById('controller-cursor');
+            if (!cursorEl) return;
+            cursorEl.style.display = visible ? 'block' : 'none';
+        }
+
+        function startRemap(action, type) {
+            awaitingRemap = { action, type };
+            const status = document.getElementById('control-map-status');
+            if (status) {
+                status.innerText = `Press a ${type === 'keyboard' ? 'key' : 'gamepad button'} to bind for ${action.replace(/([A-Z])/g, ' $1').toUpperCase()}`;
+            }
+        }
+
+        function openControlMap() {
+            const panel = document.getElementById('control-map-menu');
+            panel.style.display = 'block';
+            renderControlMap();
+            setControllerCursorVisibility(true);
+            activeMenu = panel;
+        }
+
+        function closeControlMap() {
+            const panel = document.getElementById('control-map-menu');
+            panel.style.display = 'none';
+            const status = document.getElementById('control-map-status');
+            if (status) status.innerText = '';
+            awaitingRemap = null;
+            activeMenu = null;
+        }
+
+        function getButtonLabel(index) {
+            return gamepadButtonLabels[index] || `BTN ${index}`;
+        }
+
+        function renderControlMap() {
+            const list = document.getElementById('control-map-list');
+            if (!list) return;
+            list.innerHTML = '';
+
+            const addRow = (title, value, action, type) => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.justifyContent = 'space-between';
+                row.style.alignItems = 'center';
+                row.style.gap = '10px';
+
+                const label = document.createElement('span');
+                label.style.flex = '1';
+                label.innerText = title;
+
+                const valueLabel = document.createElement('span');
+                valueLabel.style.minWidth = '110px';
+                valueLabel.style.textAlign = 'right';
+                valueLabel.innerText = value;
+
+                const button = document.createElement('button');
+                button.className = 'btn';
+                button.style.fontSize = '12px';
+                button.style.padding = '8px 10px';
+                button.innerText = 'REMAPP';
+                button.onclick = () => startRemap(action, type);
+
+                row.appendChild(label);
+                row.appendChild(valueLabel);
+                row.appendChild(button);
+                list.appendChild(row);
+            };
+
+            addRow('Forward', keyBindings.moveForward, 'moveForward', 'keyboard');
+            addRow('Backward', keyBindings.moveBackward, 'moveBackward', 'keyboard');
+            addRow('Left', keyBindings.moveLeft, 'moveLeft', 'keyboard');
+            addRow('Right', keyBindings.moveRight, 'moveRight', 'keyboard');
+            addRow('Jump', keyBindings.jump, 'jump', 'keyboard');
+            addRow('Reload', keyBindings.reload, 'reload', 'keyboard');
+            addRow('Sprint', keyBindings.sprint, 'sprint', 'keyboard');
+            addRow('Crouch', keyBindings.crouch, 'crouch', 'keyboard');
+            addRow('Weapon 1', keyBindings.weapon1, 'weapon1', 'keyboard');
+            addRow('Weapon 2', keyBindings.weapon2, 'weapon2', 'keyboard');
+            addRow('Weapon 3', keyBindings.weapon3, 'weapon3', 'keyboard');
+            addRow('Next Weapon', keyBindings.weaponNext, 'weaponNext', 'keyboard');
+            addRow('Pause', keyBindings.pause, 'pause', 'keyboard');
+
+            const separator = document.createElement('hr');
+            separator.style.border = '1px solid #0ff';
+            list.appendChild(separator);
+
+            addRow('Jump', getButtonLabel(gamepadBindings.jump), 'jump', 'gamepad');
+            addRow('Reload', getButtonLabel(gamepadBindings.reload), 'reload', 'gamepad');
+            addRow('Next Weapon', getButtonLabel(gamepadBindings.switchNext), 'switchNext', 'gamepad');
+            addRow('Prev Weapon', getButtonLabel(gamepadBindings.switchPrev), 'switchPrev', 'gamepad');
+            addRow('Aim', getButtonLabel(gamepadBindings.aim), 'aim', 'gamepad');
+            addRow('Fire', getButtonLabel(gamepadBindings.fire), 'fire', 'gamepad');
+            addRow('Pause', getButtonLabel(gamepadBindings.pause), 'pause', 'gamepad');
+            addRow('Sprint', getButtonLabel(gamepadBindings.sprint), 'sprint', 'gamepad');
+            addRow('Crouch', getButtonLabel(gamepadBindings.crouch), 'crouch', 'gamepad');
+            addRow('DPad Left', getButtonLabel(gamepadBindings.dpadLeft), 'dpadLeft', 'gamepad');
+            addRow('DPad Right', getButtonLabel(gamepadBindings.dpadRight), 'dpadRight', 'gamepad');
+            addRow('DPad Up', getButtonLabel(gamepadBindings.dpadUp), 'dpadUp', 'gamepad');
+            addRow('DPad Down', getButtonLabel(gamepadBindings.dpadDown), 'dpadDown', 'gamepad');
+        }
+
+        function applyAimSnap() {
+            if (!(isAiming || ctrlIsAiming) || aimSnap <= 0 || isGameOver || !gameHasStarted) return;
+            
+            const cameraDir = camera.getWorldDirection(new THREE.Vector3()).normalize();
+            let bestBot = null;
+            let bestAngle = Infinity;
+            const maxAngle = THREE.Math.degToRad(15 + aimSnap * 3.5); // Improved snap range calculation
+            const maxDistance = 100; // Max view distance for aim assist
+
+            bots.forEach(bot => {
+                // Skip dead/invalid bots
+                if (!bot || bot.userData.hp <= 0) return;
+                
+                const targetPos = bot.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+                const distToBot = camera.position.distanceTo(targetPos);
+                
+                // Skip targets beyond max distance
+                if (distToBot > maxDistance) return;
+                
+                const toBot = targetPos.clone().sub(camera.position).normalize();
+                const angle = cameraDir.angleTo(toBot);
+                
+                // Check angle first (faster than raycasting)
+                if (angle >= maxAngle || angle >= bestAngle) return;
+                
+                // Line-of-sight check using raycasting
+                const raycaster = new THREE.Raycaster();
+                raycaster.set(camera.position, toBot);
+                
+                // Check walls first
+                const wallMeshes = worldColliders.map(c => c.mesh);
+                const wallIntersects = raycaster.intersectObjects(wallMeshes, false);
+                
+                // If a wall is closer than the bot, skip this target
+                if (wallIntersects.length > 0 && wallIntersects[0].distance < distToBot - 0.5) {
+                    return;
+                }
+                
+                // Update best target
+                bestAngle = angle;
+                bestBot = bot;
+            });
+
+            // Apply smooth aim assistance to best target
+            if (bestBot) {
+                const targetPos = bestBot.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+                const viewDir = camera.getWorldDirection(new THREE.Vector3()).normalize();
+                const toTarget = targetPos.clone().sub(camera.position).normalize();
+                
+                // Smooth head tracking instead of instant snap
+                // Stronger aim assist with higher aimSnap values
+                const assistStrength = 0.02 + (aimSnap * 0.008); // Scale from 0.02 to 0.1 for snap 0-10
+                
+                // Interpolate between current looking direction and target
+                const newDir = viewDir.lerp(toTarget, Math.min(assistStrength, 0.15));
+                const lookAtTarget = camera.position.clone().add(newDir.multiplyScalar(100));
+                
+                camera.lookAt(lookAtTarget);
+            }
+        }
+
+
         function updateTeamScores() {
             document.getElementById('team-scores').innerHTML = `<span style="color:#f44">RED: ${teamScores.red}</span> | <span style="color:#44f">BLUE: ${teamScores.blue}</span>`;
         }
 
         function resumeGame() {
-            if (isMobile) {
-                document.getElementById('pause-menu').style.display = 'none';
-            } else {
+            document.getElementById('pause-menu').style.display = 'none';
+            setControllerCursorVisibility(false);
+            activeMenu = null;
+            if (!isMobile) {
                 renderer.domElement.requestPointerLock();
             }
         }
@@ -1038,6 +1304,7 @@ const envMap = cubeLoader.load([
             isGameOver = false;
             playerHealth = 100;
             if (document.pointerLockElement) document.exitPointerLock();
+            setControllerCursorVisibility(false);
             
             document.getElementById('pause-menu').style.display = 'none';
             document.getElementById('game-over-screen').style.display = 'none';
@@ -1071,22 +1338,27 @@ const envMap = cubeLoader.load([
             document.getElementById('overlay').style.display = 'none';
             document.getElementById('pause-menu').style.display = 'none';
             document.getElementById('main-menu').style.display = 'none';
+            setControllerCursorVisibility(true);
         }
 
         function closeSettings() {
             document.getElementById('settings-menu').style.display = 'none';
             if (gameHasStarted && !document.pointerLockElement) {
                 document.getElementById('pause-menu').style.display = 'flex';
+                setControllerCursorVisibility(true);
             } else if (!gameHasStarted) {
                 // Return to main menu if game hasn't started
-                if (document.getElementById('overlay').style.display !== 'flex')
+                if (document.getElementById('overlay').style.display !== 'flex') {
                     document.getElementById('main-menu').style.display = 'flex';
+                }
+                setControllerCursorVisibility(true);
             }
         }
 
         function updateSettings() {
             isLowPowerMode = document.getElementById('low-power-check').checked;
             isToggleAim = document.getElementById('toggle-aim-check').checked;
+            isAbsoluteAim = document.getElementById('abs-aim-check').checked;
             mouseSensitivity = document.getElementById('sens-slider').value * 0.001;
             document.getElementById('sens-val').innerText = document.getElementById('sens-slider').value;
             controllerSensitivity = parseFloat(document.getElementById('cont-sens-slider').value);
@@ -1144,6 +1416,106 @@ if (useGlossy && !isLowPowerMode) {
                 renderer.setPixelRatio(parseFloat(document.getElementById('res-slider').value));
             }
             document.getElementById('res-val').innerText = document.getElementById('res-slider').value;
+            
+            // Save all settings to localStorage
+            saveSettings();
+        }
+
+        function saveSettings() {
+            const settings = {
+                sens: document.getElementById('sens-slider').value,
+                contSens: document.getElementById('cont-sens-slider').value,
+                fov: document.getElementById('fov-slider').value,
+                botCount: document.getElementById('bot-slider').value,
+                aimSnap: document.getElementById('snap-slider').value,
+                absAim: document.getElementById('abs-aim-check').checked,
+                lowPower: document.getElementById('low-power-check').checked,
+                toggleAim: document.getElementById('toggle-aim-check').checked,
+                glossy: document.getElementById('glossy-check').checked,
+                bgmIndex: document.getElementById('bgm-select').value,
+                music: document.getElementById('music-slider').value,
+                renderScale: document.getElementById('res-slider').value
+            };
+            localStorage.setItem('orbTosserSettings', JSON.stringify(settings));
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('orbTosserSettings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    if (settings.sens) document.getElementById('sens-slider').value = settings.sens;
+                    if (settings.contSens) document.getElementById('cont-sens-slider').value = settings.contSens;
+                    if (settings.fov) document.getElementById('fov-slider').value = settings.fov;
+                    if (settings.botCount) document.getElementById('bot-slider').value = settings.botCount;
+                    if (settings.aimSnap) document.getElementById('snap-slider').value = settings.aimSnap;
+                    if (settings.absAim !== undefined) document.getElementById('abs-aim-check').checked = settings.absAim;
+                    if (settings.lowPower !== undefined) document.getElementById('low-power-check').checked = settings.lowPower;
+                    if (settings.toggleAim !== undefined) document.getElementById('toggle-aim-check').checked = settings.toggleAim;
+                    if (settings.glossy !== undefined) document.getElementById('glossy-check').checked = settings.glossy;
+                    if (settings.bgmIndex) document.getElementById('bgm-select').value = settings.bgmIndex;
+                    if (settings.music) document.getElementById('music-slider').value = settings.music;
+                    if (settings.renderScale) document.getElementById('res-slider').value = settings.renderScale;
+                } catch (e) { console.warn('Failed to load settings:', e); }
+            }
+            updateSettings();
+        }
+
+        function saveControlMappings() {
+            const mappings = {
+                keyBindings: keyBindings,
+                gamepadBindings: gamepadBindings
+            };
+            localStorage.setItem('orbTosserControls', JSON.stringify(mappings));
+        }
+
+        function loadControlMappings() {
+            const saved = localStorage.getItem('orbTosserControls');
+            if (saved) {
+                try {
+                    const mappings = JSON.parse(saved);
+                    if (mappings.keyBindings) keyBindings = { ...keyBindings, ...mappings.keyBindings };
+                    if (mappings.gamepadBindings) gamepadBindings = { ...gamepadBindings, ...mappings.gamepadBindings };
+                } catch (e) { console.warn('Failed to load control mappings:', e); }
+            }
+        }
+
+        function resetAllSettings() {
+            if (!confirm('Reset ALL settings, controls, and layouts to defaults? This cannot be undone.')) return;
+            
+            // Clear all localStorage
+            localStorage.removeItem('orbTosserSettings');
+            localStorage.removeItem('orbTosserControls');
+            localStorage.removeItem('orbTosserLayout');
+            
+            // Reset control bindings
+            keyBindings = {
+                moveForward: 'KeyW', moveBackward: 'KeyS', moveLeft: 'KeyA', moveRight: 'KeyD',
+                jump: 'Space', reload: 'KeyR', sprint: 'ShiftLeft', crouch: 'KeyC',
+                weapon1: 'Digit1', weapon2: 'Digit2', weapon3: 'Digit3', weaponNext: 'KeyQ',
+                pause: 'Escape'
+            };
+            gamepadBindings = {
+                jump: 0, reload: 2, switchNext: 5, switchPrev: 4, aim: 6, fire: 7,
+                pause: 9, sprint: 10, crouch: 11, dpadUp: 12, dpadDown: 13, dpadLeft: 14, dpadRight: 15
+            };
+            
+            // Reset settings UI
+            document.getElementById('sens-slider').value = '1.2';
+            document.getElementById('cont-sens-slider').value = '23.0';
+            document.getElementById('fov-slider').value = '75';
+            document.getElementById('bot-slider').value = '5';
+            document.getElementById('snap-slider').value = '0';
+            document.getElementById('abs-aim-check').checked = false;
+            document.getElementById('low-power-check').checked = false;
+            document.getElementById('toggle-aim-check').checked = false;
+            document.getElementById('glossy-check').checked = false;
+            document.getElementById('bgm-select').value = '0';
+            document.getElementById('music-slider').value = '0.3';
+            document.getElementById('res-slider').value = '1.0';
+            
+            // Reload page to apply all defaults
+            location.reload();
         }
 
         function setupControls() {
@@ -1254,32 +1626,23 @@ if (useGlossy && !isLowPowerMode) {
             });
 
             window.addEventListener('keydown', (e) => {
+                if (awaitingRemap && awaitingRemap.type === 'keyboard') {
+                    e.preventDefault();
+                    const action = awaitingRemap.action;
+                    keyBindings[action] = e.code;
+                    saveControlMappings();
+                    return;
+                }
+
                 // Quick respawn on death screen
                 if (e.code === 'Space' && playerHealth <= 0 && document.getElementById('overlay').style.display === 'flex') {
                     e.preventDefault();
                     respawnSameLoadout();
                     return;
                 }
+
                 switch(e.code) {
-                    case 'KeyW': moveForward = true; break;
-                    case 'KeyS': moveBackward = true; break;
-                    case 'KeyA': moveLeft = true; break;
-                    case 'KeyD': moveRight = true; break;
-                    case 'Space': if(canJump && !isSliding) { velocity.y = JUMP_FORCE; canJump = false; } break;
-                    case 'KeyR': reload(); break;
-                    case 'ShiftLeft': isSprinting = true; break;
-                    case 'KeyC': 
-                        if (isSprinting && canJump) { // Can only slide if on the ground and sprinting
-                            isSliding = true;
-                            isCrouching = true;
-                            slideEndTime = Date.now() + 700;
-                            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-                            velocity.x += forward.x * 15; // Boost
-                            velocity.z += forward.z * 15;
-                            canJump = false;
-                        } else { isCrouching = true; }
-                        break;
-                    case 'KeyM': 
+                    case 'KeyM':
                         if (playerHealth > 0) {
                             playerHealth = 0;
                             document.getElementById('health-display').innerText = "DEAD";
@@ -1287,6 +1650,42 @@ if (useGlossy && !isLowPowerMode) {
                             handlePlayerDeath();
                             logFeed(`<span style="color:#f88">You committed suicide</span>`);
                         }
+                        break;
+                    case keyBindings.moveForward: moveForward = true; break;
+                    case keyBindings.moveBackward: moveBackward = true; break;
+                    case keyBindings.moveLeft: moveLeft = true; break;
+                    case keyBindings.moveRight: moveRight = true; break;
+                    case keyBindings.jump:
+                        if (canJump && !isSliding) {
+                            velocity.y = JUMP_FORCE;
+                            canJump = false;
+                        }
+                        break;
+                    case keyBindings.sprint:
+                        isSprinting = true;
+                        break;
+                    case keyBindings.crouch:
+                        if (isSprinting && canJump) {
+                            isSliding = true;
+                            isCrouching = true;
+                            slideEndTime = Date.now() + 700;
+                            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
+                            velocity.x += forward.x * 15;
+                            velocity.z += forward.z * 15;
+                            canJump = false;
+                        } else {
+                            isCrouching = true;
+                        }
+                        break;
+                    case keyBindings.reload:
+                        reload();
+                        break;
+                    case keyBindings.weapon1: switchWeapon(0); break;
+                    case keyBindings.weapon2: switchWeapon(1); break;
+                    case keyBindings.weapon3: switchWeapon(2); break;
+                    case keyBindings.weaponNext: switchWeapon((activeSlot + 1) % 3); break;
+                    case keyBindings.pause:
+                        if (gameHasStarted && document.pointerLockElement) document.exitPointerLock();
                         break;
                     case 'Digit1': switchWeapon(0); break;
                     case 'Digit2': switchWeapon(1); break;
@@ -1297,12 +1696,12 @@ if (useGlossy && !isLowPowerMode) {
 
             window.addEventListener('keyup', (e) => {
                 switch(e.code) {
-                    case 'KeyW': moveForward = false; break;
-                    case 'KeyS': moveBackward = false; break;
-                    case 'KeyA': moveLeft = false; break;
-                    case 'KeyD': moveRight = false; break;
-                    case 'ShiftLeft': isSprinting = false; break;
-                    case 'KeyC': isCrouching = false; break;
+                    case keyBindings.moveForward: moveForward = false; break;
+                    case keyBindings.moveBackward: moveBackward = false; break;
+                    case keyBindings.moveLeft: moveLeft = false; break;
+                    case keyBindings.moveRight: moveRight = false; break;
+                    case keyBindings.sprint: isSprinting = false; break;
+                    case keyBindings.crouch: isCrouching = false; break;
                 }
             });
 
@@ -1652,11 +2051,34 @@ if (useGlossy && !isLowPowerMode) {
 
             const deadzone = 0.15;
             const currentButtons = gp.buttons.map(b => b.pressed);
+            const isButton = action => gamepadBindings[action] != null && currentButtons[gamepadBindings[action]];
+            const wasButton = action => gamepadBindings[action] != null && lastGamepadButtons[gamepadBindings[action]];
+
+            let remappedGamepad = false;
+            if (awaitingRemap && awaitingRemap.type === 'gamepad') {
+                for (let index = 0; index < gp.buttons.length; index++) {
+                    if (gp.buttons[index].pressed && !lastGamepadButtons[index]) {
+                        gamepadBindings[awaitingRemap.action] = index;
+                        saveControlMappings();
+                        const action = awaitingRemap.action;
+                        awaitingRemap = null;
+                        renderControlMap();
+                        const status = document.getElementById('control-map-status');
+                        if (status) status.innerText = `Bound ${action.replace(/([A-Z])/g, ' $1').toUpperCase()} to ${getButtonLabel(index)}`;
+                        remappedGamepad = true;
+                        break;
+                    }
+                }
+            }
+            if (remappedGamepad) {
+                lastGamepadButtons = currentButtons;
+                return;
+            }
 
             // Intro Screen Controller Support
             const introScreen = document.getElementById('intro-screen');
             if (introScreen.style.display !== 'none' && introScreen.style.opacity !== '0') {
-                if ((currentButtons[0] && !lastGamepadButtons[0]) || (currentButtons[9] && !lastGamepadButtons[9])) {
+                if ((isButton('jump') && !wasButton('jump')) || (isButton('pause') && !wasButton('pause'))) {
                     document.getElementById('play-intro-btn').click();
                 }
                 lastGamepadButtons = currentButtons;
@@ -1669,12 +2091,18 @@ if (useGlossy && !isLowPowerMode) {
             const overlay = document.getElementById('overlay');
 
             // Quick respawn on death screen with Gamepad 'A' button
-            if (currentButtons[0] && !lastGamepadButtons[0] && playerHealth <= 0 && overlay.style.display === 'flex') {
+            if (isButton('jump') && !wasButton('jump') && playerHealth <= 0 && overlay.style.display === 'flex') {
                 respawnSameLoadout();
+                lastGamepadButtons = currentButtons;
                 return; // Consume input for this frame
             }
 
-            if (!document.pointerLockElement && (activeMenu || overlay.style.display === 'flex' || gameOverScreen.style.display === 'flex'  || document.getElementById('intro-screen').style.display === 'flex')) {
+            const mainMenu = document.getElementById('main-menu');
+            const settingsMenu = document.getElementById('settings-menu');
+            const isMenuActive = activeMenu && !document.pointerLockElement;
+            const isOnMenuScreen = !document.pointerLockElement && (isMenuActive || overlay.style.display === 'flex' || gameOverScreen.style.display === 'flex' || document.getElementById('intro-screen').style.display === 'flex');
+
+            if (isOnMenuScreen) {
                 cursorEl.style.display = 'block';
                 
                 if (Math.abs(gp.axes[0]) > deadzone) cursorX += gp.axes[0] * 15;
@@ -1686,14 +2114,23 @@ if (useGlossy && !isLowPowerMode) {
                 cursorEl.style.left = cursorX + 'px';
                 cursorEl.style.top = cursorY + 'px';
                 
-                // Scroll Overlay with Right Stick
-                if (overlay.style.display === 'flex' && Math.abs(gp.axes[3]) > deadzone) {
-                    overlay.scrollTop += gp.axes[3] * 25;
+                // D-Pad Slider adjustment on menu
+                const selectedItem = currentMenuItems[menuSelectionIndex];
+                if (selectedItem && selectedItem.tagName === 'INPUT' && selectedItem.type === 'range') {
+                    const stepValue = parseFloat(selectedItem.step) || 1;
+                    if (isButton('dpadLeft') && !wasButton('dpadLeft')) {
+                        selectedItem.value = Math.max(parseFloat(selectedItem.min), parseFloat(selectedItem.value) - stepValue);
+                        selectedItem.dispatchEvent(new Event('input'));
+                    }
+                    if (isButton('dpadRight') && !wasButton('dpadRight')) {
+                        selectedItem.value = Math.min(parseFloat(selectedItem.max), parseFloat(selectedItem.value) + stepValue);
+                        selectedItem.dispatchEvent(new Event('input'));
+                    }
                 }
-                
-                // Click / Drag with A (Button 0)
-                if (currentButtons[0] || currentButtons[5]) { // A or RB (Right Top Trigger)
-                    if (!lastGamepadButtons[0] && !lastGamepadButtons[5]) {
+
+                // Click / Drag with A/button mapped to jump
+                if (isButton('jump') || isButton('switchNext')) {
+                    if (!wasButton('jump') && !wasButton('switchNext')) {
                         const el = document.elementFromPoint(cursorX, cursorY);
                         if (el) {
                             if (el.tagName === 'INPUT' && el.type === 'range') {
@@ -1720,6 +2157,24 @@ if (useGlossy && !isLowPowerMode) {
                     }
                 } else {
                     draggingSlider = null;
+                }
+
+                if (isMenuActive && currentMenuItems.length > 0) {
+                    if (isButton('dpadUp') && !wasButton('dpadUp')) {
+                        menuSelectionIndex = (menuSelectionIndex - 1 + currentMenuItems.length) % currentMenuItems.length;
+                    }
+                    if (isButton('dpadDown') && !wasButton('dpadDown')) {
+                        menuSelectionIndex = (menuSelectionIndex + 1) % currentMenuItems.length;
+                    }
+                    if (isButton('jump') && !wasButton('jump')) {
+                        const target = currentMenuItems[menuSelectionIndex];
+                        if (target) {
+                            if (target.tagName === 'INPUT' && target.type === 'range') {
+                                target.focus();
+                            }
+                            target.click();
+                        }
+                    }
                 }
             } else {
                 cursorEl.style.display = 'none';
@@ -1754,83 +2209,116 @@ if (useGlossy && !isLowPowerMode) {
                 ctrlMoveBackward = false;
                 ctrlMoveForward = false;
             }
-            
+
             // Sprint (L3 / Button 10)
-            if (currentButtons[10]) isSprinting = true;
-            else if (lastGamepadButtons[10]) isSprinting = false;
-            
+            if (isButton('sprint')) isSprinting = true;
+            else if (wasButton('sprint')) isSprinting = false;
+
             // Look (Right Stick)
             const rightStickX = gp.axes[2];
             const rightStickY = gp.axes[3];
             let aimMult = (isAiming || ctrlIsAiming) ? 0.4 : 1.0;
+            const controllerAimSpeed = controllerSensitivity * 0.0012 * aimMult;
+            const aimSpeed = isAbsoluteAim ? controllerAimSpeed : mouseSensitivity * controllerSensitivity * aimMult;
 
             if (Math.abs(rightStickX) > deadzone) {
-                camera.rotation.y -= rightStickX * mouseSensitivity * controllerSensitivity * aimMult;
+                camera.rotation.y -= rightStickX * aimSpeed;
             }
             if (Math.abs(rightStickY) > deadzone) {
-                camera.rotation.x -= rightStickY * mouseSensitivity * controllerSensitivity * aimMult;
-                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+                camera.rotation.x -= rightStickY * aimSpeed;
             }
-
-            // Jump (A / Cross)
-            if (currentButtons[0] && !lastGamepadButtons[0] && canJump && !isSliding) {
-                velocity.y = JUMP_FORCE;
-                canJump = false;
-            }
-
-            // Crouch / Slide (Y / Triangle / Button 3)
-            const crouchPressed = currentButtons[3];
-            if (crouchPressed && !lastGamepadButtons[3] && isSprinting && canJump) {
-                isSliding = true;
-                isCrouching = true;
-                slideEndTime = Date.now() + 700;
-                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-                velocity.x += forward.x * 10;
-                velocity.z += forward.z * 10;
-                canJump = false;
-            }
-            isCrouching = crouchPressed;
+            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
 
             // Fire (Right Trigger)
-            if (gp.buttons[7].pressed && !ctrlIsFiring) {
+            const rightTriggerPressed = isButton('fire');
+            if (rightTriggerPressed && !ctrlIsFiring) {
                 ctrlIsFiring = true;
                 fireProjectile(camera, { name: "Player", id: "player" });
-            } else if (!gp.buttons[7].pressed && ctrlIsFiring) {
+            } else if (!rightTriggerPressed && ctrlIsFiring) {
                 ctrlIsFiring = false;
             }
 
             // Aim / Charge Knife (Left Trigger)
-            const leftTriggerPressed = gp.buttons[6].pressed;
+            const leftTriggerPressed = isButton('aim');
             if (leftTriggerPressed && !ctrlIsAiming && !isChargingKnife) {
-                if (currentWeapon.isMelee) { isChargingKnife = true; knifeChargeStartTime = Date.now(); } 
-                else { ctrlIsAiming = true; document.getElementById('crosshair').style.opacity = '0'; document.getElementById('aim-dot').style.opacity = '1'; }
+                if (currentWeapon.isMelee) {
+                    isChargingKnife = true;
+                    knifeChargeStartTime = Date.now();
+                } else {
+                    ctrlIsAiming = true;
+                    document.getElementById('crosshair').style.opacity = '0';
+                    document.getElementById('aim-dot').style.opacity = '1';
+                }
             } else if (!leftTriggerPressed && (ctrlIsAiming || isChargingKnife)) {
                 if (isChargingKnife) throwKnife();
-                ctrlIsAiming = false; isChargingKnife = false;
-                if (!isAiming) { document.getElementById('crosshair').style.opacity = '1'; document.getElementById('aim-dot').style.opacity = '0'; }
+                ctrlIsAiming = false;
+                isChargingKnife = false;
+                if (!isAiming) {
+                    document.getElementById('crosshair').style.opacity = '1';
+                    document.getElementById('aim-dot').style.opacity = '0';
+                }
+            }
+
+            // Jump (A / Button 0)
+            if (isButton('jump') && !wasButton('jump')) {
+                if (canJump && !isSliding) {
+                    velocity.y = JUMP_FORCE;
+                    canJump = false;
+                }
+            }
+
+            // Crouch / Slide (R3 / Button 11)
+            if (isButton('crouch') && !wasButton('crouch')) {
+                if (isSprinting && canJump) {
+                    isSliding = true;
+                    isCrouching = true;
+                    slideEndTime = Date.now() + 700;
+                    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
+                    velocity.x += forward.x * 15;
+                    velocity.z += forward.z * 15;
+                    canJump = false;
+                } else {
+                    isCrouching = true;
+                }
+            } else if (!isButton('crouch') && wasButton('crouch')) {
+                isCrouching = false;
             }
 
             // Reload (X / Square)
-            if (currentButtons[2] && !lastGamepadButtons[2]) reload();
+            if (isButton('reload') && !wasButton('reload')) reload();
             
             // Switch Weapon (Y / Triangle) or (Right Bumper / Button 5)
-            if (currentButtons[5] && !lastGamepadButtons[5]) {
-                switchWeapon((activeSlot + 1) % 3);
-            }
-            
-            // Previous Weapon (Left Bumper / Button 4)
-            if (currentButtons[4] && !lastGamepadButtons[4]) {
-                switchWeapon((activeSlot + 2) % 3);
+            if (performance.now() > suppressGamepadWeaponSwitchUntil) {
+                if (isButton('switchNext') && !wasButton('switchNext')) {
+                    switchWeapon((activeSlot + 1) % 3);
+                }
+                if (isButton('switchPrev') && !wasButton('switchPrev')) {
+                    switchWeapon((activeSlot + 2) % 3);
+                }
             }
 
             // Pause / Menu (Start / Button 9)
-            if (currentButtons[9] && !lastGamepadButtons[9]) {
+            if (isButton('pause') && !wasButton('pause')) {
+                const overlay = document.getElementById('overlay');
+                const gameOverScreen = document.getElementById('game-over-screen');
+                const settingsMenu = document.getElementById('settings-menu');
+                const pauseMenu = document.getElementById('pause-menu');
+
                 if (document.pointerLockElement) {
                     document.exitPointerLock();
-                } else if (document.getElementById('settings-menu').style.display === 'flex') {
+                } else if (settingsMenu.style.display === 'flex') {
                     closeSettings();
-                } else if (document.getElementById('pause-menu').style.display === 'flex') {
+                } else if (pauseMenu.style.display === 'flex') {
                     resumeGame();
+                } else if (gameHasStarted && !isGameOver && overlay.style.display === 'none' && gameOverScreen.style.display === 'none' && document.getElementById('main-menu').style.display === 'none') {
+                    pauseMenu.style.display = 'flex';
+                    setControllerCursorVisibility(true);
+                    activeMenu = pauseMenu;
+                } else if (currentMenuItems.length > 0) {
+                    const target = currentMenuItems[menuSelectionIndex];
+                    if (target && typeof target.click === 'function') {
+                        target.click();
+                    }
                 }
             }
 
@@ -2111,7 +2599,20 @@ if (useGlossy && !isLowPowerMode) {
                 } else {
                     // Bot Melee Logic
                     // Check Player
-                    if (source.position.distanceTo(camera.position) < 2.5) {
+                    // Fix melee whiff when bot leans upward / player jumps:
+                    // use horizontal (XZ) distance + vertical tolerance instead of full 3D distance.
+                    const playerDx = source.position.x - camera.position.x;
+                    const playerDz = source.position.z - camera.position.z;
+                    const playerDxz = Math.sqrt(playerDx * playerDx + playerDz * playerDz);
+
+                    // Melee should connect even when player is jumping / bot leans upward.
+                    // Use a tolerance around an approximate “hit center” instead of camera.y.
+                    const PLAYER_MELEE_Y_TOL = 2.75; // more tolerant vs jump/lean whiffs
+                    const playerHitCenterY = camera.position.y + 0.6;
+                    const botHitCenterY = source.position.y + 0.4;
+                    const playerDy = Math.abs(botHitCenterY - playerHitCenterY);
+
+                    if (playerDxz < 2.8 && playerDy < PLAYER_MELEE_Y_TOL) {
                         // Friendly Fire Check
                         if (gameMode !== 'ffa' && ownerData.team === 'blue') return; // Player is blue
 
@@ -2146,7 +2647,13 @@ if (useGlossy && !isLowPowerMode) {
                     
                     // Check Bots
                     bots.forEach(b => {
-                        if (b.userData.id !== ownerData.id && source.position.distanceTo(b.position) < 2.5) {
+                        // Use XZ distance + vertical tolerance for consistent melee hits.
+                        const botDx = source.position.x - b.position.x;
+                        const botDz = source.position.z - b.position.z;
+                        const botDxz = Math.sqrt(botDx * botDx + botDz * botDz);
+                        const botDy = Math.abs((source.position.y + 0.4) - (b.position.y + 0.4));
+                        const BOT_MELEE_Y_TOL = 2.0; // was 1.3
+                        if (b.userData.id !== ownerData.id && botDxz < 2.8 && botDy < BOT_MELEE_Y_TOL) {
                             // Friendly Fire Check
                             if (gameMode !== 'ffa' && b.userData.team === ownerData.team) return;
 
@@ -2329,11 +2836,17 @@ if (useGlossy && !isLowPowerMode) {
             
             updateMenuNavigation();
             handleGamepadInput();
-            renderer.render(scene, camera);
 
-            if(isGameOver || !gameHasStarted) return;
+            if(isGameOver || !gameHasStarted) {
+                renderer.render(scene, camera);
+                return;
+            }
 
             const isPaused = (!document.pointerLockElement && !isMobile) || document.getElementById('pause-menu').style.display === 'flex' || document.getElementById('settings-menu').style.display === 'flex';
+            if (!isPaused) applyAimSnap();
+
+            renderer.render(scene, camera);
+
             if (isPaused) return;
 
             // Knife Regeneration
@@ -2495,6 +3008,7 @@ if (useGlossy && !isLowPowerMode) {
                         let currentSpeed = isSprinting ? MOVE_SPEED * 1.6 : MOVE_SPEED;
                         if (hasSpeedPerk) currentSpeed *= 1.15;
                         if (isCrouching) currentSpeed *= 0.5;
+                        if (isAiming || ctrlIsAiming) currentSpeed *= 0.5;
                         
                         velocity.x += moveVec.x * currentSpeed * delta * 8.0;
                         velocity.z += moveVec.z * currentSpeed * delta * 8.0;
@@ -2628,7 +3142,7 @@ if (useGlossy && !isLowPowerMode) {
                         );
                     }
                     
-                    bot.lookAt(bot.userData.roamTarget.x, 0.9, bot.userData.roamTarget.z);
+                    setBotYawTowards(bot, bot.userData.roamTarget);
                     const moveDir = new THREE.Vector3(0, 0, 1).applyQuaternion(bot.quaternion);
                     const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
                     
@@ -2659,7 +3173,7 @@ if (useGlossy && !isLowPowerMode) {
                 }
                 if (bot.userData.isCamping) {
                     if (Date.now() > bot.userData.campEndTime) bot.userData.isCamping = false;
-                    bot.lookAt(target.position.x, target === camera ? 1.5 : 0.9, target.position.z);
+                    setBotYawTowards(bot, target.position);
                     // Shoot logic continues below, but movement stops
                 } else {
                     
@@ -2675,7 +3189,7 @@ if (useGlossy && !isLowPowerMode) {
                     });
 
                     if (closestPickup) {
-                        bot.lookAt(closestPickup.position.x, 0.9, closestPickup.position.z);
+                        setBotYawTowards(bot, closestPickup.position);
                         const moveDir = new THREE.Vector3(0,0,1).applyQuaternion(bot.quaternion);
                         const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
                         if(!checkCollision(nextPos.x, nextPos.z)) bot.position.copy(nextPos);
@@ -2699,16 +3213,8 @@ if (useGlossy && !isLowPowerMode) {
                 if (bot.userData.weapon.name === "Shotgun") desiredDist = 5;
                 if (bot.userData.weapon.isMelee) desiredDist = 1.5;
 
-                // Aim Snap (Assist) for Player
-                if ((isAiming || ctrlIsAiming) && aimSnap > 0) {
-                    // Simple snap to closest bot if aiming near them
-                    bots.forEach(b => {
-                        const angle = camera.getWorldDirection(new THREE.Vector3()).angleTo(b.position.clone().sub(camera.position).normalize());
-                        if (angle < 0.1 * (aimSnap/5)) camera.lookAt(b.position.x, b.position.y + 0.5, b.position.z);
-                    });
-                }
-                
-                bot.lookAt(target.position.x, target === camera ? 1.5 : 0.9, target.position.z); // Always look at enemy to shoot
+                // Aim snap is handled separately for the player, not inside bot AI updates.
+                setBotYawTowards(bot, target.position); // Always look at enemy to shoot
                 
                 // Avoid other bots
                 let moveDir = new THREE.Vector3(0,0,1).applyQuaternion(bot.quaternion);
