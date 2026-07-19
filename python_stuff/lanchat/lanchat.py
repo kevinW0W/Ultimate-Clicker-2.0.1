@@ -31,7 +31,7 @@ messages = []            # Stores message objects: {"id": str, "sender": str, "t
 clients = set()          # Set of active Client Connection Queues (for SSE)
 active_users = {}        # Tracking active usernames mapped to their last-seen timestamp: {username: timestamp}
 state_lock = threading.Lock()
-terminal_username = "kevinW0W"
+terminal_username = "👑Host👑"
 terminal_notifications_enabled = True
 
 USER_FILE = "terminal_user.txt"
