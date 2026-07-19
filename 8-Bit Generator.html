@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Sound Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            background-color: #1a1a2e;
+            color: #e94560;
+            font-family: 'Press+Start+2P', cursive;
+        }
+
+        .retro-border {
+            border: 4px solid #e94560;
+            box-shadow: 8px 8px 0px #533483;
+        }
+
+        .retro-button {
+            transition: transform 0.1s, box-shadow 0.1s;
+            box-shadow: 4px 4px 0px #533483;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .retro-button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #533483;
+        }
+
+        .pixel-slider {
+            appearance: none;
+            height: 12px;
+            background: #16213e;
+            outline: none;
+            border: 2px solid #e94560;
+        }
+
+        .pixel-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            cursor: pointer;
+        }
+
+        .tab-btn {
+            background: #16213e;
+            padding: 10px;
+            font-size: 10px;
+            border: 2px solid #e94560;
+        }
+
+        .tab-btn.active {
+            background: #e94560;
+            color: white;
+        }
+        
+        .real-time-badge {
+            font-size: 8px;
+            background: #4ade80;
+            color: #1a1a2e;
+            padding: 2px 4px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+
+        .preset-btn {
+            font-size: 7px;
+            padding: 4px 6px;
+            border: 1px solid #e94560;
+            background: #0f3460;
+            color: white;
+            transition: all 0.2s;
+            margin: 2px;
+        }
+
+        .preset-btn:hover {
+            background: #e94560;
+        }
+
+        #dropZone.drag-over {
+            background: #533483;
+            border-color: #4ade80;
+            transform: scale(1.02);
+        }
+
+        #dropZone {
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-2xl w-full bg-[#0f3460] p-6 retro-border text-center">
+        <h1 class="text-lg mb-6 uppercase tracking-tighter text-yellow-400">Retro FX Studio</h1>
+
+        <!-- Navigation Tabs -->
+        <div class="flex mb-6 gap-2">
+            <button onclick="switchTab('synth')" id="tab-synth" class="tab-btn active flex-1">SYNTHESIZER</button>
+            <button onclick="switchTab('import')" id="tab-import" class="tab-btn flex-1">IMPORT AUDIO</button>
+        </div>
+
+        <!-- Synthesizer Section -->
+        <div id="section-synth" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="flex flex-col gap-2 text-left">
+                <label class="text-[10px]">Waveform</label>
+                <select id="waveform" class="bg-[#16213e] border-2 border-[#e94560] p-2 text-[10px] text-white outline-none">
+                    <option value="square">Square (NES)</option>
+                    <option value="sawtooth">Sawtooth (C64)</option>
+                    <option value="triangle">Triangle (Bass)</option>
+                    <option value="noise">Noise (SFX)</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-2 text-left">
+                <label class="text-[10px]">Frequency: <span id="freqVal">440</span>Hz <span class="real-time-badge">LIVE</span></label>
+                <input type="range" id="frequency" min="100" max="2000" value="440" class="pixel-slider">
+            </div>
+            <div class="flex flex-col gap-2 text-left">
+                <label class="text-[10px]">Duration: <span id="durVal">0.5</span>s</label>
+                <input type="range" id="duration" min="0.1" max="2.0" step="0.1" value="0.5" class="pixel-slider">
+            </div>
+            <div class="flex flex-col gap-2 text-left">
+                <label class="text-[10px]">Decay</label>
+                <input type="range" id="decay" min="0" max="1" step="0.1" value="0.3" class="pixel-slider">
+            </div>
+        </div>
+
+        <!-- Import Section -->
+        <div id="section-import" class="hidden mb-6 p-4">
+            <div id="dropZone" class="border-4 border-dashed border-[#e94560] bg-[#16213e] p-6 mb-4 flex flex-col items-center justify-center cursor-pointer">
+                <p class="text-[10px] mb-4">DRAG & DROP AUDIO FILE<br><span class="opacity-50 text-[8px]">(MP3, WAV, M4A, OGG)</span></p>
+                <input type="file" id="fileInput" accept="audio/*,audio/mp4,audio/x-m4a,audio/mpeg,audio/wav" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" class="retro-button bg-[#533483] text-white px-4 py-2 text-[10px]">
+                    OR CHOOSE FILE
+                </button>
+            </div>
+            
+            <div class="mb-4">
+                <p class="text-[8px] mb-2 uppercase opacity-70">Console Presets</p>
+                <div class="flex flex-wrap justify-center gap-1">
+                    <button onclick="applyPreset('nes')" class="preset-btn">NES</button>
+                    <button onclick="applyPreset('snes')" class="preset-btn">SNES</button>
+                    <button onclick="applyPreset('n64')" class="preset-btn">N64</button>
+                    <button onclick="applyPreset('gcn')" class="preset-btn">GameCube</button>
+                    <button onclick="applyPreset('wii')" class="preset-btn">Wii</button>
+                    <button onclick="applyPreset('switch')" class="preset-btn">Switch</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 text-left">
+                <div class="flex flex-col gap-2">
+                    <label class="text-[8px]">Bit Depth: <span id="bitVal">4</span>-bit <span class="real-time-badge">LIVE</span></label>
+                    <input type="range" id="bitDepth" min="1" max="16" value="4" class="pixel-slider">
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[8px]">Downsample: <span id="sampleVal">8</span>x <span class="real-time-badge">LIVE</span></label>
+                    <input type="range" id="sampleRateReduce" min="1" max="50" value="8" class="pixel-slider">
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[8px]">Speed: <span id="tempoVal">1.0</span>x <span class="real-time-badge">LIVE</span></label>
+                    <input type="range" id="tempo" min="0.5" max="2.0" step="0.1" value="1.0" class="pixel-slider">
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[8px]">Pitch: <span id="pitchVal">1.0</span>x <span class="real-time-badge">LIVE</span></label>
+                    <input type="range" id="playbackRate" min="0.5" max="2.0" step="0.1" value="1.0" class="pixel-slider">
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 justify-center">
+            <button id="playBtn" class="retro-button bg-[#e94560] text-white p-3 text-xs">
+                PLAY
+            </button>
+            <button id="stopBtn" class="retro-button bg-[#533483] text-white p-3 text-xs">
+                STOP
+            </button>
+            <button id="downloadBtn" class="retro-button bg-[#00d2ff] text-[#1a1a2e] p-3 text-xs">
+                EXPORT
+            </button>
+        </div>
+
+        <div id="status" class="mt-6 text-[8px] text-blue-300 bg-[#16213e] py-2 px-4 inline-block">SYSTEM: Ready.</div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let importedBuffer = null;
+        let activeTab = 'synth';
+        let currentSource = null;
+        let scriptProcessor = null;
+        let oscillator = null;
+        let gainNode = null;
+
+        const state = {
+            bitDepth: 4,
+            downsample: 8,
+            frequency: 440,
+            waveform: 'square',
+            playbackRate: 1.0,
+            tempo: 1.0
+        };
+
+        const status = document.getElementById('status');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('section-synth').classList.toggle('hidden', tab !== 'synth');
+            document.getElementById('section-import').classList.toggle('hidden', tab !== 'import');
+            document.getElementById('tab-synth').classList.toggle('active', tab === 'synth');
+            document.getElementById('tab-import').classList.toggle('active', tab === 'import');
+            stopAudio();
+        }
+
+        function applyPreset(type) {
+            const bitSlider = document.getElementById('bitDepth');
+            const sampleSlider = document.getElementById('sampleRateReduce');
+            
+            switch(type) {
+                case 'nes':
+                    bitSlider.value = 3;
+                    sampleSlider.value = 12;
+                    break;
+                case 'snes':
+                    bitSlider.value = 8;
+                    sampleSlider.value = 4;
+                    break;
+                case 'n64':
+                    bitSlider.value = 12;
+                    sampleSlider.value = 2;
+                    break;
+                case 'gcn':
+                    bitSlider.value = 16;
+                    sampleSlider.value = 2;
+                    break;
+                case 'wii':
+                    bitSlider.value = 16;
+                    sampleSlider.value = 1;
+                    break;
+                case 'switch':
+                    bitSlider.value = 16;
+                    sampleSlider.value = 1;
+                    break;
+            }
+            
+            bitSlider.dispatchEvent(new Event('input'));
+            sampleSlider.dispatchEvent(new Event('input'));
+            status.innerText = `SYSTEM: ${type.toUpperCase()} Preset Applied`;
+        }
+
+        // --- Drag and Drop Handlers ---
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        };
+
+        async function handleFile(file) {
+            status.innerText = "SYSTEM: Loading file...";
+            
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                audioCtx.decodeAudioData(arrayBuffer, (decodedData) => {
+                    importedBuffer = decodedData;
+                    status.innerText = `SYSTEM: ${file.name.substring(0, 15)}... Loaded.`;
+                }, (error) => {
+                    console.error("Decode Error Details:", error);
+                    status.innerText = "SYSTEM: Decode Error! File format might be unsupported.";
+                });
+            } catch (err) {
+                console.error("File Read Error:", err);
+                status.innerText = "SYSTEM: File Read Error!";
+            }
+        }
+
+        document.getElementById('frequency').oninput = (e) => {
+            state.frequency = parseFloat(e.target.value);
+            document.getElementById('freqVal').innerText = state.frequency;
+            if (oscillator) oscillator.frequency.setTargetAtTime(state.frequency, audioCtx.currentTime, 0.05);
+        };
+        document.getElementById('bitDepth').oninput = (e) => {
+            state.bitDepth = parseInt(e.target.value);
+            document.getElementById('bitVal').innerText = state.bitDepth;
+        };
+        document.getElementById('sampleRateReduce').oninput = (e) => {
+            state.downsample = parseInt(e.target.value);
+            document.getElementById('sampleVal').innerText = state.downsample;
+        };
+        document.getElementById('playbackRate').oninput = (e) => {
+            state.playbackRate = parseFloat(e.target.value);
+            document.getElementById('pitchVal').innerText = state.playbackRate;
+            if (currentSource) currentSource.playbackRate.value = state.playbackRate * state.tempo;
+        };
+        document.getElementById('tempo').oninput = (e) => {
+            state.tempo = parseFloat(e.target.value);
+            document.getElementById('tempoVal').innerText = state.tempo;
+            if (currentSource) currentSource.playbackRate.value = state.tempo * state.playbackRate;
+        };
+        document.getElementById('waveform').onchange = (e) => {
+            state.waveform = e.target.value;
+            if (oscillator) oscillator.type = (state.waveform === 'noise') ? 'square' : state.waveform;
+        };
+        document.getElementById('duration').oninput = (e) => document.getElementById('durVal').innerText = e.target.value;
+
+        function stopAudio() {
+            if (currentSource) { try { currentSource.stop(); } catch(e) {} currentSource = null; }
+            if (oscillator) { try { oscillator.stop(); } catch(e) {} oscillator = null; }
+            if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
+            status.innerText = "SYSTEM: Stopped.";
+        }
+
+        document.getElementById('stopBtn').onclick = stopAudio;
+
+        function createBitCrusherNode() {
+            const processor = audioCtx.createScriptProcessor(4096, 2, 2);
+            let lastSampleL = 0;
+            let lastSampleR = 0;
+            let counter = 0;
+
+            processor.onaudioprocess = (event) => {
+                const inputL = event.inputBuffer.getChannelData(0);
+                const inputR = event.inputBuffer.getChannelData(1);
+                const outputL = event.outputBuffer.getChannelData(0);
+                const outputR = event.outputBuffer.getChannelData(1);
+                const steps = Math.pow(2, state.bitDepth);
+
+                for (let i = 0; i < inputL.length; i++) {
+                    if (counter % state.downsample === 0) {
+                        lastSampleL = Math.floor(inputL[i] * (steps / 2)) / (steps / 2);
+                        lastSampleR = Math.floor(inputR[i] * (steps / 2)) / (steps / 2);
+                    }
+                    outputL[i] = lastSampleL;
+                    outputR[i] = lastSampleR;
+                    counter++;
+                }
+            };
+            return processor;
+        }
+
+        document.getElementById('playBtn').onclick = () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            stopAudio();
+            scriptProcessor = createBitCrusherNode();
+            
+            if (activeTab === 'synth') {
+                if (state.waveform === 'noise') {
+                    playNoiseSynth();
+                } else {
+                    oscillator = audioCtx.createOscillator();
+                    oscillator.type = (state.waveform === 'noise') ? 'square' : state.waveform;
+                    oscillator.frequency.value = state.frequency;
+                    gainNode = audioCtx.createGain();
+                    const duration = parseFloat(document.getElementById('duration').value);
+                    gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                    oscillator.connect(scriptProcessor);
+                    scriptProcessor.connect(audioCtx.destination);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + duration);
+                }
+            } else {
+                if (!importedBuffer) { status.innerText = "SYSTEM: No file!"; return; }
+                currentSource = audioCtx.createBufferSource();
+                currentSource.buffer = importedBuffer;
+                currentSource.playbackRate.value = state.playbackRate * state.tempo;
+                currentSource.connect(scriptProcessor);
+                scriptProcessor.connect(audioCtx.destination);
+                currentSource.start();
+            }
+            status.innerText = "SYSTEM: Playing Live FX";
+        };
+
+        function playNoiseSynth() {
+            const duration = parseFloat(document.getElementById('duration').value);
+            const bufferSize = audioCtx.sampleRate * duration;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            currentSource = audioCtx.createBufferSource();
+            currentSource.buffer = noiseBuffer;
+            gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            currentSource.connect(gainNode);
+            gainNode.connect(scriptProcessor);
+            scriptProcessor.connect(audioCtx.destination);
+            currentSource.start();
+        }
+
+        document.getElementById('downloadBtn').onclick = () => {
+            status.innerText = "SYSTEM: Exporting...";
+            const buffer = (activeTab === 'synth') ? generateSynthBuffer() : crushBuffer(importedBuffer);
+            if (!buffer) return;
+            const wavBlob = bufferToWav(buffer);
+            const url = URL.createObjectURL(wavBlob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = 'retro_fx_export.wav';
+            anchor.click();
+            status.innerText = "SYSTEM: Saved!";
+        };
+
+        function generateSynthBuffer() {
+            const sampleRate = audioCtx.sampleRate;
+            const duration = parseFloat(document.getElementById('duration').value);
+            const freq = state.frequency;
+            const type = state.waveform;
+            const decay = parseFloat(document.getElementById('decay').value);
+            const numSamples = Math.floor(sampleRate * duration);
+            const buffer = audioCtx.createBuffer(1, numSamples, sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < numSamples; i++) {
+                const t = i / sampleRate;
+                let sample = 0;
+                if (type === 'square') sample = Math.sin(2 * Math.PI * freq * t) >= 0 ? 0.8 : -0.8;
+                else if (type === 'sawtooth') sample = 2 * (t * freq - Math.floor(0.5 + t * freq));
+                else if (type === 'triangle') sample = Math.abs(4 * (t * freq - Math.floor(t * freq + 0.5))) - 1;
+                else if (type === 'noise') sample = Math.random() * 2 - 1;
+                const env = Math.exp(-decay * 5 * (i / numSamples));
+                data[i] = sample * env * 0.5;
+            }
+            return buffer;
+        }
+
+        function crushBuffer(src) {
+            const steps = Math.pow(2, state.bitDepth);
+            const rate = state.playbackRate * state.tempo;
+            const newLength = Math.floor(src.length / rate);
+            const res = audioCtx.createBuffer(src.numberOfChannels, newLength, src.sampleRate);
+            for (let c = 0; c < src.numberOfChannels; c++) {
+                const inp = src.getChannelData(c);
+                const out = res.getChannelData(c);
+                let last = 0;
+                for (let i = 0; i < newLength; i++) {
+                    const inputIdx = Math.floor(i * rate);
+                    if (inputIdx < inp.length) {
+                        if (i % state.downsample === 0) last = Math.floor(inp[inputIdx] * (steps / 2)) / (steps / 2);
+                        out[i] = last;
+                    }
+                }
+            }
+            return res;
+        }
+
+        function bufferToWav(abuffer) {
+            const numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44, buffer = new ArrayBuffer(length), view = new DataView(buffer);
+            let channels = [], i, sample, offset = 0, pos = 0;
+            const set16 = (d) => { view.setUint16(pos, d, true); pos += 2; };
+            const set32 = (d) => { view.setUint32(pos, d, true); pos += 4; };
+            set32(0x46464952); set32(length - 8); set32(0x45564157); set32(0x20746d66); set32(16); set16(1); set16(numOfChan);
+            set32(abuffer.sampleRate); set32(abuffer.sampleRate * 2 * numOfChan); set16(numOfChan * 2); set16(16); set32(0x61746164); set32(length - pos - 4);
+            for(i = 0; i < numOfChan; i++) channels.push(abuffer.getChannelData(i));
+            while(pos < length) {
+                for(i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (sample < 0 ? sample * 0x8000 : sample * 0x7FFF);
+                    view.setInt16(pos, sample, true); pos += 2;
+                }
+                offset++;
+            }
+            return new Blob([buffer], {type: "audio/wav"});
+        }
+    </script>
+</body>
+</html>
