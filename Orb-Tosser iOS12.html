@@ -5,16 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Orb Tosser Mobile</title>
     <style>
-        body { margin: 0; overflow: hidden; width: 100%; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
+        html, body { width: 100%; height: 100%; }
+        body { margin: 0; overflow: hidden; min-height: 100vh; min-height: 100dvh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
+        canvas { display: block; }
         #ui {
             position: absolute;
             top: 20px;
             left: 20px;
+            max-width: calc(100vw - 40px);
             color: #fff;
             pointer-events: none;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 10;
         }
+        #feed { width: min(340px, calc(100vw - 40px)); max-height: 28vh; height: auto !important; overflow: hidden; overflow-wrap: anywhere; line-height: 1.35; }
         #hud-top-right {
             position: absolute;
             top: 20px;
@@ -76,18 +80,41 @@
             justify-content: flex-start;
             padding-top: 50px;
             padding-bottom: 50px;
+            padding-left: 20px;
+            padding-right: 20px;
+            box-sizing: border-box;
             color: #0ff;
             z-index: 100;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
         }
+        /* Do not let the flex layout shrink the weapon grid on short iPad screens. */
+        #overlay > * { flex-shrink: 0; }
+        #loadout-grid { width: 100%; box-sizing: border-box; flex: 0 0 auto; }
+        #loadout-instructions { width: min(100%, 700px); text-align: center; line-height: 1.4; margin: 30px 0 12px !important; }
+        #loadout-settings { flex: 0 0 auto; position: static; margin: 0 0 20px !important; min-width: 180px; }
+        #desktop-only-screen { display: none; position: fixed; inset: 0; z-index: 2000; background: #000; color: #0ff; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; box-sizing: border-box; }
+        #desktop-only-screen h1 { margin: 0 0 12px; font-size: 42px; }
+        #desktop-only-screen p { margin: 0; color: #fff; font-size: 18px; }
         #overlay::-webkit-scrollbar { width: 8px; }
         #overlay::-webkit-scrollbar-track { background: #000; }
         #overlay::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
         #layout-editor-ui {
             display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 600; gap: 10px;
+            z-index: 600; gap: 10px; align-items: center; padding: 10px 14px;
+            background: rgba(0,0,0,0.85); border: 2px solid #ff0; border-radius: 10px;
+            color: #ff0; text-align: center;
         }
+        #fps-display {
+            position: absolute; top: max(6px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: 15; display: none;
+            color: #0f0; font-size: 11px; font-weight: 600; opacity: 0.8; pointer-events: none;
+            text-shadow: 1px 1px 0 #000;
+        }
+        #layout-editor-ui .btn { margin: 0; padding: 10px 16px; font-size: 15px; }
+        #layout-editor-tip { font-size: 12px; }
+        #control-edit-menu { display: none; position: absolute; z-index: 700; gap: 6px; padding: 7px; background: rgba(0,0,0,0.9); border: 1px solid #0ff; border-radius: 8px; }
+        #control-edit-menu .btn { margin: 0; padding: 8px 10px; font-size: 12px; }
+        .layout-control-selected { outline: 3px solid #fff; box-shadow: 0 0 16px #0ff; }
         #main-menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: none;
@@ -96,7 +123,9 @@
         }
         #mobile-controls {
             position: absolute;
-            bottom: 40px;
+            top: 0;
+            bottom: auto;
+            height: 100%;
             width: 100%;
             display: none;
             justify-content: space-between;
@@ -170,6 +199,51 @@
             0%, 100% { opacity: 1; text-shadow: 0 0 20px #0ff; }
             50% { opacity: 0.8; text-shadow: 0 0 10px #0ff; }
         }
+
+        /* Keep touch controls and HUD proportional on iPad-sized viewports. */
+        @media screen and (min-width: 768px) and (max-width: 1366px) {
+            #ui { top: 3vw; left: 3vw; }
+            #hud-top-right { top: 3vw; right: 3vw; }
+            #timer { font-size: 3.2vw; }
+            #leaderboard { font-size: 1.5vw; padding: 1vw; }
+            .lb-row { width: 19vw; }
+            #health-display, #ammo-display { bottom: 5vw !important; font-size: 3.2vw; }
+            #health-display { left: 5vw; }
+            #ammo-display { right: 5vw; }
+            #weapon-name { bottom: 10vw; right: 5vw; font-size: 1.8vw; }
+            #mobile-controls { top: 0; bottom: auto; height: 100%; padding: 0; }
+            .joystick-area { width: 14vw; height: 14vw; }
+            #move-stick { bottom: 5vw !important; left: 5vw !important; }
+            #crouch-btn { bottom: 5vw !important; left: 21vw !important; width: 9vw !important; height: 9vw !important; }
+            #fire-btn { bottom: 5vw !important; right: 5vw !important; width: 12vw !important; height: 12vw !important; font-size: 2vw !important; }
+            #reload-btn { bottom: 6vw !important; right: 19vw !important; width: 9vw !important; height: 9vw !important; }
+            #jump-btn { bottom: 16vw !important; right: 17vw !important; width: 9vw !important; height: 9vw !important; }
+            #aim-btn { bottom: 16vw !important; right: 5vw !important; width: 9vw !important; height: 9vw !important; }
+            #sprint-btn { bottom: 5vw !important; left: 31vw !important; width: 9vw !important; height: 9vw !important; }
+            #weapon-switch-btn { bottom: 16vw !important; right: 29vw !important; width: 9vw !important; height: 9vw !important; }
+            #intro-screen h1, #game-over-screen h1 { font-size: 6vw !important; }
+            #main-menu h1, #overlay h1 { font-size: 5vw !important; }
+            #settings-menu { width: 78vw !important; padding: 4vw !important; }
+        }
+
+        /* Saved positions must override the iPad default-placement rules. */
+        .has-custom-layout #move-stick, .has-custom-layout #crouch-btn,
+        .has-custom-layout #fire-btn, .has-custom-layout #reload-btn,
+        .has-custom-layout #jump-btn, .has-custom-layout #aim-btn,
+        .has-custom-layout #sprint-btn, .has-custom-layout #weapon-switch-btn {
+            right: auto !important;
+            bottom: auto !important;
+        }
+
+        /* The layout editor should show only its toolbar and draggable controls. */
+        .layout-editing #ui, .layout-editing #hud-top-right,
+        .layout-editing #health-display, .layout-editing #ammo-display,
+        .layout-editing #weapon-name, .layout-editing #crosshair,
+        .layout-editing #aim-dot, .layout-editing #hit-marker,
+        .layout-editing #mobile-pause-btn, .layout-editing #settings-menu,
+        .layout-editing #pause-menu {
+            display: none !important;
+        }
     </style>
     <div id="controller-cursor" style="position: absolute; width: 20px; height: 20px; background: rgba(255, 0, 0, 0.7); border: 2px solid white; border-radius: 50%; pointer-events: none; display: none; z-index: 1000; transform: translate(-50%, -50%); box-shadow: 0 0 10px red;"></div>
 </head>
@@ -187,12 +261,22 @@
 
         <button id="respawn-btn" class="btn" onclick="respawnSameLoadout()">RESPAWN (KEEP LOADOUT)</button>
         <div id="loadout-grid" style="display:flex; flex-wrap: wrap; justify-content: center; gap:10px; max-width: 900px;"></div>
-        <button class="btn" onclick="openSettings()" style="margin-top: 20px; background: #555; color: #fff;">SETTINGS</button>
-        <p style="font-size: 14px; color: #fff; margin-top: 30px;">WASD to Move | SPACE to Jump | MOUSE to Look & Shoot</p>
+        <p id="loadout-instructions" style="font-size: 14px; color: #fff; margin-top: 30px;">Choose a loadout, then deploy. Use the mobile controls to move, aim, and shoot.</p>
+        <button id="loadout-settings" class="btn" onclick="openSettings()" style="background: #555; color: #fff;">SETTINGS</button>
+    </div>
+    <div id="desktop-only-screen">
+        <h1>THIS GAME IS FOR MOBILE ONLY</h1>
+        <p>Open it on an iPhone or iPad to play.</p>
     </div>
     <div id="layout-editor-ui">
-        <button class="btn" onclick="saveLayout()">SAVE & EXIT</button>
-        <button class="btn" onclick="resetLayout()" style="background: #900;">RESET DEFAULT</button>
+        <span id="layout-editor-tip">Tap a control, then choose Move or Resize. Positions save automatically.</span>
+        <button class="btn" onclick="saveLayout()">DONE</button>
+        <button class="btn" onclick="resetLayout()" style="background: #900;">RESET</button>
+    </div>
+    <div id="control-edit-menu">
+        <button class="btn" onclick="setLayoutEditMode('move')">MOVE</button>
+        <button class="btn" onclick="resizeSelectedControl(-10)">−</button>
+        <button class="btn" onclick="resizeSelectedControl(10)">+</button>
     </div>
     
     <div id="intro-screen" style="position:absolute; top:0; left:0; width:100%; height:100%; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:400; opacity:1; transition: opacity 1s ease;">
@@ -219,6 +303,7 @@
     <div id="pause-menu" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#0ff; z-index:100;">
         <h1 style="font-size: 48px; margin-bottom: 10px;">PAUSED</h1>
         <button class="btn" onclick="resumeGame()">RESUME</button>
+        <button class="btn" onclick="respawnToLoadout()" style="background: #008888; color: #fff;">RESPAWN / LOADOUT</button>
         <button class="btn" onclick="openSettings()" style="background: #555; color: #fff;">SETTINGS</button>
         <button class="btn" onclick="resetGame()" style="background: #900; color: #fff;">RESTART MATCH</button>
         <button class="btn" onclick="quitGame()" style="background: #900; color: #fff; margin-top: 10px;">QUIT GAME</button>
@@ -234,13 +319,25 @@
         <div style="display:flex; justify-content:space-between;"><span>Absolute Aim</span> <input type="checkbox" id="abs-aim-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Control Map</span> <button class="btn" style="font-size:14px; padding:8px 12px; margin-left:10px;" onclick="openControlMap()">EDIT</button></div>
         <div style="display:flex; justify-content:space-between;"><span>Low Power Mode</span> <input type="checkbox" id="low-power-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Auto Graphics</span> <input type="checkbox" id="auto-graphics-check" checked onchange="updateSettings()"></div>
+        <div id="graphics-preset-label" style="text-align:center; font-size:12px; color:#aaa; margin-top:-10px;">GRAPHICS: AUTO</div>
+        <div style="display:flex; justify-content:space-between;"><span>Show FPS</span> <input type="checkbox" id="show-fps-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Disable Post-Processing</span> <input type="checkbox" id="disable-post-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;"><span>Frame Rate</span> <button id="fps-30-btn" class="btn" type="button" onclick="toggleFrameRate()" style="font-size:14px; padding:8px 12px; margin:0;">30 FPS: OFF</button></div>
         <div style="display:flex; justify-content:space-between;"><span>Mobile Toggle Aim</span> <input type="checkbox" id="toggle-aim-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mobile Auto Aim</span> <input type="checkbox" id="mobile-auto-aim-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mobile Auto Shoot</span> <input type="checkbox" id="mobile-auto-shoot-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Glossy Sky</span> <input type="checkbox" id="glossy-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>BGM Track</span> <select id="bgm-select" onchange="updateSettings()" style="background:#333; color:#fff; border:1px solid #555; width:100px; border-radius: 4px;">
             <option value="0">Action</option>
             <option value="1">Techno</option>
             <option value="2">Ambient</option>
+            <option value="custom">Custom BG Music</option>
         </select></div>
+        <div id="custom-bgm-import" style="display:none; flex-direction:column; gap:8px;">
+            <span>Import Custom BG Music</span>
+            <input id="custom-bgm-file" type="file" accept="*/*" onchange="importCustomBgm(event)" style="color:#fff; max-width:100%;">
+        </div>
         <div style="display:flex; justify-content:space-between;"><span>Music Vol</span> <input type="range" id="music-slider" min="0" max="1" step="0.1" value="0.3" oninput="updateSettings()"> <span id="music-val">0.3</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Render Scale</span> <input type="range" id="res-slider" min="0.2" max="1.5" step="0.1" value="1.0" oninput="updateSettings()"> <span id="res-val">1.0</span></div>
         <div style="text-align:center; margin-top:10px; font-size:12px; color:#aaa;">LOWER SCALE = HIGHER FPS</div>
@@ -264,6 +361,7 @@
         <div id="killstreak-display" style="font-size: 20px; font-weight: bold; color: #ff8c00; display: none; text-shadow: 1px 1px 2px #000;"></div>
         <div id="feed" style="font-size: 12px; height: 60px; overflow: hidden; opacity: 0.8;"></div>
     </div>
+    <div id="fps-display">FPS: --</div>
     <div id="hud-top-right">
         <div id="timer">03:00</div>
         <div id="leaderboard"></div>
@@ -283,10 +381,12 @@
         <div id="look-zone" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:15; touch-action:none; pointer-events: auto;"></div>
         <div id="move-stick" class="joystick-area" style="position:absolute; bottom:40px; left:40px; z-index: 20;"></div>
         <div id="crouch-btn" class="fire-button" style="position:absolute; bottom:40px; left:160px; width:70px; height:70px; z-index:20;">SLIDE</div>
+        <div id="sprint-btn" class="fire-button" style="position:absolute; bottom:40px; left:240px; width:70px; height:70px; z-index:20;">SPRINT</div>
         <div id="fire-btn" class="fire-button" style="position:absolute; bottom:40px; right:40px; width:90px; height:90px; font-size:18px; z-index:20;">FIRE</div>
         <div id="reload-btn" class="fire-button" style="position:absolute; bottom:50px; right:150px; width:70px; height:70px; z-index:20;">RELOAD</div>
         <div id="jump-btn" class="fire-button" style="position:absolute; bottom:150px; right:140px; width:70px; height:70px; z-index:20;">JUMP</div>
         <div id="aim-btn" class="fire-button" style="position:absolute; bottom:150px; right:40px; width:70px; height:70px; z-index:20;">AIM</div>
+        <div id="weapon-switch-btn" class="fire-button" style="position:absolute; bottom:150px; right:240px; width:70px; height:70px; z-index:20;">SWAP</div>
     </div>
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
@@ -341,7 +441,24 @@
         let suppressGamepadWeaponSwitchUntil = 0;
         let lastKnifeThrowTime = 0;
         let isAbsoluteAim = false;
+        let mobileAutoAim = false;
+        let mobileAutoShoot = false;
+        let mobileAutoAimTarget = null;
+        let isSelectingRespawnLoadout = false;
+        let settingsReturnScreen = 'main';
+        let autoGraphics = true;
+        let autoRenderScale = null;
+        let showFps = false;
+        let disablePostProcessing = false;
+        let fpsSampleStart = 0;
+        let fpsSampleFrames = 0;
+        let currentFps = 0;
+        let frameRateLimit = 60;
+        let lastFrameTime = 0;
         let awaitingRemap = null;
+        let savedMobileLayout = null;
+        let selectedLayoutControl = null;
+        let layoutEditMode = null;
 
         // Custom Yaw/Pitch camera tracking systems to bypass matrix rotation locks
         let yaw = 0;
@@ -470,21 +587,25 @@
         let glossyTexture;
 
         let introBgm = new Audio('https://cdn.pixabay.com/download/audio/2024/09/26/audio_63d2a32346.mp3');
-        introBgm.loop = true;
+        introBgm.loop = false;
         const menuMusicTracks = [
             'https://cdn.pixabay.com/download/audio/2024/07/15/audio_7393a9d5f6.mp3',
             'https://cdn.pixabay.com/audio/2025/01/09/audio_1d0edaae9d.mp3'
         ];
         let currentMenuTrack = 0;
         let menuBgm = new Audio(menuMusicTracks[currentMenuTrack]);
+        menuBgm.loop = false;
+        menuBgm.preload = 'auto';
         const gameTracks = [
             'https://cdn.pixabay.com/download/audio/2024/04/12/audio_3118cb3f2a.mp3',
             'https://cdn.pixabay.com/download/audio/2024/07/15/audio_7393a9d5f6.mp3',
             'https://cdn.pixabay.com/audio/2025/01/09/audio_1d0edaae9d.mp3'
         ];
         let gameBgm = new Audio(gameTracks[0]);
-        gameBgm.loop = true;
+        gameBgm.loop = false;
+        gameBgm.preload = 'auto';
         gameBgm.volume = 0.3;
+        let customBgmUrl = null;
         const COLLISION_RADIUS = 0.5; 
 
         const BASE_BOT_NAMES = ["OrbMaster", "NeonNexus", "VoidWalker", "Cipher", "Glitch", "Echo", "Spectre", "Phantom", "Viper", "Cobra", "Raven", "Wolf", "Bear", "Eagle", "Shadow", "Ghost", "Reaper", "Storm", "Blaze", "Frost", "Titan", "Onyx", "Steel", "Razor", "Blade"];
@@ -579,7 +700,12 @@
             const isTouch = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window);
             const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
             const isIpad = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            isMobile = isTouch && (isMobileUA || isIpad || window.innerWidth < 1100);
+            isMobile = isTouch && (isMobileUA || isIpad);
+            configureCustomBgmPicker();
+            if (!isMobile) {
+                document.getElementById('desktop-only-screen').style.display = 'flex';
+                return;
+            }
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
                 document.getElementById('mobile-pause-btn').style.display = 'flex';
@@ -592,6 +718,13 @@
                     e.preventDefault();
                 }, { passive: false });
                 document.addEventListener('gesturestart', (e) => e.preventDefault());
+                let lastTouchEnd = 0;
+                document.addEventListener('touchend', (e) => {
+                    const now = Date.now();
+                    if (now - lastTouchEnd < 300 && e.cancelable) e.preventDefault();
+                    lastTouchEnd = now;
+                }, { passive: false });
+                document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
             }
 
             // Enforce initial UI state
@@ -603,9 +736,11 @@
             document.getElementById('game-over-screen').style.display = 'none';
 
             // Initialize Shared Resources
-            projectileGeo = new THREE.SphereGeometry(0.1, 6, 6);
-            projectileMatPlayer = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-            projectileMatEnemy = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+            // A slightly larger, fog-independent tracer stays visible on the
+            // lower-resolution WebGL renderer used by iOS 12.
+            projectileGeo = new THREE.SphereGeometry(0.16, 8, 8);
+            projectileMatPlayer = new THREE.MeshBasicMaterial({ color: 0x00ffff, fog: false });
+            projectileMatEnemy = new THREE.MeshBasicMaterial({ color: 0xff00ff, fog: false });
             
             // Map textures directly to matching courtyard/garden colors
             const wallTex = createWallTexture();
@@ -712,9 +847,12 @@
         }
 
         function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            camera.aspect = width / height;
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(width, height);
+            applySavedMobileLayout();
         }
 
         function createWeaponMesh(type, color) {
@@ -797,6 +935,74 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
+        function playGameMusic() {
+            gameBgm.loop = false;
+            if (!gameHasStarted || gameBgm.volume <= 0) return;
+            menuBgm.pause();
+            introBgm.pause();
+            if (gameBgm.ended) gameBgm.currentTime = 0;
+            if (gameBgm.readyState === 0) gameBgm.load();
+            gameBgm.play().catch(e => console.warn('Game music could not start:', e));
+        }
+
+        function playMenuMusic() {
+            if (gameHasStarted || menuBgm.volume <= 0) return;
+            introBgm.pause();
+            gameBgm.pause();
+            if (menuBgm.ended) menuBgm.currentTime = 0;
+            if (menuBgm.readyState === 0) menuBgm.load();
+            menuBgm.play().catch(e => console.warn('Menu music could not start:', e));
+        }
+
+        function importCustomBgm(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            // Mobile browsers, especially iOS Safari, can hide compatible audio
+            // files when the picker is restricted. Desktop keeps audio-only filtering.
+            if (!isMobile && file.type && !file.type.startsWith('audio/')) {
+                alert('Please choose an audio file.');
+                event.target.value = '';
+                return;
+            }
+
+            if (customBgmUrl) URL.revokeObjectURL(customBgmUrl);
+            customBgmUrl = URL.createObjectURL(file);
+            document.getElementById('bgm-select').value = 'custom';
+            updateSettings();
+        }
+
+        function configureCustomBgmPicker() {
+            const picker = document.getElementById('custom-bgm-file');
+            // iOS needs an unrestricted picker; desktop browsers can filter to audio.
+            picker.accept = isMobile ? '*/*' : 'audio/*';
+        }
+
+        // Some Safari versions do not reliably honor HTMLAudioElement.loop for
+        // streamed audio. Restart each active BGM track when it reaches the end.
+        function restartBgm(track, shouldPlay) {
+            track.addEventListener('ended', () => {
+                if (!shouldPlay() || track.volume <= 0) return;
+                track.currentTime = 0;
+                track.play().catch(e => console.warn('Music could not restart:', e));
+            });
+        }
+
+        restartBgm(introBgm, () => !gameHasStarted && document.getElementById('intro-screen').style.display !== 'none');
+        restartBgm(menuBgm, () => !gameHasStarted && document.getElementById('main-menu').style.display === 'flex');
+        restartBgm(gameBgm, () => gameHasStarted);
+
+        gameBgm.addEventListener('canplay', () => {
+            if (gameHasStarted && gameBgm.paused) playGameMusic();
+        });
+        menuBgm.addEventListener('canplay', () => {
+            if (!gameHasStarted && document.getElementById('main-menu').style.display === 'flex' && menuBgm.paused) playMenuMusic();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && gameHasStarted) playGameMusic();
+        });
+
         function playShootSound(weaponName, sourcePos) {
             if (!audioCtx) return;
             const t = audioCtx.currentTime;
@@ -809,9 +1015,16 @@
                 panner.refDistance = 5;
                 panner.maxDistance = 100;
                 panner.rolloffFactor = 1;
-                panner.positionX.value = sourcePos.x;
-                panner.positionY.value = sourcePos.y;
-                panner.positionZ.value = sourcePos.z;
+                // iOS 12 uses the legacy PannerNode#setPosition API.  Trying
+                // to write positionX/Y/Z there throws and prevents the shot
+                // from reaching the projectile creation code below.
+                if (panner.positionX) {
+                    panner.positionX.value = sourcePos.x;
+                    panner.positionY.value = sourcePos.y;
+                    panner.positionZ.value = sourcePos.z;
+                } else if (panner.setPosition) {
+                    panner.setPosition(sourcePos.x, sourcePos.y, sourcePos.z);
+                }
                 gain.connect(panner);
                 panner.connect(audioCtx.destination);
             } else {
@@ -1036,9 +1249,13 @@
         }
 
         function showLoadoutMenu() {
+            isSelectingRespawnLoadout = false;
             document.getElementById('main-menu').style.display = 'none';
-            document.getElementById('overlay').style.display = 'flex';
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
             document.getElementById('gamemode-select').style.display = 'block';
+            playMenuMusic();
         }
 
         function chooseLoadout(weaponType) {
@@ -1066,6 +1283,12 @@
 
                 activeSlot = 0;
                 switchWeapon(0);
+
+                if (isSelectingRespawnLoadout) {
+                    isSelectingRespawnLoadout = false;
+                    respawnSameLoadout();
+                    return;
+                }
 
                 if (playerHealth <= 0) {
                     document.getElementById('overlay').style.display = 'flex';
@@ -1137,25 +1360,28 @@
             menuBgm.pause();
             introBgm.pause();
             introBgm.currentTime = 0;
-            if (gameBgm.paused && gameBgm.volume > 0) {
-                gameBgm.play().catch(e => console.warn(e));
-            }
+            playGameMusic();
             if (isMobile) document.getElementById('overlay').style.display = 'none';
             
             bots.forEach(b => scene.remove(b));
             bots = [];
             scores = [{name: "Player", score: 0, isBot: false, team: 'blue'}];
             for(let i=0; i<botCount; i++) spawnBot();
+            if (disablePostProcessing) applyPostProcessingSetting();
         }
 
         function respawnSameLoadout() {
             if (!gameHasStarted) return;
+            isSelectingRespawnLoadout = false;
             if (playerInventory[2]) {
                 playerInventory[2].ammo = 1;
                 lastKnifeThrowTime = 0;
             }
             respawnEntity(null, true);
             document.getElementById('overlay').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
+            document.getElementById('settings-menu').style.display = 'none';
+            document.getElementById('respawn-btn').style.display = 'none';
             setControllerCursorVisibility(false);
             activeMenu = null;
             if (isMobile) {
@@ -1165,9 +1391,7 @@
                 renderer.domElement.requestPointerLock();
             }
             initAudio();
-            if (gameBgm.paused && gameBgm.volume > 0) {
-                gameBgm.play().catch(e => console.warn(e));
-            }
+            playGameMusic();
         }
 
         function switchWeapon(slot) {
@@ -1183,6 +1407,7 @@
                 wand.add(gunMesh);
             }
             updateAmmoDisplay();
+            if (disablePostProcessing) applyPostProcessingSetting();
         }
 
         function updateAmmoDisplay() {
@@ -1295,12 +1520,15 @@
         }
 
         function applyAimSnap() {
-            if (!(isAiming || ctrlIsAiming) || aimSnap <= 0 || isGameOver || !gameHasStarted) return;
+            mobileAutoAimTarget = null;
+            const assistedAim = isAiming || ctrlIsAiming || (isMobile && mobileAutoAim);
+            const effectiveAimSnap = mobileAutoAim && aimSnap === 0 ? 6 : aimSnap;
+            if (!assistedAim || effectiveAimSnap <= 0 || isGameOver || !gameHasStarted) return;
             
             const cameraDir = camera.getWorldDirection(new THREE.Vector3()).normalize();
             let bestBot = null;
             let bestAngle = Infinity;
-            const maxAngle = THREE.Math.degToRad(15 + aimSnap * 3.5);
+            const maxAngle = THREE.Math.degToRad(15 + effectiveAimSnap * 3.5);
             const maxDistance = 100;
 
             bots.forEach(bot => {
@@ -1316,26 +1544,19 @@
                 
                 if (angle >= maxAngle || angle >= bestAngle) return;
                 
-                const raycaster = new THREE.Raycaster();
-                raycaster.set(camera.position, toBot);
-                
-                const wallMeshes = worldColliders.map(c => c.mesh);
-                const wallIntersects = raycaster.intersectObjects(wallMeshes, false);
-                
-                if (wallIntersects.length > 0 && wallIntersects[0].distance < distToBot - 0.5) {
-                    return;
-                }
+                if (!hasClearLineOfSight(bot)) return;
                 
                 bestAngle = angle;
                 bestBot = bot;
             });
 
             if (bestBot) {
+                mobileAutoAimTarget = bestBot;
                 const targetPos = bestBot.position.clone().add(new THREE.Vector3(0, 0.5, 0));
                 const viewDir = camera.getWorldDirection(new THREE.Vector3()).normalize();
                 const toTarget = targetPos.clone().sub(camera.position).normalize();
                 
-                const assistStrength = 0.02 + (aimSnap * 0.008);
+                const assistStrength = 0.02 + (effectiveAimSnap * 0.008);
                 const newDir = viewDir.lerp(toTarget, Math.min(assistStrength, 0.15));
                 const lookAtTarget = camera.position.clone().add(newDir.multiplyScalar(100));
                 
@@ -1356,14 +1577,35 @@
             document.getElementById('pause-menu').style.display = 'none';
             setControllerCursorVisibility(false);
             activeMenu = null;
+            playGameMusic();
             if (!isMobile) {
                 renderer.domElement.requestPointerLock();
+            }
+        }
+
+        function respawnToLoadout() {
+            if (!gameHasStarted || isGameOver) return;
+            isSelectingRespawnLoadout = true;
+            document.getElementById('pause-menu').style.display = 'none';
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = 'flex';
+            overlay.scrollTop = 0;
+            document.getElementById('respawn-btn').style.display = 'none';
+            document.getElementById('gamemode-select').style.display = 'none';
+            setControllerCursorVisibility(true);
+            activeMenu = overlay;
+            playGameMusic();
+
+            if (isMobile) {
+                document.getElementById('mobile-controls').style.display = 'none';
+                document.getElementById('mobile-pause-btn').style.display = 'none';
             }
         }
 
         function quitGame() {
             gameHasStarted = false;
             isGameOver = false;
+            isSelectingRespawnLoadout = false;
             playerHealth = 100;
             if (document.pointerLockElement) document.exitPointerLock();
             setControllerCursorVisibility(false);
@@ -1396,30 +1638,157 @@
         }
 
         function openSettings() {
+            const overlay = document.getElementById('overlay');
+            const pauseMenu = document.getElementById('pause-menu');
+            const mainMenu = document.getElementById('main-menu');
+            settingsReturnScreen = overlay.style.display === 'flex' ? 'loadout' :
+                (pauseMenu.style.display === 'flex' ? 'pause' :
+                (mainMenu.style.display === 'flex' ? 'main' : 'pause'));
             document.getElementById('settings-menu').style.display = 'flex';
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('pause-menu').style.display = 'none';
-            document.getElementById('main-menu').style.display = 'none';
+            overlay.style.display = 'none';
+            pauseMenu.style.display = 'none';
+            mainMenu.style.display = 'none';
             setControllerCursorVisibility(true);
         }
 
         function closeSettings() {
             document.getElementById('settings-menu').style.display = 'none';
-            if (gameHasStarted && !document.pointerLockElement) {
+            if (settingsReturnScreen === 'loadout') {
+                document.getElementById('overlay').style.display = 'flex';
+                setControllerCursorVisibility(true);
+            } else if (settingsReturnScreen === 'pause' && gameHasStarted) {
                 document.getElementById('pause-menu').style.display = 'flex';
                 setControllerCursorVisibility(true);
-            } else if (!gameHasStarted) {
-                if (document.getElementById('overlay').style.display !== 'flex') {
-                    document.getElementById('main-menu').style.display = 'flex';
-                }
+            } else {
+                document.getElementById('main-menu').style.display = 'flex';
                 setControllerCursorVisibility(true);
+            }
+            settingsReturnScreen = 'main';
+        }
+
+        function getAutoGraphicsPreset() {
+            const ua = navigator.userAgent || '';
+            const cores = navigator.hardwareConcurrency || 2;
+            const memory = navigator.deviceMemory || 0;
+            let gpu = '';
+
+            try {
+                const gl = renderer.getContext();
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) gpu = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+            } catch (e) { /* Use the device information available to the browser. */ }
+
+            // iPad Air (1st gen) uses the Apple A7 GPU. Older/mobile GPUs and
+            // devices with very little CPU or memory use the low preset.
+            const olderGpu = /\bA[7-9]\b|\bA10\b|PowerVR|Adreno (?:[1-4]\d\d)|Mali-(?:[1-7]\d)/i.test(gpu);
+            const olderIpad = /iPad/i.test(ua) && (cores <= 2 || /OS (?:[7-9]|1[0-2])[_ ]/i.test(ua));
+            const lowEnd = olderGpu || olderIpad || cores <= 2 || (memory > 0 && memory <= 2);
+            return lowEnd ? 'low' : 'high';
+        }
+
+        function toggleFrameRate() {
+            frameRateLimit = frameRateLimit === 30 ? 60 : 30;
+            lastFrameTime = 0;
+            document.getElementById('fps-30-btn').innerText = frameRateLimit === 30 ? '30 FPS: ON' : '30 FPS: OFF';
+            saveSettings();
+        }
+
+        function hasClearLineOfSight(target) {
+            if (!target || target.userData.hp <= 0) return false;
+            const targetPos = target.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+            const direction = targetPos.sub(camera.position);
+            const distance = direction.length();
+            if (distance === 0) return false;
+
+            const raycaster = new THREE.Raycaster(camera.position, direction.normalize(), 0, distance);
+            const wallHit = raycaster.intersectObjects(worldColliders.map(c => c.mesh), false)[0];
+            return !wallHit || wallHit.distance >= distance - 0.05;
+        }
+
+        function applyPostProcessingSetting() {
+            scene.traverse(object => {
+                const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+                materials.forEach(material => {
+                    if (!material) return;
+                    if (disablePostProcessing) {
+                        if (!material.userData.simpleLighting) {
+                            material.userData.simpleLighting = {
+                                metalness: material.metalness,
+                                roughness: material.roughness,
+                                envMapIntensity: material.envMapIntensity
+                            };
+                        }
+                        if ('metalness' in material) material.metalness = 0;
+                        if ('roughness' in material) material.roughness = 1;
+                        if ('envMapIntensity' in material) material.envMapIntensity = 0;
+                    } else if (material.userData.simpleLighting) {
+                        const original = material.userData.simpleLighting;
+                        if ('metalness' in material) material.metalness = original.metalness;
+                        if ('roughness' in material) material.roughness = original.roughness;
+                        if ('envMapIntensity' in material) material.envMapIntensity = original.envMapIntensity;
+                        delete material.userData.simpleLighting;
+                    }
+                    material.needsUpdate = true;
+                });
+            });
+        }
+
+        function updatePerformanceStats(timestamp) {
+            if (!fpsSampleStart) fpsSampleStart = timestamp;
+            fpsSampleFrames++;
+            const elapsed = timestamp - fpsSampleStart;
+            if (elapsed < 500) return;
+
+            currentFps = Math.round((fpsSampleFrames * 1000) / elapsed);
+            fpsSampleStart = timestamp;
+            fpsSampleFrames = 0;
+            document.getElementById('fps-display').innerText = `FPS: ${currentFps}`;
+
+            if (!autoGraphics || !gameHasStarted || frameRateLimit === 30) return;
+            const preset = getAutoGraphicsPreset();
+            const maxScale = preset === 'low' ? 0.65 : 1.0;
+            const minScale = 0.35;
+            const targetFps = frameRateLimit;
+            const previousScale = autoRenderScale;
+            if (currentFps < targetFps - 8) autoRenderScale = Math.max(minScale, autoRenderScale - 0.1);
+            else if (currentFps >= targetFps - 2) autoRenderScale = Math.min(maxScale, autoRenderScale + 0.05);
+
+            if (autoRenderScale !== previousScale) {
+                renderer.setPixelRatio(autoRenderScale);
+                document.getElementById('res-slider').value = autoRenderScale.toFixed(1);
+                document.getElementById('res-val').innerText = autoRenderScale.toFixed(1);
+                document.getElementById('graphics-preset-label').innerText = `GRAPHICS: AUTO (${preset.toUpperCase()} · ${autoRenderScale.toFixed(1)}x)`;
             }
         }
 
         function updateSettings() {
+            const wasAutoGraphics = autoGraphics;
+            autoGraphics = document.getElementById('auto-graphics-check').checked;
+            const lowPowerCheck = document.getElementById('low-power-check');
+            const renderScale = document.getElementById('res-slider');
+            const graphicsLabel = document.getElementById('graphics-preset-label');
+            if (autoGraphics) {
+                const preset = getAutoGraphicsPreset();
+                lowPowerCheck.checked = preset === 'low';
+                const maxScale = preset === 'low' ? 0.65 : 1.0;
+                if (autoRenderScale === null || !wasAutoGraphics) autoRenderScale = preset === 'low' ? 0.5 : 1.0;
+                autoRenderScale = Math.min(autoRenderScale, maxScale);
+                renderScale.value = autoRenderScale.toFixed(1);
+                graphicsLabel.innerText = `GRAPHICS: AUTO (${preset.toUpperCase()} · ${autoRenderScale.toFixed(1)}x)`;
+            } else {
+                autoRenderScale = null;
+                graphicsLabel.innerText = 'GRAPHICS: CUSTOM';
+            }
+            lowPowerCheck.disabled = autoGraphics;
+            renderScale.disabled = autoGraphics;
             isLowPowerMode = document.getElementById('low-power-check').checked;
             isToggleAim = document.getElementById('toggle-aim-check').checked;
+            mobileAutoAim = document.getElementById('mobile-auto-aim-check').checked;
+            mobileAutoShoot = document.getElementById('mobile-auto-shoot-check').checked;
             isAbsoluteAim = document.getElementById('abs-aim-check').checked;
+            showFps = document.getElementById('show-fps-check').checked;
+            disablePostProcessing = document.getElementById('disable-post-check').checked;
+            document.getElementById('fps-display').style.display = showFps ? 'block' : 'none';
             mouseSensitivity = document.getElementById('sens-slider').value * 0.001;
             document.getElementById('sens-val').innerText = document.getElementById('sens-slider').value;
             controllerSensitivity = parseFloat(document.getElementById('cont-sens-slider').value);
@@ -1434,7 +1803,7 @@
             const glossyCheck = document.getElementById('glossy-check');
             const useGlossy = glossyCheck ? glossyCheck.checked : false;
 
-            if (useGlossy && !isLowPowerMode) {
+            if (useGlossy && !isLowPowerMode && !disablePostProcessing) {
                 if (!glossyTexture) {
                     glossyTexture = new THREE.TextureLoader().load('https://static.pbslearningmedia.org/media/assets/buac18-vid-sunpattern-poster.png');
                     glossyTexture.mapping = THREE.EquirectangularReflectionMapping;
@@ -1443,36 +1812,39 @@
                 scene.environment = glossyTexture;
             } else {
                 scene.background = defaultEnvMap;
-                scene.environment = defaultEnvMap; 
+                scene.environment = disablePostProcessing ? null : defaultEnvMap;
             }
+            applyPostProcessingSetting();
             
             const vol = parseFloat(document.getElementById('music-slider').value);
             gameBgm.volume = vol;
             document.getElementById('music-val').innerText = vol;
             
-            const bgmIndex = parseInt(document.getElementById('bgm-select').value);
-            if (gameBgm.src !== gameTracks[bgmIndex]) {
-                const wasPlaying = !gameBgm.paused;
-                gameBgm.src = gameTracks[bgmIndex];
-                if (wasPlaying && gameHasStarted) gameBgm.play().catch(e=>{});
+            const bgmSelect = document.getElementById('bgm-select');
+            const isCustomBgm = bgmSelect.value === 'custom';
+            document.getElementById('custom-bgm-import').style.display = isCustomBgm ? 'flex' : 'none';
+            const selectedBgm = isCustomBgm ? customBgmUrl : gameTracks[parseInt(bgmSelect.value, 10)];
+            if (selectedBgm && gameBgm.dataset.track !== selectedBgm) {
+                gameBgm.pause();
+                gameBgm.src = selectedBgm;
+                gameBgm.dataset.track = selectedBgm;
+                gameBgm.load();
+                if (gameHasStarted) playGameMusic();
             }
 
             menuBgm.volume = vol;
             introBgm.volume = vol;
 
             if (gameHasStarted) {
-                if (vol > 0 && gameBgm.paused) gameBgm.play().catch(e=>{});
+                if (vol > 0) playGameMusic();
                 else if (vol === 0 && !gameBgm.paused) gameBgm.pause();
             } else if (document.getElementById('main-menu').style.display === 'flex' || document.getElementById('overlay').style.display === 'flex') {
                 if (vol > 0 && menuBgm.paused) menuBgm.play().catch(e=>{});
                 else if (vol === 0 && !menuBgm.paused) menuBgm.pause();
             }
             
-            if (isLowPowerMode) {
-                renderer.setPixelRatio(0.5);
-            } else {
-                renderer.setPixelRatio(parseFloat(document.getElementById('res-slider').value));
-            }
+            const pixelRatio = autoGraphics ? autoRenderScale : (isLowPowerMode ? 0.5 : parseFloat(renderScale.value));
+            renderer.setPixelRatio(pixelRatio);
             document.getElementById('res-val').innerText = document.getElementById('res-slider').value;
             
             saveSettings();
@@ -1487,9 +1859,15 @@
                 aimSnap: document.getElementById('snap-slider').value,
                 absAim: document.getElementById('abs-aim-check').checked,
                 lowPower: document.getElementById('low-power-check').checked,
+                autoGraphics: document.getElementById('auto-graphics-check').checked,
+                showFps: document.getElementById('show-fps-check').checked,
+                disablePostProcessing: document.getElementById('disable-post-check').checked,
+                frameRateLimit: frameRateLimit,
                 toggleAim: document.getElementById('toggle-aim-check').checked,
+                mobileAutoAim: document.getElementById('mobile-auto-aim-check').checked,
+                mobileAutoShoot: document.getElementById('mobile-auto-shoot-check').checked,
                 glossy: document.getElementById('glossy-check').checked,
-                bgmIndex: document.getElementById('bgm-select').value,
+                bgmIndex: document.getElementById('bgm-select').value === 'custom' ? '0' : document.getElementById('bgm-select').value,
                 music: document.getElementById('music-slider').value,
                 renderScale: document.getElementById('res-slider').value
             };
@@ -1508,13 +1886,20 @@
                     if (settings.aimSnap) document.getElementById('snap-slider').value = settings.aimSnap;
                     if (settings.absAim !== undefined) document.getElementById('abs-aim-check').checked = settings.absAim;
                     if (settings.lowPower !== undefined) document.getElementById('low-power-check').checked = settings.lowPower;
+                    if (settings.autoGraphics !== undefined) document.getElementById('auto-graphics-check').checked = settings.autoGraphics;
+                    if (settings.showFps !== undefined) document.getElementById('show-fps-check').checked = settings.showFps;
+                    if (settings.disablePostProcessing !== undefined) document.getElementById('disable-post-check').checked = settings.disablePostProcessing;
+                    if (settings.frameRateLimit === 30 || settings.frameRateLimit === 60) frameRateLimit = settings.frameRateLimit;
                     if (settings.toggleAim !== undefined) document.getElementById('toggle-aim-check').checked = settings.toggleAim;
+                    if (settings.mobileAutoAim !== undefined) document.getElementById('mobile-auto-aim-check').checked = settings.mobileAutoAim;
+                    if (settings.mobileAutoShoot !== undefined) document.getElementById('mobile-auto-shoot-check').checked = settings.mobileAutoShoot;
                     if (settings.glossy !== undefined) document.getElementById('glossy-check').checked = settings.glossy;
                     if (settings.bgmIndex) document.getElementById('bgm-select').value = settings.bgmIndex;
                     if (settings.music) document.getElementById('music-slider').value = settings.music;
                     if (settings.renderScale) document.getElementById('res-slider').value = settings.renderScale;
                 } catch (e) { console.warn('Failed to load settings:', e); }
             }
+            document.getElementById('fps-30-btn').innerText = frameRateLimit === 30 ? '30 FPS: ON' : '30 FPS: OFF';
             updateSettings();
         }
 
@@ -1562,7 +1947,13 @@
             document.getElementById('snap-slider').value = '0';
             document.getElementById('abs-aim-check').checked = false;
             document.getElementById('low-power-check').checked = false;
+            document.getElementById('auto-graphics-check').checked = true;
+            document.getElementById('show-fps-check').checked = false;
+            document.getElementById('disable-post-check').checked = false;
+            frameRateLimit = 60;
             document.getElementById('toggle-aim-check').checked = false;
+            document.getElementById('mobile-auto-aim-check').checked = false;
+            document.getElementById('mobile-auto-shoot-check').checked = false;
             document.getElementById('glossy-check').checked = false;
             document.getElementById('bgm-select').value = '0';
             document.getElementById('music-slider').value = '0.3';
@@ -1614,12 +2005,6 @@
                     introScreen.style.display = 'none';
                     document.getElementById('main-menu').style.display = 'flex';
                 }, 2000);
-            });
-
-            menuBgm.addEventListener('ended', () => {
-                currentMenuTrack = (currentMenuTrack + 1) % menuMusicTracks.length;
-                menuBgm.src = menuMusicTracks[currentMenuTrack];
-                menuBgm.play().catch(e => {});
             });
 
             document.addEventListener('pointerlockchange', () => {
@@ -1872,6 +2257,24 @@
                 e.preventDefault(); isCrouching = false; crouchBtn.style.background = "rgba(0,255,255,0.2)"; 
             });
 
+            const sprintBtn = document.getElementById('sprint-btn');
+            sprintBtn.addEventListener('touchstart', (e) => {
+                if (isEditingLayout) return;
+                e.preventDefault();
+                isSprinting = !isSprinting;
+                sprintBtn.style.background = isSprinting ? 'rgba(0,255,255,0.55)' : 'rgba(0,255,255,0.2)';
+                sprintBtn.style.borderColor = isSprinting ? '#fff' : '#0ff';
+            });
+
+            const weaponSwitchBtn = document.getElementById('weapon-switch-btn');
+            weaponSwitchBtn.addEventListener('touchstart', (e) => {
+                if (isEditingLayout || !playerInventory.length) return;
+                e.preventDefault();
+                switchWeapon((activeSlot + 1) % playerInventory.length);
+                weaponSwitchBtn.style.background = 'rgba(0,255,255,0.55)';
+                setTimeout(() => weaponSwitchBtn.style.background = 'rgba(0,255,255,0.2)', 120);
+            });
+
             const pauseBtn = document.getElementById('mobile-pause-btn');
             pauseBtn.addEventListener('touchstart', (e) => { 
                 if (isEditingLayout) return;
@@ -1985,7 +2388,7 @@
         }
 
         function setupDragDrop() {
-            const draggables = document.querySelectorAll('.fire-button, .joystick-area');
+            const draggables = getMobileControlIds().map(id => document.getElementById(id));
             let activeDrag = null;
             let offset = { x: 0, y: 0 };
 
@@ -1994,11 +2397,16 @@
                     if (!isEditingLayout) return;
                     e.preventDefault();
                     e.stopPropagation();
+                    if (selectedLayoutControl !== el || layoutEditMode !== 'move') {
+                        selectLayoutControl(el);
+                        return;
+                    }
                     activeDrag = el;
                     const touch = e.touches[0];
                     const rect = el.getBoundingClientRect();
                     offset.x = touch.clientX - rect.left;
                     offset.y = touch.clientY - rect.top;
+                    el.style.zIndex = '650';
                 }, { passive: false });
             });
 
@@ -2006,38 +2414,110 @@
                 if (!isEditingLayout || !activeDrag) return;
                 e.preventDefault();
                 const touch = e.touches[0];
+                const width = activeDrag.offsetWidth;
+                const height = activeDrag.offsetHeight;
+                const left = Math.max(0, Math.min(window.innerWidth - width, touch.clientX - offset.x));
+                const top = Math.max(0, Math.min(window.innerHeight - height, touch.clientY - offset.y));
                 activeDrag.style.position = 'absolute';
-                activeDrag.style.right = 'auto';
-                activeDrag.style.bottom = 'auto';
-                activeDrag.style.left = (touch.clientX - offset.x) + 'px';
-                activeDrag.style.top = (touch.clientY - offset.y) + 'px';
+                activeDrag.style.setProperty('right', 'auto', 'important');
+                activeDrag.style.setProperty('bottom', 'auto', 'important');
+                activeDrag.style.setProperty('left', left + 'px', 'important');
+                activeDrag.style.setProperty('top', top + 'px', 'important');
             }, { passive: false });
 
-            document.addEventListener('touchend', () => { activeDrag = null; });
+            document.addEventListener('touchend', () => {
+                if (activeDrag) {
+                    activeDrag.style.zIndex = '20';
+                    persistMobileLayout();
+                }
+                activeDrag = null;
+            });
+        }
+
+        function selectLayoutControl(el) {
+            if (selectedLayoutControl) selectedLayoutControl.classList.remove('layout-control-selected');
+            selectedLayoutControl = el;
+            layoutEditMode = null;
+            el.classList.add('layout-control-selected');
+
+            const menu = document.getElementById('control-edit-menu');
+            const rect = el.getBoundingClientRect();
+            menu.style.display = 'flex';
+            const menuWidth = 180;
+            const left = Math.max(4, Math.min(window.innerWidth - menuWidth - 4, rect.left));
+            const top = Math.max(70, rect.top - 48);
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+        }
+
+        function setLayoutEditMode(mode) {
+            if (!selectedLayoutControl) return;
+            layoutEditMode = mode;
+            document.getElementById('layout-editor-tip').innerText = 'Move mode: drag the highlighted control.';
+        }
+
+        function resizeSelectedControl(change) {
+            if (!selectedLayoutControl) return;
+            const minSize = selectedLayoutControl.id === 'move-stick' ? 80 : 48;
+            const maxSize = Math.min(window.innerWidth * 0.28, window.innerHeight * 0.28);
+            const width = Math.max(minSize, Math.min(maxSize, selectedLayoutControl.offsetWidth + change));
+            const height = Math.max(minSize, Math.min(maxSize, selectedLayoutControl.offsetHeight + change));
+            selectedLayoutControl.style.setProperty('width', width + 'px', 'important');
+            selectedLayoutControl.style.setProperty('height', height + 'px', 'important');
+            persistMobileLayout();
+            selectLayoutControl(selectedLayoutControl);
         }
 
         function startLayoutEdit() {
             isEditingLayout = true;
-            closeSettings();
+            selectedLayoutControl = null;
+            layoutEditMode = null;
+            document.body.classList.add('layout-editing');
+            document.getElementById('settings-menu').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
             document.getElementById('mobile-controls').style.display = 'block';
             document.getElementById('layout-editor-ui').style.display = 'flex';
-            document.querySelectorAll('.fire-button, .joystick-area').forEach(el => {
+            document.getElementById('control-edit-menu').style.display = 'none';
+            getMobileControlIds().forEach(id => {
+                const el = document.getElementById(id);
                 el.style.border = '2px dashed #ff0';
                 el.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
             });
         }
 
-        function saveLayout() {
-            const controls = ['move-stick', 'crouch-btn', 'fire-btn', 'reload-btn', 'jump-btn', 'aim-btn'];
+        function getMobileControlIds() {
+            return ['move-stick', 'crouch-btn', 'sprint-btn', 'fire-btn', 'reload-btn', 'jump-btn', 'aim-btn', 'weapon-switch-btn'];
+        }
+
+        function persistMobileLayout() {
             const config = {};
-            controls.forEach(id => {
-                const el = document.getElementById(id);
-                config[id] = { left: el.style.left, top: el.style.top };
+            getMobileControlIds().forEach(id => {
+                const rect = document.getElementById(id).getBoundingClientRect();
+                config[id] = {
+                    x: rect.left / window.innerWidth,
+                    y: rect.top / window.innerHeight,
+                    width: rect.width / window.innerWidth,
+                    height: rect.height / window.innerHeight
+                };
             });
+            savedMobileLayout = config;
             localStorage.setItem('orbTosserLayout', JSON.stringify(config));
+        }
+
+        function saveLayout() {
+            persistMobileLayout();
             isEditingLayout = false;
+            document.body.classList.remove('layout-editing');
             document.getElementById('layout-editor-ui').style.display = 'none';
-            document.querySelectorAll('.fire-button, .joystick-area').forEach(el => { el.style.border = ''; el.style.backgroundColor = ''; });
+            document.getElementById('control-edit-menu').style.display = 'none';
+            if (selectedLayoutControl) selectedLayoutControl.classList.remove('layout-control-selected');
+            selectedLayoutControl = null;
+            layoutEditMode = null;
+            getMobileControlIds().forEach(id => {
+                const el = document.getElementById(id);
+                el.style.border = '';
+                el.style.backgroundColor = '';
+            });
             openSettings();
         }
 
@@ -2046,8 +2526,38 @@
         function loadLayout() {
             const layout = localStorage.getItem('orbTosserLayout');
             if (layout) {
-                const config = JSON.parse(layout);
-                for (const id in config) { const el = document.getElementById(id); if (el) { el.style.left = config[id].left; el.style.top = config[id].top; el.style.right = 'auto'; el.style.bottom = 'auto'; } }
+                try {
+                    savedMobileLayout = JSON.parse(layout);
+                    applySavedMobileLayout();
+                } catch (error) {
+                    localStorage.removeItem('orbTosserLayout');
+                }
+            }
+        }
+
+        function applySavedMobileLayout() {
+            if (!savedMobileLayout) return;
+            document.body.classList.add('has-custom-layout');
+            for (const id in savedMobileLayout) {
+                const el = document.getElementById(id);
+                const position = savedMobileLayout[id];
+                if (!el || !position) continue;
+                if (typeof position.width === 'number' && typeof position.height === 'number') {
+                    el.style.setProperty('width', Math.max(40, position.width * window.innerWidth) + 'px', 'important');
+                    el.style.setProperty('height', Math.max(40, position.height * window.innerHeight) + 'px', 'important');
+                }
+                if (typeof position.x === 'number' && typeof position.y === 'number') {
+                    const left = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, position.x * window.innerWidth));
+                    const top = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, position.y * window.innerHeight));
+                    el.style.setProperty('left', left + 'px', 'important');
+                    el.style.setProperty('top', top + 'px', 'important');
+                } else if (position.left && position.top) {
+                    // Preserve layouts saved by earlier versions of the game.
+                    el.style.setProperty('left', position.left, 'important');
+                    el.style.setProperty('top', position.top, 'important');
+                }
+                el.style.setProperty('right', 'auto', 'important');
+                el.style.setProperty('bottom', 'auto', 'important');
             }
         }
 
@@ -2371,11 +2881,14 @@
 
         function handlePlayerDeath() {
             if (document.pointerLockElement) document.exitPointerLock();
+            mobileAutoAimTarget = null;
+            isFiring = false;
             
             document.getElementById('respawn-btn').style.display = 'block';
             document.getElementById('overlay').style.display = 'flex';
             document.getElementById('pause-menu').style.display = 'none';
             document.getElementById('gamemode-select').style.display = 'none';
+            playGameMusic();
             
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'none';
@@ -2837,6 +3350,7 @@
             }
             for(let i=0; i<botCount; i++) spawnBot();
             respawnEntity(null, true);
+            if (disablePostProcessing) applyPostProcessingSetting();
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
                 document.getElementById('mobile-pause-btn').style.display = 'flex';
@@ -2845,8 +3359,12 @@
             }
         }
 
-        function animate() {
+        function animate(timestamp) {
             requestAnimationFrame(animate);
+
+            if (lastFrameTime && timestamp - lastFrameTime < (1000 / frameRateLimit)) return;
+            lastFrameTime = timestamp;
+            updatePerformanceStats(timestamp);
             
             updateMenuNavigation();
             handleGamepadInput();
@@ -2856,12 +3374,23 @@
                 return;
             }
 
-            const isPaused = (!document.pointerLockElement && !isMobile) || document.getElementById('pause-menu').style.display === 'flex' || document.getElementById('settings-menu').style.display === 'flex';
+            const loadoutOpen = window.getComputedStyle(document.getElementById('overlay')).display !== 'none';
+            const isPaused = (!document.pointerLockElement && !isMobile) ||
+                document.getElementById('pause-menu').style.display === 'flex' ||
+                document.getElementById('settings-menu').style.display === 'flex' ||
+                loadoutOpen || playerHealth <= 0;
             if (!isPaused) applyAimSnap();
+
+            if (!isPaused && playerHealth > 0 && isMobile && mobileAutoShoot && mobileAutoAimTarget && hasClearLineOfSight(mobileAutoAimTarget) && !currentWeapon.isMelee) {
+                fireProjectile(camera, { name: 'Player', id: 'player' });
+            }
 
             renderer.render(scene, camera);
 
-            if (isPaused) return;
+            if (isPaused) {
+                clock.getDelta(); // Reset the clock so no paused time reaches the match timer.
+                return;
+            }
 
             if (playerInventory[2] && playerInventory[2].ammo === 0 && Date.now() - lastKnifeThrowTime > 1500) {
                 playerInventory[2].ammo = 1;
