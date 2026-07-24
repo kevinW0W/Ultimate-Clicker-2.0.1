@@ -1,0 +1,6 @@
+# Compatibility patch for audioop removal in Python 3.13+
+audioop-lts
+
+# Libraries mentioned in the code comments that rely on the audioop module
+pydub
+shazamio
