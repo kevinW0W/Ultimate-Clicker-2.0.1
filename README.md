@@ -24,20 +24,20 @@ Since this repository has **GitHub Pages** enabled, you can play the latest live
 This project consists primarily of browser-executable HTML applications (79.3%) alongside supportive Python utilities (20.7%). Click any of the file links below to inspect their source code directly in GitHub.
 
 ### Mini-Games & Generators
-*   **`[Clicker Game.html](./Clicker%20Game.html)`** – The core incremental clicker application.
-*   **`[Chess.html](./Chess.html)`** & **`[GlassChess.html](./GlassChess.html)`** – Browser-based classic chess variants with unique styling.
-*   **`[GrandChess.com.html](./GrandChess.com.html)`** – An advanced online chess configuration tool.
-*   **`[Orb-Tosser.html](./Orb-Tosser.html)`**, **`[Orb-tosser-beta.html](./Orb-tosser-beta.html)`**, & **`[orb-shooter-Legacy.html](./orb-shooter-Legacy.html)`** – A progression series of retro arcade-style physics and shooting games.
-*   **`[8-Bit Generator.html](./8-Bit%20Generator.html)`** – A creative tool for generating retro pixel art or sound effects.
+*   **[Clicker Game.html](./Clicker%20Game.html)** – The core incremental clicker application.
+*   **[Chess.html](./Chess.html)** & **[GlassChess.html](./GlassChess.html)** – Browser-based classic chess variants with unique styling.
+*   **[GrandChess.com.html](./GrandChess.com.html)** – An advanced online chess configuration tool.
+*   **[Orb-Tosser.html](./Orb-Tosser.html)**, **[Orb-tosser-beta.html](./Orb-tosser-beta.html)**, & **[orb-shooter-Legacy.html](./orb-shooter-Legacy.html)** – A progression series of retro arcade-style physics and shooting games.
+*   **[8-Bit Generator.html](./8-Bit%20Generator.html)** – A creative tool for generating retro pixel art or sound effects.
 
 ### Mobile & Sub-Projects
-*   📁 **`[OrbshooterMobile](./OrbshooterMobile)`** – Dedicated optimization assets and layouts for mobile device compatibility.
-*   📁 **`[python_stuff](./python_stuff)`** – Contains backend utilities, including the Python 3.13 compatibility bootstrap patch for legacy audio stream libraries.
+*   📁 **[OrbshooterMobile](./OrbshooterMobile)** – Dedicated optimization assets and layouts for mobile device compatibility.
+*   📁 **[python_stuff](./python_stuff)** – Contains backend utilities, including the Python 3.13 compatibility bootstrap patch for legacy audio stream libraries.
 
 ### Audio & Visual Utilities
-*   **`[MusicPlayerBass.html](./MusicPlayerBass.html)`** – A standalone audio player tailored with custom buffers.
-*   **`[EncodeAudio.txt](./EncodeAudio.txt)`** – Documentation or raw base64 data for embedded project audio tracks.
-*   **`[image.html](./image.html)`** – An image rendering container or canvas experiment.
+*   **[MusicPlayerBass.html](./MusicPlayerBass.html)** – A standalone audio player tailored with custom buffers.
+*   **[EncodeAudio.txt](./EncodeAudio.txt)** – Documentation or raw base64 data for embedded project audio tracks.
+*   **[image.html](./image.html)** – An image rendering container or canvas experiment.
 
 ---
 
