@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Grandmaster Chess</title>
+    <!-- Chess Pawn Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>♟</text></svg>">
+    <style>
+        :root {
+            --bg-dark: #1a1a1a;
+            --bg-sidebar: rgba(255, 255, 255, 0.08);
+            --board-light: #ebecd0;
+            --board-dark: #779556;
+            --accent: #81b64c;
+            --checkmate-red: rgba(255, 0, 0, 0.75);
+            --check-orange: rgba(255, 165, 0, 0.6);
+            --highlight-move: rgba(246, 246, 105, 0.4);
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-blur: blur(12px);
+        }
+
+        /* ... existing styles ... */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            height: 100svh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            transition: background 0.5s ease;
+        }
+
+        #unsupported-browser-notice { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 10000; align-items: center; justify-content: center; padding: 24px; background: #151a18; color: #f5f7f5; text-align: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        #unsupported-browser-notice section { width: 100%; max-width: 520px; }
+        #unsupported-browser-notice h1 { margin: 0 0 12px; font-size: 26px; line-height: 1.25; }
+        #unsupported-browser-notice p { margin: 0; color: rgba(245,247,245,0.72); font-size: 16px; line-height: 1.5; }
+        #unsupported-browser-notice button { width: auto; margin-top: 24px; padding: 12px 20px; border: 1px solid rgba(255,255,255,0.32); border-radius: 6px; background: rgba(255,255,255,0.12); color: #fff; font: inherit; font-size: 15px; cursor: pointer; }
+        #unsupported-browser-notice button:hover, #unsupported-browser-notice button:focus-visible { background: rgba(255,255,255,0.2); outline: 2px solid rgba(255,255,255,0.72); outline-offset: 3px; }
+        #unsupported-browser-notice .compatibility-warning { margin-top: 10px; font-size: 13px; }
+        html.unsupported-browser body { display: block; overflow: hidden; }
+        html.unsupported-browser body > :not(#unsupported-browser-notice) { display: none !important; }
+        html.unsupported-browser #unsupported-browser-notice { display: flex; }
+
+        #star-container {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            display: none;
+            overflow: hidden;
+            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+        }
+
+        #liquid-background {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: #192943 url("assets/liquid-wallpaper.svg") center / cover no-repeat;
+        }
+        .svg-filters { position: absolute; width: 0; height: 0; overflow: hidden; }
+        body.theme-liquid #liquid-background { display: block; }
+        body.has-custom-background #liquid-background { display: none; }
+
+        .starlight {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        .game-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px;
+            padding-left: env(safe-area-inset-left);
+        }
+
+        .board-outer {
+            width: 100%;
+            max-width: min(85vh, 90vw);
+            aspect-ratio: 1/1;
+            position: relative;
+            margin: auto;
+        }
+
+        .board-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            position: absolute;
+            top: 0; left: 0; 
+            width: 100%; 
+            height: 100%;
+            display: block;
+            touch-action: none;
+        }
+
+        #win-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 150;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .win-card {
+            background: #222;
+            padding: 30px 50px;
+            border-radius: 16px;
+            border: 2px solid var(--accent);
+            text-align: center;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+            transform: scale(0.9);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn { to { transform: scale(1); } }
+
+        .win-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 0;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .win-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            margin: 10px 0 25px 0;
+        }
+
+        .sidebar {
+            flex: 0 0 300px;
+            background: var(--bg-sidebar);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--glass-border);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+            max-height: 100%;
+            transition: background 0.3s ease;
+        }
+
+        .status-panel { 
+            position: relative;
+            padding: 12px; 
+            text-align: center; 
+            border-bottom: 1px solid var(--glass-border);
+            padding-top: max(12px, env(safe-area-inset-top));
+        }
+        .status-panel h2 { margin: 0; font-size: 1rem; color: var(--accent); }
+
+        .move-history-container {
+            flex: 1;
+            overflow-y: scroll;
+            background: rgba(0, 0, 0, 0.2);
+            font-family: 'SF Mono', monospace;
+            font-size: 12px;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 20px;
+        }
+
+        .move-row { display: flex; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .move-row span:first-child { width: 25px; color: var(--text-dim); }
+        .move-row span:nth-child(2), .move-row span:nth-child(3) { flex: 1; }
+
+        .controls { 
+            padding: 10px; 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 6px; 
+            background: rgba(0,0,0,0.3);
+            border-top: 1px solid var(--glass-border);
+            flex-shrink: 0;
+        }
+        .site-note {
+            position: fixed;
+            left: 10px;
+            bottom: 8px;
+            z-index: 25;
+            width: min(320px, calc(100vw - 20px));
+            padding: 5px 8px;
+            color: var(--text-dim);
+            font-size: 10px;
+            line-height: 1.35;
+            text-align: left;
+        }
+        .site-note a { color: #65d889; text-decoration: underline; text-underline-offset: 2px; }
+        .site-note a:hover { color: #9bf0b5; }
+        .full-width { grid-column: span 2; }
+
+        select, button {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 10px 5px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            text-align: center;
+            width: 100%;
+            backdrop-filter: blur(5px);
+        }
+
+        select { color-scheme: dark; text-align: left; }
+        select option { color: #fff; background: #222; padding: 8px; }
+        button { touch-action: manipulation; }
+        * { scrollbar-width: thin; scrollbar-color: rgba(235,245,255,0.42) rgba(255,255,255,0.04); }
+        *::-webkit-scrollbar { width: 9px; height: 9px; }
+        *::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 99px; }
+        *::-webkit-scrollbar-thumb { background: rgba(210,225,218,0.38); border: 2px solid transparent; border-radius: 99px; background-clip: padding-box; }
+
+        .theme-picker { position: relative; }
+        #theme-picker-trigger, #difficulty-picker-trigger { display: flex; align-items: center; justify-content: space-between; }
+        #theme-picker-label { min-width: 0; flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+        #difficulty-picker-label { min-width: 0; flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+        .theme-picker-menu {
+            position: absolute;
+            z-index: 80;
+            inset: auto 0 100%;
+            max-height: min(56vh, 360px);
+            overflow-y: auto;
+            padding: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 7px;
+            background: #202522;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.55);
+            backdrop-filter: blur(16px);
+            transform: translateY(7px) scale(0.985);
+            transform-origin: bottom center;
+            opacity: 0;
+            animation: picker-close 150ms ease both;
+        }
+        .theme-picker-menu:not([hidden]) { animation: picker-open 210ms cubic-bezier(0.2,0.8,0.2,1) both; }
+        .difficulty-picker-menu { max-height: min(38vh, 240px); }
+        @keyframes picker-open { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes picker-close { to { opacity: 0; transform: translateY(6px) scale(0.985); } }
+        .theme-picker-menu button {
+            display: block;
+            width: 100%;
+            padding: 10px 12px;
+            border: 0;
+            border-radius: 4px;
+            background: transparent;
+            color: #f5f7f5;
+            text-align: left;
+        }
+        .theme-picker-menu button:hover, .theme-picker-menu button[aria-selected="true"] { background: #416747; }
+        .theme-picker-menu[hidden] { display: none; }
+        .theme-liquid .theme-picker-menu, .theme-liquid .settings-dialog { background: rgba(218,235,245,0.13); backdrop-filter: blur(30px) saturate(170%); -webkit-backdrop-filter: blur(30px) saturate(170%); border-color: rgba(255,255,255,0.34); box-shadow: 0 18px 52px rgba(8,19,35,0.25), inset 0 1px rgba(255,255,255,0.24); }
+        .theme-liquid .theme-picker-menu button[aria-selected="true"], .theme-liquid .theme-picker-menu button:hover { background: rgba(235,248,255,0.2); }
+
+        .theme-retro90 *, .theme-win95 *, .theme-dos80 *, .theme-retroNeon *, .theme-glass *, .theme-liquid *, .theme-fluid * { scrollbar-color: var(--scroll-thumb, rgba(210,225,218,0.38)) var(--scroll-track, rgba(255,255,255,0.04)); }
+        .theme-win95 { --scroll-thumb: #a0a0a0; --scroll-track: #dfdfdf; }
+        .theme-win95 *::-webkit-scrollbar { width: 16px; height: 16px; }
+        .theme-win95 *::-webkit-scrollbar-track { background: #dfdfdf; border: 1px solid #808080; border-radius: 0; }
+        .theme-win95 *::-webkit-scrollbar-thumb { background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; border-radius: 0; }
+        .theme-dos80 { --scroll-thumb: #35874c; --scroll-track: #020702; }
+        .theme-dos80 *::-webkit-scrollbar-track { background: #020702; border: 1px solid #247839; border-radius: 0; }
+        .theme-dos80 *::-webkit-scrollbar-thumb { background: #155e2a; border: 1px solid #58ff75; border-radius: 0; }
+        .theme-retro90 { --scroll-thumb: #898264; --scroll-track: #282923; }
+        .theme-liquid { --scroll-thumb: rgba(236,249,255,0.62); --scroll-track: rgba(225,240,255,0.08); }
+        .theme-liquid *::-webkit-scrollbar { width: 12px; height: 12px; }
+        .theme-liquid *::-webkit-scrollbar-track { background: rgba(228,243,255,0.08); border: 1px solid rgba(255,255,255,0.08); }
+        .theme-liquid *::-webkit-scrollbar-thumb { background: linear-gradient(145deg,rgba(255,255,255,0.72),rgba(160,217,240,0.34)); border: 3px solid transparent; background-clip: padding-box; box-shadow: inset 0 0 5px rgba(255,255,255,0.65); animation: liquid-scroll-float 3.2s ease-in-out infinite alternate; }
+        @keyframes liquid-scroll-float { from { opacity: 0.62; background-position: 0 0; } to { opacity: 0.96; background-position: 0 18px; } }
+        .theme-liquid .volume-slider-shell::before { display: block; border-color: rgba(255,255,255,0.42); background: linear-gradient(180deg,rgba(236,248,255,0.22),rgba(178,210,228,0.12)); box-shadow: inset 0 1px 4px rgba(18,43,57,0.24), 0 0 8px rgba(215,245,255,0.1); }
+        .theme-liquid .volume-slider-fill { display: block; background: linear-gradient(90deg,rgba(173,225,246,0.76),rgba(255,255,255,0.94)); box-shadow: 0 0 8px rgba(183,233,250,0.52); transition: width 70ms linear; }
+        .theme-liquid .volume-slider-thumb { display: block; border-color: rgba(255,255,255,0.92); background: radial-gradient(circle at 31% 25%,rgba(255,255,255,0.98),rgba(222,245,255,0.66) 54%,rgba(150,202,225,0.55)); box-shadow: 0 2px 10px rgba(14,43,59,0.36), inset 0 1px 4px rgba(255,255,255,0.96); transition: left 70ms linear, transform 300ms cubic-bezier(0.18,1.45,0.38,1), box-shadow 180ms ease; }
+        .theme-liquid .volume-slider-shell.is-dragging .volume-slider-fill { transition: none; }
+        .theme-liquid .volume-slider-shell.is-dragging .volume-slider-thumb { transition: left 0ms, transform 90ms cubic-bezier(0.18,1.45,0.38,1), box-shadow 180ms ease; }
+        .theme-liquid .volume-slider-shell.is-dragging::before { border-color: rgba(255,255,255,0.72); box-shadow: 0 0 12px rgba(207,240,255,0.35), inset 0 1px 4px rgba(18,43,57,0.24); }
+        .theme-liquid .volume-slider-shell.is-dragging .volume-slider-thumb { box-shadow: 0 5px 18px rgba(14,43,59,0.42), inset 0 1px 5px rgba(255,255,255,0.98); }
+
+        .motion-disabled *, .motion-disabled *::before, .motion-disabled *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+        .board-tools {
+            display: none;
+            z-index: 25;
+            gap: 4px;
+            padding: 4px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 7px;
+            background: rgba(18,22,20,0.82);
+            backdrop-filter: blur(10px);
+        }
+        .board-tools button {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            font-size: 18px;
+            line-height: 1;
+        }
+        .board-tools button.active { background: var(--accent); color: #101510; }
+        html.touch-input-mode.mobile-tool-v2 .board-tools { display: none; }
+        html.touch-input-mode .site-note { bottom: calc(58px + env(safe-area-inset-bottom)); }
+        html.touch-input-mode .board-tools {
+            display: flex;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            justify-content: center;
+            padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+            border-right: 0;
+            border-bottom: 0;
+            border-left: 0;
+            border-radius: 7px 7px 0 0;
+            background: rgba(18,22,20,0.94);
+        }
+        html.touch-input-mode .board-tools button { width: 42px; height: 42px; }
+        @media (min-width: 769px) {
+            html.touch-input-mode .site-note { bottom: 8px; }
+            html.touch-input-mode .board-tools {
+                top: 0;
+                right: auto;
+                bottom: auto;
+                left: 0;
+                width: auto;
+                justify-content: flex-start;
+                padding: max(8px, env(safe-area-inset-top)) 8px 8px;
+                border-top: 0;
+                border-right: 1px solid rgba(255,255,255,0.18);
+                border-bottom: 1px solid rgba(255,255,255,0.18);
+                border-left: 0;
+                border-radius: 0 0 7px 0;
+            }
+        }
+        .controls-help-button { display: grid; place-items: center; position: absolute; top: 50%; right: 10px; z-index: 2; width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 18px; font-weight: 700; line-height: 1; transform: translateY(-50%); }
+
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: grid;
+            place-items: center;
+            padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+            background: rgba(0,0,0,0.68);
+            backdrop-filter: blur(8px);
+        }
+        .settings-overlay[hidden] { display: none; }
+        #controls-help-overlay:not([hidden]) { animation: controls-help-backdrop-in 260ms ease-out both; }
+        #controls-help-overlay:not([hidden]) .settings-dialog { animation: controls-help-window-in 460ms cubic-bezier(0.18,1.15,0.35,1) both; transform-origin: center; }
+        #controls-help-overlay:not([hidden]) .controls-guide-group { animation: controls-help-content-in 360ms cubic-bezier(0.2,0.8,0.2,1) both; }
+        #controls-help-overlay:not([hidden]) .controls-guide-group:nth-child(2) { animation-delay: 70ms; }
+        #controls-help-overlay:not([hidden]) .controls-guide-card { animation: controls-help-card-in 360ms cubic-bezier(0.2,0.8,0.2,1) both; }
+        #controls-help-overlay:not([hidden]) .controls-guide-card:nth-child(2) { animation-delay: 45ms; }
+        #controls-help-overlay:not([hidden]) .controls-guide-card:nth-child(3) { animation-delay: 90ms; }
+        @keyframes controls-help-backdrop-in {
+            from { opacity: 0; background: rgba(0,0,0,0); backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
+            to { opacity: 1; background: rgba(0,0,0,0.68); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        }
+        @keyframes controls-help-window-in {
+            from { opacity: 0; transform: translateY(16px) scale(0.94); filter: blur(10px); }
+            72% { opacity: 1; transform: translateY(-2px) scale(1.012); filter: blur(0); }
+            to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+        @keyframes controls-help-content-in {
+            from { opacity: 0; transform: translateY(7px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes controls-help-card-in {
+            from { opacity: 0; transform: translateY(6px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #controls-help-overlay:not([hidden]), #controls-help-overlay:not([hidden]) * { animation: none !important; }
+        }
+        .settings-dialog {
+            width: min(100%, 480px);
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            background: #202522;
+            color: #f2f5f2;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+        }
+        .settings-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--glass-border); }
+        .settings-header h2 { margin: 0; font-size: 18px; }
+        .settings-close { width: 38px; height: 38px; padding: 0; font-size: 24px; }
+        .settings-content { overflow-y: auto; padding: 8px 16px 16px; }
+        .setting-row { min-height: 48px; display: grid; grid-template-columns: minmax(92px,1fr) minmax(100px,1.2fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 14px; }
+        .setting-row input[type="checkbox"] { justify-self: end; width: 20px; height: 20px; accent-color: var(--accent); }
+        .setting-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+        .volume-slider-shell { display: block; width: 100%; min-width: 0; }
+        .volume-slider-shell::before, .volume-slider-fill, .volume-slider-thumb { display: none; }
+        .volume-slider-shell input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
+        .theme-liquid .volume-slider-shell { position: relative; height: 30px; isolation: isolate; cursor: pointer; touch-action: none; }
+        .theme-liquid .volume-slider-shell::before { content: ""; position: absolute; top: 11px; left: 0; right: 0; height: 8px; border: 1px solid rgba(255,255,255,0.25); border-radius: 99px; background: rgba(255,255,255,0.12); box-shadow: inset 0 1px 4px rgba(0,0,0,0.24); }
+        .theme-liquid .volume-slider-fill { position: absolute; top: 12px; left: 1px; z-index: 1; width: var(--volume-progress); height: 6px; border-radius: 99px; background: linear-gradient(90deg,rgba(202,235,255,0.52),rgba(235,247,255,0.82)); pointer-events: none; }
+        .theme-liquid .volume-slider-shell input[type="range"] { position: absolute; inset: 0; z-index: 3; width: 100%; height: 30px; margin: 0; opacity: 0.01; pointer-events: none; }
+        .theme-liquid .volume-slider-shell input[type="range"]::-webkit-slider-runnable-track { height: 30px; background: transparent; }
+        .theme-liquid .volume-slider-shell input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; background: transparent; }
+        .theme-liquid .volume-slider-shell input[type="range"]::-moz-range-track { height: 30px; background: transparent; }
+        .theme-liquid .volume-slider-shell input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; border: 0; background: transparent; }
+        .theme-liquid .volume-slider-thumb { position: absolute; z-index: 2; top: 4px; left: var(--volume-progress); width: 22px; height: 22px; transform: translateX(-50%); border: 1px solid rgba(255,255,255,0.72); border-radius: 50%; background: radial-gradient(circle at 32% 28%,rgba(255,255,255,0.98),rgba(225,238,246,0.82) 58%,rgba(169,191,207,0.76)); box-shadow: 0 2px 8px rgba(0,0,0,0.25), inset 0 1px 3px rgba(255,255,255,0.8); pointer-events: none; }
+        .theme-liquid .volume-slider-shell input[type="range"]:focus-visible ~ .volume-slider-thumb { outline: 2px solid var(--accent); outline-offset: 3px; }
+        .setting-row input[type="color"] { justify-self: end; width: 48px; height: 30px; padding: 2px; border: 1px solid var(--glass-border); background: transparent; }
+        .setting-row output { min-width: 40px; text-align: right; color: var(--text-dim); }
+        .setting-block { padding: 12px 0 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .setting-block h3 { margin: 0 0 9px; font-size: 13px; color: var(--accent); }
+        .setting-block p { margin: 8px 0 0; color: var(--text-dim); font-size: 12px; line-height: 1.4; }
+        .controls-guide { display: grid; gap: 8px; }
+        .controls-guide-group { padding: 8px 0 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .controls-guide-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .controls-guide-heading h3 { margin: 0; color: var(--accent); font-size: 13px; }
+        .controls-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+        .controls-guide-card { min-width: 0; min-height: 86px; display: grid; align-content: center; justify-items: center; gap: 4px; padding: 7px 4px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: rgba(255,255,255,0.035); text-align: center; }
+        .controls-guide-card strong { font-size: 12px; }
+        .controls-guide-card small { color: var(--text-dim); font-size: 10px; line-height: 1.2; }
+        .guide-gesture { height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--accent); }
+        .guide-symbol { font-size: 21px; font-weight: 700; line-height: 1; }
+        .guide-mouse-icon { position: relative; width: 18px; height: 29px; overflow: hidden; border: 1.5px solid rgba(255,255,255,0.76); border-radius: 10px 10px 8px 8px; }
+        .guide-mouse-icon::after { content: ""; position: absolute; top: 0; bottom: 15px; left: 50%; width: 1px; background: rgba(255,255,255,0.5); }
+        .guide-mouse-icon i, .guide-mouse-icon b { position: absolute; top: 1px; width: 7px; height: 9px; border-radius: 6px 6px 1px 1px; }
+        .guide-mouse-icon i { left: 1px; }
+        .guide-mouse-icon b { right: 1px; }
+        .guide-mouse-icon.left-pressed i, .guide-mouse-icon.right-pressed b { background: var(--accent); }
+        .guide-trackpad-icon { position: relative; width: 34px; height: 25px; border: 1.5px solid rgba(255,255,255,0.76); border-radius: 5px; }
+        .guide-trackpad-icon i { position: absolute; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+        .guide-trackpad-icon i:first-child { left: 8px; }
+        .guide-trackpad-icon i:last-child { right: 8px; }
+        .guide-trackpad-icon.one-finger i:last-child { display: none; }
+        .guide-mouse-icon.demo-drag { animation: guide-device-drag 1.6s ease-in-out infinite; }
+        .guide-mouse-icon.demo-click i, .guide-mouse-icon.demo-click b { animation: guide-device-click 1.5s ease-in-out infinite; }
+        .guide-mouse-icon.demo-hold b { animation: guide-device-hold 1.6s ease-in-out infinite; }
+        .guide-trackpad-icon.demo-drag i:first-child { animation: guide-device-drag 1.6s ease-in-out infinite; }
+        .guide-trackpad-icon.demo-click i { animation: guide-device-click 1.5s ease-in-out infinite; }
+        .guide-trackpad-icon.demo-click i:last-child { animation-delay: 120ms; }
+        .guide-trackpad-icon.demo-hold i:first-child { animation: guide-device-hold 1.6s ease-in-out infinite; }
+        .guide-motion-arrow { display: inline-block; animation: touch-v2-arrow-drag 1.6s ease-in-out infinite; }
+        @keyframes guide-device-drag { 0%, 18%, 100% { transform: translateX(0); } 62%, 82% { transform: translateX(5px); } }
+        @keyframes guide-device-click { 0%, 100% { opacity: 0.5; transform: scale(1); } 18%, 38% { opacity: 1; transform: scale(0.72); } }
+        @keyframes guide-device-hold { 0%, 20%, 100% { opacity: 0.55; transform: scale(0.9); } 68%, 86% { opacity: 1; transform: scale(1.25); } }
+        .guide-touch-icon { position: relative; width: 28px; height: 28px; display: inline-grid; place-items: center; border: 1px solid rgba(255,255,255,0.65); border-radius: 50%; }
+        .guide-touch-icon i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+        .guide-touch-icon::after { content: none; }
+        .guide-touch-icon.double-tap::before { content: ""; position: absolute; inset: -3px; border: 1.5px solid var(--accent); border-radius: 50%; opacity: 0.45; transform: scale(0.78); }
+        .guide-touch-icon.long-press::before { content: "1s"; position: absolute; top: -5px; right: -8px; z-index: 1; padding: 1px 3px; border-radius: 4px; background: var(--accent); color: #101510; font-size: 9px; font-weight: 700; }
+        .guide-touch-icon.touch-v2-move i { animation: touch-v2-circle-drag 1.6s ease-in-out infinite; }
+        .guide-touch-icon.touch-v2-tap::before { animation: touch-v2-double-tap 1.5s ease-in-out infinite; }
+        .guide-touch-icon.touch-v2-hold::before { animation: touch-v2-hold 1.6s ease-in-out infinite; }
+        .touch-v2-arrow { display: inline-block; animation: touch-v2-arrow-drag 1.6s ease-in-out infinite; }
+        @keyframes touch-v2-circle-drag { 0%, 18%, 100% { transform: translate(0,0); } 62%, 82% { transform: translate(5px,-4px); } }
+        @keyframes touch-v2-double-tap { 0%, 100% { opacity: 0.45; transform: scale(0.78); } 16%, 30%, 58%, 72% { opacity: 1; transform: scale(1.12); } 42%, 88% { opacity: 0.45; transform: scale(0.78); } }
+        @keyframes touch-v2-hold { 0%, 20%, 100% { opacity: 0.55; transform: scale(0.92); } 70%, 86% { opacity: 1; transform: scale(1.08); } }
+        @keyframes touch-v2-arrow-drag { 0%, 20%, 100% { opacity: 0.45; transform: translate(0,0); } 72%, 88% { opacity: 1; transform: translate(4px,-4px); } }
+        @media (prefers-reduced-motion: no-preference) {
+            body.motion-disabled #controls-help-overlay:not([hidden]) { animation: controls-help-backdrop-in 260ms ease-out both !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .settings-dialog { animation: controls-help-window-in 460ms cubic-bezier(0.18,1.15,0.35,1) both !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .controls-guide-group { animation: controls-help-content-in 360ms cubic-bezier(0.2,0.8,0.2,1) both !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .controls-guide-group:nth-child(2) { animation-delay: 70ms !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .controls-guide-card { animation: controls-help-card-in 360ms cubic-bezier(0.2,0.8,0.2,1) both !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .controls-guide-card:nth-child(2) { animation-delay: 45ms !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .controls-guide-card:nth-child(3) { animation-delay: 90ms !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-touch-icon.touch-v2-move i { animation: touch-v2-circle-drag 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-touch-icon.touch-v2-tap::before { animation: touch-v2-double-tap 1.5s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-touch-icon.touch-v2-hold::before { animation: touch-v2-hold 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .touch-v2-arrow { animation: touch-v2-arrow-drag 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-mouse-icon.demo-drag { animation: guide-device-drag 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-mouse-icon.demo-click i, body.motion-disabled #controls-help-overlay:not([hidden]) .guide-mouse-icon.demo-click b { animation: guide-device-click 1.5s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-mouse-icon.demo-hold b { animation: guide-device-hold 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-trackpad-icon.demo-drag i:first-child { animation: guide-device-drag 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-trackpad-icon.demo-click i { animation: guide-device-click 1.5s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-trackpad-icon.demo-hold i:first-child { animation: guide-device-hold 1.6s ease-in-out infinite !important; }
+            body.motion-disabled #controls-help-overlay:not([hidden]) .guide-motion-arrow { animation: touch-v2-arrow-drag 1.6s ease-in-out infinite !important; }
+        }
+        .theme-liquid .controls-guide-card { border-color: rgba(255,255,255,0.24); background: rgba(235,248,255,0.08); }
+        @media (max-width: 420px) { .controls-guide-grid { gap: 4px; } .controls-guide-card { min-height: 80px; } .controls-guide-card small { font-size: 9px; } }
+        .audio-import-row { min-height: 38px; display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; }
+        .audio-import-row input { width: min(70%, 250px); color: var(--text-dim); font-size: 11px; }
+        #settings-message { min-height: 18px; margin: 10px 0 0; color: #f3c96b; font-size: 12px; }
+        .bgm-track-list { display: grid; gap: 6px; margin-bottom: 10px; }
+        .bgm-track-list button { min-height: 52px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 12px; text-align: left; }
+        .bgm-track-list button[hidden] { display: none; }
+        .bgm-track-list button[aria-pressed="true"] { border-color: var(--accent); background: rgba(129,182,76,0.17); }
+        .bgm-track-list small { color: var(--text-dim); font-size: 11px; }
+        .bgm-loop-setting { min-height: 40px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+        .bgm-loop-setting[hidden] { display: none; }
+        .bgm-loop-setting input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+        #bgm-stop { margin-bottom: 10px; }
+        #bgm-status { min-height: 18px; margin: 8px 0 0; color: var(--text-dim); font-size: 12px; }
+
+        .theme-retro90 { font-family: "Courier New", monospace; }
+        .theme-retro90 { background: #151813; }
+        .theme-retro90 .board-inner { border: 7px solid #332c28; border-radius: 20px; box-shadow: 0 15px 42px #000, inset 0 0 18px rgba(0,0,0,0.55); }
+        .theme-retro90 #board-container::after { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none; background: repeating-linear-gradient(to bottom, transparent 0 3px, rgba(0,0,0,0.14) 4px); box-shadow: inset 0 0 48px rgba(0,0,0,0.42); }
+        .theme-win95 { font-family: Tahoma, "MS Sans Serif", sans-serif; }
+        .theme-win95 button, .theme-win95 select, .theme-win95 .theme-picker-menu { border-radius: 0; color: #101010; background-color: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: inset 1px 1px #dfdfdf, 1px 1px #000; }
+        .theme-win95 .board-inner { border: 4px solid #c0c0c0; border-radius: 0; box-shadow: 4px 4px #404040, 6px 6px #000; }
+        .theme-win95 .status-panel h2 { color: #001b76; }
+        .theme-dos80 { font-family: "Courier New", monospace; }
+        .theme-dos80 { background: #000; color: #58ff75; }
+        .theme-dos80 .sidebar, .theme-dos80 .controls, .theme-dos80 .move-history-container { background: #050a05; border-color: #247839; }
+        .theme-dos80 .status-panel h2, .theme-dos80 .move-history-container { color: #58ff75; }
+        .theme-dos80 button, .theme-dos80 select { border: 1px solid #58ff75; border-radius: 0; color: #58ff75; background: #000; font-family: inherit; }
+        .theme-retroNeon { background: linear-gradient(140deg,#100c24,#071d24 52%,#2a1028); }
+        .theme-retroNeon .board-inner { box-shadow: 0 0 28px rgba(52,244,218,0.27), 0 0 54px rgba(255,75,196,0.15); }
+        .theme-retroNeon button.active, .theme-retroNeon .primary { box-shadow: 0 0 14px var(--accent); }
+        .theme-glass .sidebar, .theme-glass .board-inner { background: rgba(240,248,245,0.08); backdrop-filter: blur(20px) saturate(145%); }
+        .theme-liquid .sidebar, .theme-liquid .board-inner, .theme-liquid .settings-dialog { background: rgba(235,245,255,0.08); backdrop-filter: blur(22px) saturate(155%); -webkit-backdrop-filter: blur(22px) saturate(155%); border-color: rgba(255,255,255,0.38); box-shadow: 0 18px 50px rgba(0,0,0,0.2), inset 0 1px rgba(255,255,255,0.4); }
+        .theme-liquid .board-inner { isolation: isolate; border-radius: 18px; }
+        .theme-liquid #board-container::before { content: ""; position: absolute; z-index: 5; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(128deg,rgba(255,255,255,0.2),transparent 28% 72%,rgba(255,255,255,0.06)); filter: url(#liquid-refraction); mix-blend-mode: screen; }
+        #annotation-overlay { position: absolute; inset: 0; z-index: 6; display: none; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+        .theme-liquid #annotation-overlay { display: block; }
+        .theme-fluid { background: linear-gradient(120deg,#16282c,#25443d 42%,#594330 100%); background-size: 180% 180%; animation: fluidShift 16s ease-in-out infinite alternate; }
+        .theme-fluid .sidebar, .theme-fluid .board-inner { background: rgba(22,35,34,0.6); backdrop-filter: blur(18px); }
+        @keyframes fluidShift { to { background-position: 100% 0; } }
+
+        button.primary { background: var(--accent); color: #000; font-weight: bold; border: none; }
+
+        #promotion-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .promotion-box {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            gap: 10px;
+            border: 1px solid var(--glass-border);
+        }
+        .promo-option {
+            width: 55px; height: 55px;
+            cursor: pointer;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .promo-option img { width: 40px; height: 40px; }
+
+        @media (max-width: 768px) and (orientation: portrait) {
+            html.touch-input-mode .app-container { flex-direction: column; }
+            html.touch-input-mode .game-main { flex: 0 0 auto; padding: 10px 0; width: 100%; }
+            html.touch-input-mode .board-outer { max-width: 94vw; }
+            html.touch-input-mode .sidebar { flex: 1; width: 100%; border-left: none; border-top: 1px solid var(--glass-border); flex-basis: 0; overflow: hidden; }
+            html.touch-input-mode .settings-dialog { width: 100%; }
+        }
+        .status-panel h2 { padding: 0 38px; }
+    </style>
+    <script>
+        (function () {
+            window.continueAnyway = function () {
+                document.documentElement.className = document.documentElement.className.replace('unsupported-browser', '').replace(/^\s+|\s+$/g, '');
+            };
+            var userAgent = window.navigator.userAgent || '';
+            var legacyWindowsPreview = /MSIE\s|Trident\/|Edge\/\d+/i.test(userAgent) || !!document.documentMode;
+            var olderIOSWebKit = /(?:iPhone|iPad|iPod).*OS (?:[0-9]|1[0-2])_\d+/i.test(userAgent);
+            if (legacyWindowsPreview || olderIOSWebKit) {
+                document.documentElement.className += ' unsupported-browser';
+            }
+        }());
+    </script>
+</head>
+<body>
+<div id="unsupported-browser-notice" role="alert" aria-live="assertive">
+    <section>
+        <h1>Your browser is too outdated.</h1>
+        <p>You might need an upgrade to play Grandmaster Chess.</p>
+        <button type="button" onclick="continueAnyway()">Continue anyway</button>
+        <p class="compatibility-warning">This may still be broken if you continue.</p>
+    </section>
+</div>
+<!-- Rest of the code remains exactly the same as the previous version -->
+<div id="star-container"></div>
+<div id="liquid-background" aria-hidden="true"></div>
+<svg class="svg-filters" aria-hidden="true" focusable="false">
+    <filter id="liquid-refraction" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.045" numOctaves="2" seed="8" result="glass-ripple" />
+        <feDisplacementMap in="SourceGraphic" in2="glass-ripple" scale="4" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="liquid-arrow-refraction" x="-25%" y="-60%" width="150%" height="220%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.035 0.12" numOctaves="2" seed="12" result="arrow-ripple" />
+        <feDisplacementMap in="SourceGraphic" in2="arrow-ripple" scale="3" xChannelSelector="R" yChannelSelector="G" result="refracted-arrow" />
+        <feGaussianBlur in="refracted-arrow" stdDeviation="0.35" result="soft-arrow" />
+        <feMerge><feMergeNode in="soft-arrow" /><feMergeNode in="refracted-arrow" /></feMerge>
+    </filter>
+</svg>
+
+<div id="win-overlay">
+    <div class="win-card">
+        <h1 class="win-title" id="win-text">Checkmate!</h1>
+        <p class="win-subtitle" id="win-description">White wins the match.</p>
+        <button onclick="newGame()" class="primary" style="width: 100%; padding: 15px;">Play Again</button>
+    </div>
+</div>
+
+<div id="promotion-overlay">
+    <div class="promotion-box" id="promotion-options"></div>
+</div>
+
+<div id="settings-overlay" class="settings-overlay" hidden>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <header class="settings-header">
+            <h2 id="settings-title">Settings</h2>
+            <button class="settings-close" type="button" aria-label="Close settings" onclick="closeSettings()">×</button>
+        </header>
+        <div class="settings-content">
+            <label class="setting-row"><span>Motion effects</span><input id="motion-effects-setting" type="checkbox" checked onchange="setMotionEffects(this.checked)"></label>
+            <label class="setting-row"><span>Motion blur</span><input id="motion-blur-setting" type="checkbox" onchange="setMotionBlur(this.checked)"></label>
+            <label class="setting-row"><span>Motion blur quality</span><select id="motion-blur-quality-setting" onchange="setMotionBlurQuality(this.value)"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+            <div id="mobile-tool-v2-setting" class="setting-block" hidden>
+                <label class="setting-row mobile-tool-v2-row"><span>Mobile tool V2</span><input id="mobile-tool-v2-checkbox" type="checkbox" onchange="setMobileToolV2(this.checked)"></label>
+                <p>Drag pieces to move. Double-tap or double-click to circle. Hold for 1 second, then drag to draw an arrow.</p>
+            </div>
+            <div class="setting-row volume-setting-row"><span>Volume</span><span id="volume-slider-shell" class="volume-slider-shell" style="--volume-progress:70%"><input id="volume-setting" type="range" min="0" max="100" value="70" oninput="setVolume(this.value)" aria-label="Volume"><span class="volume-slider-fill" aria-hidden="true"></span><span class="volume-slider-thumb" aria-hidden="true"></span></span><output id="volume-value">70%</output></div>
+            <div class="setting-row"><span>Background</span><input id="background-setting" type="color" value="#1a1a1a" onchange="setBackgroundColor(this.value)"><button type="button" onclick="setBackgroundColor('')">Theme default</button></div>
+            <div class="setting-block">
+                <h3>Stockfish</h3>
+                <button id="settings-import-engine" type="button" hidden onclick="connectStockfishFolder()">Import Stockfish folder</button>
+                <p id="engine-setting-status" role="status">Full-strength engine preferred. Lightweight engine is used if loading fails.</p>
+            </div>
+            <div class="setting-block">
+                <h3>Move sounds</h3>
+                <label class="audio-import-row">Move <input type="file" accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onchange="importSoundFile('move', this.files[0])"></label>
+                <label class="audio-import-row">Capture <input type="file" accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onchange="importSoundFile('capture', this.files[0])"></label>
+                <label class="audio-import-row">Castle <input type="file" accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onchange="importSoundFile('castle', this.files[0])"></label>
+                <label class="audio-import-row">Background <input type="file" accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onchange="importSoundFile('bgm', this.files[0])"></label>
+            </div>
+            <p id="settings-message" role="status" aria-live="polite"></p>
+        </div>
+    </section>
+</div>
+
+<div id="bgm-overlay" class="settings-overlay" hidden>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="bgm-title">
+        <header class="settings-header">
+            <h2 id="bgm-title">BG Music</h2>
+            <button class="settings-close" type="button" aria-label="Close background music" onclick="closeBackgroundMusic()">×</button>
+        </header>
+        <div class="settings-content">
+            <div id="bgm-track-list" class="bgm-track-list">
+                <button type="button" data-track="glasshouse" onclick="toggleBackgroundMusic('glasshouse')"><span>Glasshouse</span><small>Soft ambient</small></button>
+                <button type="button" data-track="night-drive" onclick="toggleBackgroundMusic('night-drive')"><span>Night Drive</span><small>Warm synth pulse</small></button>
+                <button type="button" data-track="crt-dreams" onclick="toggleBackgroundMusic('crt-dreams')"><span>CRT Dreams</span><small>Retro arcade loop</small></button>
+                <button type="button" data-track="liquid-current" onclick="toggleBackgroundMusic('liquid-current')"><span>Liquid Current</span><small>Flowing glass tones</small></button>
+                <button id="bgm-imported-track" type="button" data-track="imported" hidden onclick="toggleBackgroundMusic('imported')"><span>Imported BGM</span><small id="bgm-imported-name">Local audio file</small></button>
+            </div>
+            <label id="bgm-loop-setting-row" class="bgm-loop-setting" hidden><input id="bgm-loop-setting" type="checkbox" checked onchange="setImportedBgmLoop(this.checked)"><span>Loop?</span></label>
+            <button id="bgm-stop" class="full-width" type="button" onclick="stopBackgroundMusic()">Stop music</button>
+            <label class="audio-import-row bgm-import-row">Import BGM (.mp3, .m4a, .wav) <input type="file" accept=".mp3,.m4a,.wav,audio/mpeg,audio/mp4,audio/wav" onchange="importSoundFile('bgm', this.files[0])"></label>
+            <p id="bgm-status" role="status" aria-live="polite">Music is generated locally and loops offline.</p>
+        </div>
+    </section>
+</div>
+
+<div class="app-container">
+    <div class="game-main">
+        <div class="board-tools" role="toolbar" aria-label="Board annotation tools">
+            <button id="annotation-move" class="active" data-annotation-mode="move" type="button" title="Move pieces" aria-label="Move pieces" aria-pressed="true" onclick="setAnnotationMode('move')">♟</button>
+            <button id="annotation-circle" data-annotation-mode="circle" type="button" title="Circle squares" aria-label="Circle squares" aria-pressed="false" onclick="setAnnotationMode('circle')">◯</button>
+            <button id="annotation-arrow" data-annotation-mode="arrow" type="button" title="Draw arrows" aria-label="Draw arrows" aria-pressed="false" onclick="setAnnotationMode('arrow')">↗</button>
+            <button type="button" title="Clear markings" aria-label="Clear markings" onclick="clearBoardAnnotations()">⌫</button>
+        </div>
+        <div class="board-outer">
+            <div class="board-inner" id="board-container">
+                <canvas id="chessCanvas"></canvas>
+                <svg id="annotation-overlay" aria-hidden="true" focusable="false" viewBox="0 0 800 800"><defs><linearGradient id="liquid-arrow-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.72" /><stop offset="0.48" stop-color="#b9e9ff" stop-opacity="0.52" /><stop offset="1" stop-color="#78b8d8" stop-opacity="0.68" /></linearGradient></defs></svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar" id="main-sidebar">
+        <div class="status-panel">
+            <h2 id="game-status">White's Turn</h2>
+            <button id="controls-help-button" class="controls-help-button" type="button" title="Mouse and trackpad controls" aria-label="Mouse and trackpad controls" onclick="openControlsHelp()">?</button>
+        </div>
+        
+        <div class="move-history-container" id="pgn-history"></div>
+
+        <div class="controls">
+            <div class="theme-picker full-width">
+                <button id="theme-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleThemeMenu()"><span id="theme-picker-label">Classic Forest</span><span aria-hidden="true">▾</span></button>
+                <div id="theme-picker-menu" class="theme-picker-menu" role="listbox" aria-label="Board theme" hidden>
+                    <button type="button" role="option" aria-selected="true" onclick="changeTheme('classic')">Classic Forest</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('shooting')">Shooting Star</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('neon')">Neon Bloom</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('ocean')">Ocean Blue</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('midnight')">Midnight</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('retro90')">90s CRT</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('win95')">Windows 95</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('dos80')">80s DOS</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('retroNeon')">Retro Neon</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('glass')">Glass</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('liquid')">Liquid Glass</button>
+                    <button type="button" role="option" aria-selected="false" onclick="changeTheme('fluid')">Fluid</button>
+                </div>
+            </div>
+            <div id="difficulty-picker" class="theme-picker full-width">
+                <button id="difficulty-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDifficultyMenu()"><span id="difficulty-picker-label">Level: Easy</span><span aria-hidden="true">▾</span></button>
+                <div id="difficulty-picker-menu" class="theme-picker-menu difficulty-picker-menu" role="listbox" aria-label="Engine difficulty" hidden>
+                    <button type="button" role="option" aria-selected="true" onclick="setDifficulty('easy')">Level: Easy</button>
+                    <button type="button" role="option" aria-selected="false" onclick="setDifficulty('med')">Level: Medium</button>
+                    <button type="button" role="option" aria-selected="false" onclick="setDifficulty('hard')">Level: Hard</button>
+                    <button type="button" role="option" aria-selected="false" onclick="setDifficulty('master')">Level: Master</button>
+                </div>
+            </div>
+            <button onclick="undoMove()">Undo</button>
+            <button onclick="toggleMute()" id="mute-btn">🔊 Sound</button>
+            <button type="button" onclick="openBackgroundMusic()">BG Music</button>
+            <button onclick="toggleAI()"><span id="mode-text">vs Bot</span></button>
+            <button type="button" onclick="openSettings()">Settings</button>
+            <button onclick="newGame()" class="primary">New</button>
+            <div id="engine-license" style="grid-column:span 2;text-align:center;font-size:11px;">
+                Stockfish 17.1 | <a href="stockfish/Copying.txt">GPLv3 license and no warranty</a> | <a href="https://github.com/nmrugg/stockfish.js">Source</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="site-note">
+    It’s better to play on <a href="https://www.chess.com/" target="_blank" rel="noopener noreferrer">Chess.com</a> if you want to learn and get more features.
+    <span id="app-version"></span>
+</footer>
+<div id="controls-help-overlay" class="settings-overlay" hidden>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="controls-help-title">
+        <header class="settings-header">
+            <h2 id="controls-help-title">Touch &amp; Pointer Controls</h2>
+            <button class="settings-close" type="button" aria-label="Close controls guide" onclick="closeControlsHelp()">×</button>
+        </header>
+        <div class="settings-content">
+            <div class="controls-guide">
+                <div id="desktop-controls-guide">
+                    <section id="mouse-controls-guide" class="controls-guide-group" aria-labelledby="mouse-guide-title">
+                        <header class="controls-guide-heading"><span class="guide-mouse-icon" aria-hidden="true"><i></i><b></b></span><h3 id="mouse-guide-title">Mouse</h3></header>
+                        <div class="controls-guide-grid">
+                            <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-mouse-icon left-pressed demo-drag"><i></i><b></b></span><span class="guide-motion-arrow">→</span><span class="guide-symbol">♟</span></div><strong>Move</strong><small>Left drag</small></article>
+                            <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-mouse-icon right-pressed demo-click"><i></i><b></b></span><span>·</span><span class="guide-symbol">◯</span></div><strong>Circle</strong><small>Right click</small></article>
+                            <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-mouse-icon right-pressed demo-hold"><i></i><b></b></span><span class="guide-motion-arrow">↗</span><span class="guide-symbol">↗</span></div><strong>Arrow</strong><small>Right drag</small></article>
+                        </div>
+                    </section>
+                    <section id="trackpad-controls-guide" class="controls-guide-group" aria-labelledby="trackpad-guide-title">
+                        <header class="controls-guide-heading"><span class="guide-trackpad-icon" aria-hidden="true"><i></i><i></i></span><h3 id="trackpad-guide-title">Trackpad</h3></header>
+                        <div class="controls-guide-grid">
+                            <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-trackpad-icon one-finger demo-drag"><i></i><i></i></span><span class="guide-motion-arrow">→</span><span class="guide-symbol">♟</span></div><strong>Move</strong><small>1-finger drag</small></article>
+                            <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-trackpad-icon demo-click"><i></i><i></i></span><span>·</span><span class="guide-symbol">◯</span></div><strong>Circle</strong><small>2-finger click</small></article>
+                            <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-trackpad-icon demo-hold"><i></i><i></i></span><span class="guide-motion-arrow">↗</span><span class="guide-symbol">↗</span></div><strong>Arrow</strong><small>2-finger drag</small></article>
+                        </div>
+                    </section>
+                </div>
+                <section id="pointer-v2-guide" class="controls-guide-group" aria-labelledby="pointer-v2-guide-title" hidden>
+                    <header class="controls-guide-heading"><span class="guide-mouse-icon left-pressed" aria-hidden="true"><i></i><b></b></span><h3 id="pointer-v2-guide-title">Pointer</h3></header>
+                    <div class="controls-guide-grid">
+                        <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-mouse-icon left-pressed demo-drag"><i></i><b></b></span><span class="guide-motion-arrow">→</span><span class="guide-symbol">♟</span></div><strong>Move</strong><small>Drag</small></article>
+                        <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-mouse-icon left-pressed demo-click"><i></i><b></b></span><span>×2</span><span class="guide-symbol">◯</span></div><strong>Circle</strong><small>Double-click</small></article>
+                        <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-mouse-icon left-pressed demo-hold"><i></i><b></b></span><span class="guide-motion-arrow">↗</span><span class="guide-symbol">↗</span></div><strong>Arrow</strong><small>Hold 1s, then drag</small></article>
+                    </div>
+                </section>
+                <section id="touch-v2-guide" class="controls-guide-group" aria-labelledby="touch-v2-guide-title" hidden>
+                    <header class="controls-guide-heading"><span class="guide-touch-icon" aria-hidden="true"><i></i></span><h3 id="touch-v2-guide-title">Touch</h3></header>
+                    <div class="controls-guide-grid">
+                        <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-touch-icon touch-v2-move"><i></i></span><span>→</span><span class="guide-symbol">♟</span></div><strong>Move</strong><small>Drag</small></article>
+                        <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-touch-icon double-tap touch-v2-tap"><i></i></span><span>×2</span><span class="guide-symbol">◯</span></div><strong>Circle</strong><small>Double-tap / click</small></article>
+                        <article class="controls-guide-card"><div class="guide-gesture" aria-hidden="true"><span class="guide-touch-icon long-press touch-v2-hold"><i></i></span><span class="touch-v2-arrow">↗</span><span class="guide-symbol">↗</span></div><strong>Arrow</strong><small>Hold 1s, then drag</small></article>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+// ------- CONFIG -------
+const APP_VERSION = '1.0.0';
+// ----- END CONFIG -----
+
+const PIECES = { EMPTY: 0, PAWN: 1, KNIGHT: 2, BISHOP: 3, ROOK: 4, QUEEN: 5, KING: 6, WHITE: 8, BLACK: 16 };
+const VALUES = { [PIECES.PAWN]: 10, [PIECES.KNIGHT]: 30, [PIECES.BISHOP]: 30, [PIECES.ROOK]: 50, [PIECES.QUEEN]: 90, [PIECES.KING]: 900 };
+const IMAGES = {};
+let board = [];
+let turn = PIECES.WHITE;
+let moveHistory = [];
+let undoStack = [];
+let selectedSquare = null;
+let legalMoves = [];
+let lastMove = null;
+let checkmateSquare = null; 
+let checkSquare = null; 
+let isBotEnabled = true;
+let gameActive = true;
+let isMuted = false;
+let currentTheme = 'classic';
+let promotionPending = null;
+let dragState = null;
+let boardArrows = [];
+let boardCircles = [];
+let annotationStart = null;
+let moveAnimations = [];
+let animationFrameId = null;
+let motionBlurEnabled = true;
+let motionBlurQuality = 'low';
+let motionEffectsEnabled = true;
+let annotationMode = 'move';
+let mobileToolV2Enabled = false;
+let lastMobileToolV2Tap = null;
+const mobileToolV2Available = navigator.maxTouchPoints > 0 || !!(window.matchMedia && window.matchMedia('(any-pointer: coarse)').matches);
+let difficultyLevel = 'easy';
+let masterVolume = 0.7;
+let importedSounds = {};
+let importedSoundUrls = {};
+let lightweightFallback = false;
+let volumeSliderDragging = false;
+let volumeSliderLastPointerX = null;
+let volumeSliderLastPointerTime = 0;
+let bgmTrack = null;
+let bgmTimer = null;
+let bgmGain = null;
+let importedBgmLoopEnabled = true;
+let bgmStep = 0;
+let hasMoved = { 8: { king: false, rookL: false, rookR: false }, 16: { king: false, rookL: false, rookR: false } };
+let stockfishWorker = null;
+let stockfishReady = false;
+let stockfishSearching = false;
+let stockfishPendingMove = false;
+let stockfishSearchToken = 0;
+let stockfishActiveSearchToken = 0;
+let stockfishSearchFen = '';
+let stockfishFolderHandle = null;
+let stockfishStartup = null;
+let stockfishResourceUrls = [];
+let stockfishDatabasePromise = null;
+
+const THEMES = {
+    classic: { bg: '#1a1a1a', sidebar: 'rgba(38, 36, 33, 0.95)', light: '#ebecd0', dark: '#779556', accent: '#81b64c' },
+    neon: { bg: '#020205', sidebar: 'rgba(5, 5, 10, 0.9)', light: '#1a1a2e', dark: '#0a0a14', accent: '#00f2ff' },
+    midnight: { bg: '#111', sidebar: 'rgba(28, 28, 28, 0.9)', light: '#aaa', dark: '#444', accent: '#fff' },
+    ocean: { bg: '#1a2a3a', sidebar: 'rgba(36, 52, 71, 0.8)', light: '#dee3e6', dark: '#8ca2ad', accent: '#5dade2' },
+    shooting: { bg: '#050510', sidebar: 'rgba(255, 255, 255, 0.05)', light: 'rgba(255, 255, 255, 0.15)', dark: 'rgba(255, 255, 255, 0.05)', accent: '#bb86fc' },
+    retro90: { bg: '#151813', sidebar: 'rgba(35,38,32,0.96)', light: '#d0c6a0', dark: '#6a7656', accent: '#bdb26a' },
+    win95: { bg: '#008080', sidebar: '#c0c0c0', light: '#dfdfdf', dark: '#808080', accent: '#001b76' },
+    dos80: { bg: '#000000', sidebar: '#050a05', light: '#07130a', dark: '#000000', accent: '#58ff75' },
+    retroNeon: { bg: '#100c24', sidebar: 'rgba(12,25,34,0.92)', light: '#f39a68', dark: '#1b6370', accent: '#55f4d6' },
+    glass: { bg: '#20292b', sidebar: 'rgba(236,245,240,0.09)', light: '#d2d8bb', dark: '#678677', accent: '#b2ddae' },
+    liquid: { bg: '#25313e', sidebar: 'rgba(235,245,255,0.08)', light: 'rgba(248,252,255,0.38)', dark: 'rgba(60,83,105,0.3)', accent: '#c7ece8' },
+    fluid: { bg: '#203c38', sidebar: 'rgba(22,35,34,0.6)', light: '#d4c69a', dark: '#738e79', accent: '#efb77a' }
+};
+
+let audioContext = null;
+
+const BGM_TRACKS = {
+    glasshouse: { bpm: 68, waveform: 'sine', notes: [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23], bass: [130.81, 146.83, 174.61, 146.83] },
+    'night-drive': { bpm: 82, waveform: 'triangle', notes: [220, 261.63, 329.63, 392, 329.63, 261.63, 196, 261.63], bass: [110, 130.81, 98, 130.81] },
+    'crt-dreams': { bpm: 96, waveform: 'square', notes: [261.63, 0, 392, 0, 329.63, 0, 523.25, 392], bass: [130.81, 0, 196, 0] },
+    'liquid-current': { bpm: 58, waveform: 'sine', notes: [174.61, 220, 261.63, 329.63, 261.63, 220, 196, 293.66], bass: [87.31, 110, 130.81, 98] }
+};
+
+function playSound(key) {
+    if (isMuted || masterVolume <= 0) return;
+    if (importedSounds[key]) {
+        importedSounds[key].volume = masterVolume;
+        importedSounds[key].currentTime = 0;
+        importedSounds[key].play().catch(() => showSettingsMessage('This browser could not play the imported audio format.'));
+        return;
+    }
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioContext = audioContext || new AudioContextClass();
+    if (audioContext.state === 'suspended') audioContext.resume();
+    const sounds = {
+        move: [{ frequency: 260, duration: 0.055, volume: 0.08 }],
+        capture: [{ frequency: 190, duration: 0.09, volume: 0.12 }, { frequency: 125, duration: 0.12, volume: 0.08 }],
+        castle: [{ frequency: 235, duration: 0.06, volume: 0.08 }, { frequency: 315, duration: 0.07, volume: 0.08 }]
+    }[key] || [];
+    sounds.forEach((sound, index) => {
+        const startAt = audioContext.currentTime + index * 0.065;
+        const sampleCount = Math.floor(audioContext.sampleRate * sound.duration);
+        const noiseBuffer = audioContext.createBuffer(1, sampleCount, audioContext.sampleRate);
+        const samples = noiseBuffer.getChannelData(0);
+        for (let sample = 0; sample < sampleCount; sample++) {
+            samples[sample] = (Math.random() * 2 - 1) * Math.pow(1 - sample / sampleCount, 3);
+        }
+        const noise = audioContext.createBufferSource();
+        const filter = audioContext.createBiquadFilter();
+        const noiseGain = audioContext.createGain();
+        noise.buffer = noiseBuffer;
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(key === 'capture' ? 900 : 1500, startAt);
+        noiseGain.gain.setValueAtTime(sound.volume * 0.7 * masterVolume, startAt);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, startAt + sound.duration);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(audioContext.destination);
+        noise.start(startAt);
+        noise.stop(startAt + sound.duration + 0.005);
+
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(sound.frequency, startAt);
+        oscillator.frequency.exponentialRampToValueAtTime(sound.frequency * 0.55, startAt + sound.duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(sound.volume * masterVolume, startAt + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + sound.duration);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(startAt);
+        oscillator.stop(startAt + sound.duration + 0.005);
+    });
+}
+function toggleMute() { isMuted = !isMuted; document.getElementById('mute-btn').innerText = isMuted ? "🔇 Mute" : "🔊 Sound"; }
+
+function openBackgroundMusic() {
+    document.getElementById('bgm-overlay').hidden = false;
+    updateBackgroundMusicUI();
+}
+
+function closeBackgroundMusic() {
+    document.getElementById('bgm-overlay').hidden = true;
+}
+
+function updateBackgroundMusicUI() {
+    document.getElementById('bgm-imported-track').hidden = !importedSounds.bgm;
+    document.getElementById('bgm-loop-setting-row').hidden = !importedSounds.bgm;
+    document.getElementById('bgm-loop-setting').checked = importedBgmLoopEnabled;
+    document.querySelectorAll('#bgm-track-list [data-track]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.track === bgmTrack));
+    });
+    document.getElementById('bgm-stop').disabled = !bgmTrack;
+}
+
+function setImportedBgmLoop(enabled) {
+    importedBgmLoopEnabled = enabled;
+    localStorage.setItem('grand-chess-bgm-loop', String(enabled));
+    document.getElementById('bgm-loop-setting').checked = enabled;
+    if (importedSounds.bgm) importedSounds.bgm.loop = enabled;
+}
+
+function stopBackgroundMusic() {
+    if (bgmTimer !== null) clearInterval(bgmTimer);
+    bgmTimer = null;
+    if (bgmGain && audioContext) {
+        bgmGain.gain.cancelScheduledValues(audioContext.currentTime);
+        bgmGain.gain.setTargetAtTime(0.0001, audioContext.currentTime, 0.04);
+        const previousGain = bgmGain;
+        setTimeout(() => previousGain.disconnect(), 180);
+    }
+    if (importedSounds.bgm) {
+        importedSounds.bgm.pause();
+        importedSounds.bgm.currentTime = 0;
+    }
+    bgmGain = null;
+    bgmTrack = null;
+    document.getElementById('bgm-status').innerText = 'Music stopped.';
+    updateBackgroundMusicUI();
+}
+
+function toggleBackgroundMusic(key) {
+    if (bgmTrack === key) {
+        stopBackgroundMusic();
+        return;
+    }
+    stopBackgroundMusic();
+    if (key === 'imported') {
+        if (!importedSounds.bgm) {
+            document.getElementById('bgm-status').innerText = 'Import a BGM file first.';
+            return;
+        }
+        bgmTrack = key;
+        importedSounds.bgm.loop = importedBgmLoopEnabled;
+        importedSounds.bgm.volume = masterVolume;
+        importedSounds.bgm.currentTime = 0;
+        importedSounds.bgm.play().then(() => {
+            document.getElementById('bgm-status').innerText = `Playing ${importedSounds.bgmName || 'imported BGM'}.`;
+        }).catch(() => {
+            bgmTrack = null;
+            document.getElementById('bgm-status').innerText = 'This browser could not play that audio file.';
+            updateBackgroundMusicUI();
+        });
+        updateBackgroundMusicUI();
+        return;
+    }
+
+    const track = BGM_TRACKS[key];
+    if (!track) return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+        document.getElementById('bgm-status').innerText = 'Background audio is not supported in this browser.';
+        return;
+    }
+    audioContext = audioContext || new AudioContextClass();
+    if (audioContext.state === 'suspended') audioContext.resume();
+    bgmTrack = key;
+    bgmStep = 0;
+    bgmGain = audioContext.createGain();
+    bgmGain.gain.value = masterVolume * 0.18;
+    bgmGain.connect(audioContext.destination);
+    const beatDuration = 60000 / track.bpm;
+
+    const playBeat = () => {
+        if (bgmTrack !== key || !bgmGain) return;
+        const now = audioContext.currentTime;
+        const note = track.notes[bgmStep % track.notes.length];
+        const bass = track.bass[Math.floor(bgmStep / 2) % track.bass.length];
+        if (note) playMusicNote(note, track.waveform, now, beatDuration / 1000 * 0.92, 0.34);
+        if (bass && bgmStep % 2 === 0) playMusicNote(bass, 'sine', now, beatDuration / 1000 * 1.8, 0.32);
+        bgmStep++;
+    };
+    playBeat();
+    bgmTimer = setInterval(playBeat, beatDuration);
+    document.getElementById('bgm-status').innerText = `Playing ${document.querySelector(`[data-track="${key}"] span`).innerText}.`;
+    updateBackgroundMusicUI();
+}
+
+function playMusicNote(frequency, waveform, startAt, duration, gainLevel) {
+    const oscillator = audioContext.createOscillator();
+    const envelope = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    oscillator.type = waveform;
+    oscillator.frequency.setValueAtTime(frequency, startAt);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(waveform === 'square' ? 1200 : 2200, startAt);
+    envelope.gain.setValueAtTime(0.0001, startAt);
+    envelope.gain.exponentialRampToValueAtTime(gainLevel, startAt + 0.04);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+    oscillator.connect(filter);
+    filter.connect(envelope);
+    envelope.connect(bgmGain);
+    oscillator.start(startAt);
+    oscillator.stop(startAt + duration + 0.02);
+}
+
+function showSettingsMessage(message) {
+    const status = document.getElementById('settings-message');
+    if (status) status.innerText = message;
+}
+
+function openSettings() {
+    document.getElementById('settings-overlay').hidden = false;
+}
+
+function closeSettings() {
+    document.getElementById('settings-overlay').hidden = true;
+}
+
+function updateControlsHelpMode() {
+    const touchMode = document.documentElement.classList.contains('touch-input-mode');
+    const pointerV2 = mobileToolV2Enabled && !touchMode;
+    document.getElementById('controls-help-title').textContent = touchMode ? 'Touch Controls' : pointerV2 ? 'Pointer V2 Controls' : 'Mouse & Trackpad Controls';
+    document.getElementById('desktop-controls-guide').hidden = touchMode || pointerV2;
+    document.getElementById('pointer-v2-guide').hidden = !pointerV2;
+    document.getElementById('touch-v2-guide').hidden = !touchMode;
+    const helpButton = document.getElementById('controls-help-button');
+    const helpLabel = touchMode ? 'Touch controls' : pointerV2 ? 'Pointer V2 controls' : 'Mouse and trackpad controls';
+    helpButton.title = helpLabel;
+    helpButton.setAttribute('aria-label', helpLabel);
+}
+
+function openControlsHelp() {
+    updateControlsHelpMode();
+    document.getElementById('controls-help-overlay').hidden = false;
+}
+
+function closeControlsHelp() {
+    document.getElementById('controls-help-overlay').hidden = true;
+}
+
+function setMotionBlur(enabled) {
+    motionBlurEnabled = enabled;
+    localStorage.setItem('grand-chess-motion-blur', String(enabled));
+    draw();
+}
+
+function setMotionBlurQuality(quality) {
+    motionBlurQuality = ['medium', 'high'].includes(quality) ? quality : 'low';
+    localStorage.setItem('grand-chess-motion-blur-quality', motionBlurQuality);
+    draw();
+}
+
+function getMotionBlurDuration() {
+    return motionBlurQuality === 'high' ? 240 : motionBlurQuality === 'medium' ? 180 : 120;
+}
+
+function setMotionEffects(enabled) {
+    motionEffectsEnabled = enabled;
+    document.body.classList.toggle('motion-disabled', !enabled);
+    localStorage.setItem('grand-chess-motion-effects', String(enabled));
+    if (!enabled) {
+        moveAnimations = [];
+        if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    draw();
+}
+
+function setMobileToolV2(enabled) {
+    mobileToolV2Enabled = mobileToolV2Available && enabled;
+    lastMobileToolV2Tap = null;
+    document.documentElement.classList.toggle('mobile-tool-v2', mobileToolV2Enabled);
+    localStorage.setItem('grand-chess-mobile-tool-v2', String(mobileToolV2Enabled));
+    document.getElementById('mobile-tool-v2-checkbox').checked = mobileToolV2Enabled;
+    updateControlsHelpMode();
+}
+
+function setVolume(value) {
+    masterVolume = Math.max(0, Math.min(1, Number(value) / 100));
+    const sliderValue = String(Math.round(masterVolume * 100));
+    const slider = document.getElementById('volume-setting');
+    if (slider && slider.value !== sliderValue) slider.value = sliderValue;
+    localStorage.setItem('grand-chess-volume', String(masterVolume));
+    document.getElementById('volume-value').value = `${sliderValue}%`;
+    document.getElementById('volume-slider-shell').style.setProperty('--volume-progress', `${masterVolume * 100}%`);
+    Object.values(importedSounds).forEach(audio => { audio.volume = masterVolume; });
+    if (bgmGain && audioContext) bgmGain.gain.setTargetAtTime(masterVolume * 0.18, audioContext.currentTime, 0.06);
+}
+
+function updateVolumeFromPointer(event) {
+    if (!document.body.classList.contains('theme-liquid')) return;
+    const shell = document.getElementById('volume-slider-shell');
+    const slider = document.getElementById('volume-setting');
+    const bounds = shell.getBoundingClientRect();
+    const progress = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    const now = performance.now();
+    const elapsed = Math.max(1, now - volumeSliderLastPointerTime);
+    const speed = volumeSliderLastPointerX === null ? 0 : Math.abs(event.clientX - volumeSliderLastPointerX) / elapsed;
+    const thumb = shell.querySelector('.volume-slider-thumb');
+    if (volumeSliderDragging && speed > 0.45) {
+        const stretch = Math.min(0.32, (speed - 0.45) * 0.14);
+        thumb.style.transform = `translateX(-50%) scaleX(${1 + stretch}) scaleY(${1 - stretch * 0.4})`;
+    } else {
+        thumb.style.transform = 'translateX(-50%) scale(1)';
+    }
+    volumeSliderLastPointerX = event.clientX;
+    volumeSliderLastPointerTime = now;
+    slider.value = String(Math.round(progress * Number(slider.max)));
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function handleVolumePointerDown(event) {
+    if (!document.body.classList.contains('theme-liquid')) return;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    volumeSliderDragging = true;
+    const shell = document.getElementById('volume-slider-shell');
+    shell.classList.add('is-dragging');
+    volumeSliderLastPointerX = event.clientX;
+    volumeSliderLastPointerTime = performance.now();
+    document.getElementById('volume-setting').focus({ preventScroll: true });
+    updateVolumeFromPointer(event);
+}
+
+function handleVolumePointerMove(event) {
+    if (volumeSliderDragging) updateVolumeFromPointer(event);
+}
+
+function handleVolumePointerUp() {
+    volumeSliderDragging = false;
+    volumeSliderLastPointerX = null;
+    document.getElementById('volume-slider-shell').classList.remove('is-dragging');
+    document.querySelector('#volume-slider-shell .volume-slider-thumb').style.transform = 'translateX(-50%) scale(1)';
+}
+
+function setBackgroundColor(color) {
+    const picker = document.getElementById('background-setting');
+    if (!color) {
+        document.documentElement.style.removeProperty('--page-bg');
+        document.body.classList.remove('has-custom-background');
+        document.body.style.removeProperty('background');
+        localStorage.removeItem('grand-chess-background');
+        const themeColor = THEMES[currentTheme].bg;
+        picker.value = /^#[0-9a-f]{6}$/i.test(themeColor) ? themeColor : '#1a1a1a';
+        return;
+    }
+    document.documentElement.style.setProperty('--page-bg', color);
+    document.body.classList.add('has-custom-background');
+    document.body.style.background = color;
+    if (picker) picker.value = color;
+    localStorage.setItem('grand-chess-background', color);
+}
+
+function setAnnotationMode(mode) {
+    annotationMode = mode;
+    if (mode !== 'arrow') annotationStart = null;
+    document.querySelectorAll('.board-tools button[data-annotation-mode]').forEach(button => {
+        const active = button.dataset.annotationMode === mode;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+    if (mode === 'move') { selectedSquare = null; legalMoves = []; }
+    draw();
+}
+
+function clearBoardAnnotations() {
+    boardArrows = [];
+    boardCircles = [];
+    draw();
+}
+
+async function importSoundFile(key, file) {
+    if (!file) return;
+    if (!/\.(mp3|m4a|wav)$/i.test(file.name)) {
+        showSettingsMessage('Choose an MP3, M4A, or WAV audio file.');
+        return;
+    }
+    try {
+        const database = await openStockfishDatabase();
+        await new Promise((resolve, reject) => {
+            const request = database.transaction('engine', 'readwrite').objectStore('engine').put(file, `sound:${key}`);
+            request.onsuccess = resolve;
+            request.onerror = () => reject(request.error);
+        });
+        if (importedSoundUrls[key]) URL.revokeObjectURL(importedSoundUrls[key]);
+        importedSoundUrls[key] = URL.createObjectURL(file);
+        importedSounds[key] = new Audio(importedSoundUrls[key]);
+        importedSounds[key].volume = masterVolume;
+        if (key === 'bgm') {
+            importedSounds.bgm.loop = importedBgmLoopEnabled;
+            importedSounds.bgmName = file.name;
+            document.getElementById('bgm-imported-track').hidden = false;
+            document.getElementById('bgm-imported-name').innerText = file.name;
+            updateBackgroundMusicUI();
+        }
+        showSettingsMessage(`${key[0].toUpperCase() + key.slice(1)} sound imported.`);
+    } catch (error) {
+        showSettingsMessage(`Audio import failed: ${error.message}`);
+    }
+}
+
+async function restoreSettings() {
+    const savedTheme = localStorage.getItem('grand-chess-theme');
+    motionBlurEnabled = localStorage.getItem('grand-chess-motion-blur') !== 'false';
+    motionBlurQuality = ['medium', 'high'].includes(localStorage.getItem('grand-chess-motion-blur-quality')) ? localStorage.getItem('grand-chess-motion-blur-quality') : 'low';
+    motionEffectsEnabled = localStorage.getItem('grand-chess-motion-effects') !== 'false';
+    importedBgmLoopEnabled = localStorage.getItem('grand-chess-bgm-loop') !== 'false';
+    mobileToolV2Enabled = mobileToolV2Available && localStorage.getItem('grand-chess-mobile-tool-v2') === 'true';
+    difficultyLevel = localStorage.getItem('grand-chess-difficulty') || 'easy';
+    masterVolume = Number(localStorage.getItem('grand-chess-volume') || 0.7);
+    const background = localStorage.getItem('grand-chess-background');
+    document.getElementById('motion-effects-setting').checked = motionEffectsEnabled;
+    document.getElementById('mobile-tool-v2-setting').hidden = !mobileToolV2Available;
+    document.getElementById('mobile-tool-v2-checkbox').checked = mobileToolV2Enabled;
+    document.documentElement.classList.toggle('mobile-tool-v2', mobileToolV2Enabled);
+    updateControlsHelpMode();
+    document.getElementById('motion-blur-setting').checked = motionBlurEnabled;
+    document.getElementById('motion-blur-quality-setting').value = motionBlurQuality;
+    document.body.classList.toggle('motion-disabled', !motionEffectsEnabled);
+    setDifficulty(difficultyLevel);
+    document.getElementById('volume-setting').value = String(Math.round(masterVolume * 100));
+    setVolume(Math.round(masterVolume * 100));
+    if (background) {
+        document.getElementById('background-setting').value = background;
+        setBackgroundColor(background);
+    }
+    changeTheme(savedTheme && THEMES[savedTheme] ? savedTheme : 'classic');
+    try {
+        const database = await openStockfishDatabase();
+        for (const key of ['move', 'capture', 'castle', 'bgm']) {
+            const file = await new Promise((resolve, reject) => {
+                const request = database.transaction('engine', 'readonly').objectStore('engine').get(`sound:${key}`);
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error);
+            });
+            if (file) {
+                importedSoundUrls[key] = URL.createObjectURL(file);
+                importedSounds[key] = new Audio(importedSoundUrls[key]);
+                importedSounds[key].volume = masterVolume;
+                if (key === 'bgm') {
+                    importedSounds.bgm.loop = importedBgmLoopEnabled;
+                    importedSounds.bgmName = file.name;
+                    document.getElementById('bgm-imported-track').hidden = false;
+                    document.getElementById('bgm-imported-name').innerText = file.name;
+                }
+            }
+        }
+    } catch (error) {
+        showSettingsMessage('Saved sound files could not be restored.');
+    }
+}
+
+function findLightweightMove() {
+    const moves = [];
+    for (let from = 0; from < 64; from++) {
+        if ((board[from] & 24) !== PIECES.BLACK) continue;
+        for (const to of calculateLegalMoves(from, board)) {
+            const attackerValue = VALUES[board[from] & 7] || 0;
+            const victimValue = VALUES[board[to] & 7] || (lastMove && (board[from] & 7) === PIECES.PAWN && to % 8 !== from % 8 ? VALUES[PIECES.PAWN] : 0);
+            const promotionBonus = Math.floor(to / 8) === 7 ? 80 : 0;
+            const centerBonus = 3.5 - Math.abs(3.5 - to % 8) + 3.5 - Math.abs(3.5 - Math.floor(to / 8));
+            moves.push({ from, to, score: victimValue * 10 - attackerValue + promotionBonus + centerBonus + Math.random() });
+        }
+    }
+    moves.sort((first, second) => second.score - first.score);
+    return moves[0] || null;
+}
+
+function makeLightweightBotMove() {
+    if (!gameActive || !isBotEnabled || turn !== PIECES.BLACK) return;
+    const move = findLightweightMove();
+    if (move) movePiece(move.from, move.to, move.to >= 56 ? PIECES.QUEEN : null);
+}
+
+function initStarlight() {
+    const stars = document.getElementById('star-container');
+    stars.innerHTML = '';
+    for(let i=0; i<150; i++) {
+        const s = document.createElement('div');
+        s.className = 'starlight';
+        const size = Math.random() * 2 + 1;
+        s.style.width = size + 'px'; s.style.height = size + 'px';
+        s.style.top = Math.random() * 100 + '%'; s.style.left = Math.random() * 100 + '%';
+        s.style.setProperty('--duration', (Math.random() * 3 + 2) + 's');
+        stars.appendChild(s);
+    }
+}
+
+function changeTheme(key) {
+    if (key === 'liquid' && /AppleWebKit/i.test(navigator.userAgent) && !/(Chrome|CriOS|Edg)/i.test(navigator.userAgent)) {
+        key = 'glass';
+        openSettings();
+        showSettingsMessage('Liquid Glass is unavailable in this WebKit browser. Switched to Glass.');
+    }
+    currentTheme = key;
+    const theme = THEMES[key];
+    Object.keys(THEMES).forEach(themeName => document.body.classList.remove(`theme-${themeName}`));
+    document.body.classList.add(`theme-${key}`);
+    const boardContainer = document.getElementById('board-container');
+    document.documentElement.style.setProperty('--bg-dark', theme.bg);
+    document.documentElement.style.setProperty('--accent', theme.accent);
+    document.documentElement.style.setProperty('--board-light', theme.light);
+    document.documentElement.style.setProperty('--board-dark', theme.dark);
+    document.documentElement.style.setProperty('--bg-sidebar', theme.sidebar);
+    const customBackground = localStorage.getItem('grand-chess-background');
+    if (customBackground) {
+        document.body.classList.add('has-custom-background');
+        document.body.style.background = customBackground;
+        document.documentElement.style.setProperty('--page-bg', customBackground);
+    } else {
+        document.body.classList.remove('has-custom-background');
+        document.body.style.removeProperty('background');
+        document.documentElement.style.removeProperty('--page-bg');
+    }
+    const backgroundPicker = document.getElementById('background-setting');
+    if (backgroundPicker) backgroundPicker.value = /^#[0-9a-f]{6}$/i.test(theme.bg) ? theme.bg : '#1a1a1a';
+    const stars = document.getElementById('star-container');
+    if (key === 'shooting') { stars.style.display = 'block'; initStarlight(); boardContainer.style.background = 'rgba(255, 255, 255, 0.02)'; }
+    else { stars.style.display = 'none'; stars.innerHTML = ''; boardContainer.style.background = 'rgba(255, 255, 255, 0.03)'; }
+    const pickerButton = document.getElementById('theme-picker-trigger');
+    if (pickerButton) document.getElementById('theme-picker-label').textContent = theme.label || ({ classic: 'Classic Forest', neon: 'Neon Bloom', midnight: 'Midnight', ocean: 'Ocean Blue', shooting: 'Shooting Star', retro90: '90s CRT', win95: 'Windows 95', dos80: '80s DOS', retroNeon: 'Retro Neon', glass: 'Glass', liquid: 'Liquid Glass', fluid: 'Fluid' }[key]);
+    document.querySelectorAll('#theme-picker-menu [role="option"]').forEach(option => {
+        option.setAttribute('aria-selected', String(option.getAttribute('onclick').includes(`'${key}'`)));
+    });
+    document.getElementById('theme-picker-menu').hidden = true;
+    pickerButton?.setAttribute('aria-expanded', 'false');
+    localStorage.setItem('grand-chess-theme', key);
+    draw();
+}
+
+function toggleThemeMenu() {
+    const menu = document.getElementById('theme-picker-menu');
+    menu.hidden = !menu.hidden;
+    document.getElementById('theme-picker-trigger').setAttribute('aria-expanded', String(!menu.hidden));
+}
+
+function toggleDifficultyMenu() {
+    const menu = document.getElementById('difficulty-picker-menu');
+    menu.hidden = !menu.hidden;
+    document.getElementById('difficulty-picker-trigger').setAttribute('aria-expanded', String(!menu.hidden));
+}
+
+function setDifficulty(value) {
+    if (!['easy', 'med', 'hard', 'master'].includes(value)) return;
+    difficultyLevel = value;
+    localStorage.setItem('grand-chess-difficulty', value);
+    document.getElementById('difficulty-picker-label').textContent = `Level: ${{ easy: 'Easy', med: 'Medium', hard: 'Hard', master: 'Master' }[value]}`;
+    document.querySelectorAll('#difficulty-picker-menu [role="option"]').forEach(option => {
+        option.setAttribute('aria-selected', String(option.getAttribute('onclick').includes(`'${value}'`)));
+    });
+    document.getElementById('difficulty-picker-menu').hidden = true;
+    document.getElementById('difficulty-picker-trigger').setAttribute('aria-expanded', 'false');
+}
+
+const canvas = document.getElementById('chessCanvas');
+const ctx = canvas.getContext('2d');
+const annotationOverlay = document.getElementById('annotation-overlay');
+const SVG_NS = 'http://www.w3.org/2000/svg';
+let tileSize = 0;
+
+function resizeCanvas() {
+    const container = document.getElementById('board-container');
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tileSize = rect.width / 8;
+    draw();
+}
+
+function loadImages() {
+    const base = "assets/pieces/";
+    const mapping = {
+        'wP': "wP.svg", 'wN': "wN.svg", 'wB': "wB.svg", 'wR': "wR.svg", 'wQ': "wQ.svg", 'wK': "wK.svg",
+        'bP': "bP.svg", 'bN': "bN.svg", 'bB': "bB.svg", 'bR': "bR.svg", 'bQ': "bQ.svg", 'bK': "bK.svg"
+    };
+    Object.keys(mapping).forEach(key => {
+        const img = new Image();
+        img.src = base + mapping[key];
+        img.onload = draw;
+        IMAGES[key] = img;
+    });
+}
+
+function initBoard() {
+    board = new Array(64).fill(0);
+    const layout = [4,2,3,5,6,3,2,4];
+    for(let i=0; i<8; i++){
+        board[i] = layout[i]|16; board[i+8] = 1|16;
+        board[i+48] = 1|8; board[i+56] = layout[i]|8;
+    }
+    turn = 8; gameActive = true; moveHistory = []; lastMove = null; undoStack = []; checkmateSquare = null; checkSquare = null;
+    boardArrows = []; boardCircles = []; selectedSquare = null; legalMoves = []; dragState = null;
+    hasMoved = { 8: { king: false, rookL: false, rookR: false }, 16: { king: false, rookL: false, rookR: false } };
+    document.getElementById('win-overlay').style.display = 'none';
+    updateUI();
+}
+
+function draw() {
+    if (!tileSize) return;
+    const now = performance.now();
+    moveAnimations = motionEffectsEnabled
+        ? moveAnimations.filter(animation => now - animation.startedAt < animation.duration)
+        : [];
+    const theme = THEMES[currentTheme];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let r=0; r<8; r++) {
+        for (let c=0; c<8; c++) {
+            const i = r*8+c;
+            ctx.fillStyle = (r+c)%2===0 ? theme.light : theme.dark;
+            ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+            
+            if (checkmateSquare === i) {
+                ctx.fillStyle = "rgba(255, 0, 0, 0.75)";
+                ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+            } else if (checkSquare === i) {
+                ctx.fillStyle = "rgba(255, 165, 0, 0.7)"; 
+                ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+            } else if (lastMove && (lastMove.from === i || lastMove.to === i)) {
+                ctx.fillStyle = "rgba(246, 246, 105, 0.3)"; 
+                ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+            }
+
+            if (selectedSquare === i) {
+                ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+            }
+            if (legalMoves.includes(i)) {
+                ctx.fillStyle = currentTheme === 'shooting' ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.15)";
+                ctx.beginPath(); ctx.arc(c*tileSize + tileSize/2, r*tileSize + tileSize/2, tileSize/10, 0, Math.PI*2); ctx.fill();
+            }
+            const p = board[i];
+            const draggedFromSquare = dragState && dragState.kind !== 'annotation' && dragState.moved && dragState.from === i;
+            if (p && !draggedFromSquare) {
+                const code = (p&8?'w':'b') + ['','P','N','B','R','Q','K'][p&7];
+                if (IMAGES[code] && !moveAnimations.some(animation => animation.to === i)) ctx.drawImage(IMAGES[code], c*tileSize, r*tileSize, tileSize, tileSize);
+            }
+        }
+    }
+    drawBoardAnnotations();
+    if (dragState && dragState.moved && dragState.piece) {
+        const code = (dragState.piece & 8 ? 'w' : 'b') + ['', 'P', 'N', 'B', 'R', 'Q', 'K'][dragState.piece & 7];
+        if (IMAGES[code]) {
+            const now = performance.now();
+            if (motionBlurEnabled) drawMotionBlurTrail(IMAGES[code], dragState.trail || [], now);
+            ctx.drawImage(IMAGES[code], dragState.x - tileSize / 2, dragState.y - tileSize / 2, tileSize, tileSize);
+            if (motionBlurEnabled && dragState.trail && dragState.trail.some(point => now - point.time < getMotionBlurDuration())) scheduleMotionFrame();
+        }
+    }
+    drawMoveAnimations();
+}
+
+function drawMotionBlurTrail(image, samples, now) {
+    const duration = getMotionBlurDuration();
+    const visibleSamples = samples.filter(point => now - point.time < duration);
+    if (!visibleSamples.length) return;
+    ctx.save();
+    if (motionBlurQuality === 'low') {
+        visibleSamples.forEach(point => {
+            const age = Math.max(0, now - point.time) / duration;
+            ctx.globalAlpha = 0.34 * Math.pow(1 - age, 1.6);
+            ctx.filter = `blur(${0.7 + age * 1.5}px)`;
+            ctx.drawImage(image, point.x - tileSize / 2, point.y - tileSize / 2, tileSize, tileSize);
+        });
+    } else {
+        const sampleCount = motionBlurQuality === 'high' ? 30 : 15;
+        const first = visibleSamples[0];
+        const last = visibleSamples[visibleSamples.length - 1];
+        for (let index = 0; index < sampleCount; index++) {
+            const progress = (index + 1) / sampleCount;
+            const targetTime = first.time + (last.time - first.time) * progress;
+            let nextIndex = 1;
+            while (nextIndex < visibleSamples.length && visibleSamples[nextIndex].time < targetTime) nextIndex++;
+            const previous = visibleSamples[Math.max(0, nextIndex - 1)];
+            const next = visibleSamples[Math.min(nextIndex, visibleSamples.length - 1)];
+            const segment = next.time === previous.time ? 0 : (targetTime - previous.time) / (next.time - previous.time);
+            const x = previous.x + (next.x - previous.x) * segment;
+            const y = previous.y + (next.y - previous.y) * segment;
+            const age = Math.max(0, now - targetTime) / duration;
+            ctx.globalAlpha = 0.34 * Math.pow(1 - age, 1.6);
+            ctx.filter = `blur(${0.7 + age * 1.5}px)`;
+            ctx.drawImage(image, x - tileSize / 2, y - tileSize / 2, tileSize, tileSize);
+        }
+    }
+    ctx.restore();
+}
+
+function scheduleMotionFrame() {
+    if (animationFrameId !== null) return;
+    animationFrameId = requestAnimationFrame(() => {
+        animationFrameId = null;
+        draw();
+    });
+}
+
+function drawMoveAnimations() {
+    if (!motionEffectsEnabled) {
+        return;
+    }
+    const now = performance.now();
+    for (const animation of moveAnimations) {
+        const rawProgress = Math.min(1, (now - animation.startedAt) / animation.duration);
+        const progress = 1 - Math.pow(1 - rawProgress, 3);
+        const fromX = (animation.from % 8 + 0.5) * tileSize;
+        const fromY = (Math.floor(animation.from / 8) + 0.5) * tileSize;
+        const toX = (animation.to % 8 + 0.5) * tileSize;
+        const toY = (Math.floor(animation.to / 8) + 0.5) * tileSize;
+        const x = fromX + (toX - fromX) * progress;
+        const y = fromY + (toY - fromY) * progress;
+        const code = (animation.piece & 8 ? 'w' : 'b') + ['', 'P', 'N', 'B', 'R', 'Q', 'K'][animation.piece & 7];
+        const image = IMAGES[code];
+        if (!image) continue;
+        if (motionBlurEnabled) {
+            animation.trail = animation.trail || [];
+            animation.trail.push({ x, y, time: now });
+            animation.trail = animation.trail.filter(point => now - point.time < getMotionBlurDuration());
+            drawMotionBlurTrail(image, animation.trail, now);
+        }
+        ctx.drawImage(image, x - tileSize / 2, y - tileSize / 2, tileSize, tileSize);
+    }
+    if (moveAnimations.length) scheduleMotionFrame();
+}
+
+function drawBoardAnnotations() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(38, 110, 45, 0.72)';
+    ctx.fillStyle = 'rgba(38, 110, 45, 0.72)';
+    ctx.lineWidth = Math.max(3, tileSize * 0.12);
+    ctx.lineCap = 'round';
+    for (const square of boardCircles) {
+        const centerX = (square % 8 + 0.5) * tileSize;
+        const centerY = (Math.floor(square / 8) + 0.5) * tileSize;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, tileSize * 0.37, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    annotationOverlay.setAttribute('viewBox', `0 0 ${tileSize * 8} ${tileSize * 8}`);
+    annotationOverlay.querySelectorAll('[data-board-arrow]').forEach(path => path.remove());
+    for (const arrow of boardArrows) {
+        const geometry = getBoardArrowGeometry(arrow);
+        if (!geometry) continue;
+        if (currentTheme === 'liquid') {
+            const path = document.createElementNS(SVG_NS, 'path');
+            path.setAttribute('data-board-arrow', '');
+            path.setAttribute('d', geometry.path);
+            path.setAttribute('fill', 'url(#liquid-arrow-glass)');
+            path.setAttribute('stroke', 'rgba(255,255,255,0.72)');
+            path.setAttribute('stroke-width', String(Math.max(1, tileSize * 0.018)));
+            path.setAttribute('stroke-linejoin', 'round');
+            path.setAttribute('filter', 'url(#liquid-arrow-refraction)');
+            annotationOverlay.appendChild(path);
+        } else {
+            ctx.fillStyle = 'rgba(38, 110, 45, 0.72)';
+            ctx.beginPath();
+            ctx.moveTo(geometry.tailLeftX, geometry.tailLeftY);
+            ctx.lineTo(geometry.baseLeftX, geometry.baseLeftY);
+            ctx.lineTo(geometry.tipX, geometry.tipY);
+            ctx.lineTo(geometry.baseRightX, geometry.baseRightY);
+            ctx.lineTo(geometry.tailRightX, geometry.tailRightY);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+    ctx.restore();
+}
+
+function getBoardArrowGeometry(arrow) {
+    const fromX = (arrow.from % 8 + 0.5) * tileSize;
+    const fromY = (Math.floor(arrow.from / 8) + 0.5) * tileSize;
+    const tipX = (arrow.to % 8 + 0.5) * tileSize;
+    const tipY = (Math.floor(arrow.to / 8) + 0.5) * tileSize;
+    const deltaX = tipX - fromX;
+    const deltaY = tipY - fromY;
+    const length = Math.hypot(deltaX, deltaY);
+    if (!length) return null;
+    const unitX = deltaX / length;
+    const unitY = deltaY / length;
+    const normalX = -unitY;
+    const normalY = unitX;
+    const shaftHalfWidth = tileSize * 0.045;
+    const headHalfWidth = tileSize * 0.15;
+    const headLength = Math.min(tileSize * 0.28, length * 0.38);
+    const tailInset = Math.min(tileSize * 0.08, length * 0.12);
+    const tailX = fromX + unitX * tailInset;
+    const tailY = fromY + unitY * tailInset;
+    const baseX = tipX - unitX * headLength;
+    const baseY = tipY - unitY * headLength;
+    const tailLeftX = tailX + normalX * shaftHalfWidth;
+    const tailLeftY = tailY + normalY * shaftHalfWidth;
+    const tailRightX = tailX - normalX * shaftHalfWidth;
+    const tailRightY = tailY - normalY * shaftHalfWidth;
+    const baseLeftX = baseX + normalX * headHalfWidth;
+    const baseLeftY = baseY + normalY * headHalfWidth;
+    const baseRightX = baseX - normalX * headHalfWidth;
+    const baseRightY = baseY - normalY * headHalfWidth;
+    const path = `M ${tailLeftX} ${tailLeftY} L ${baseLeftX} ${baseLeftY} L ${tipX} ${tipY} L ${baseRightX} ${baseRightY} L ${tailRightX} ${tailRightY} Z`;
+    return { tailLeftX, tailLeftY, tailRightX, tailRightY, baseLeftX, baseLeftY, baseRightX, baseRightY, tipX, tipY, path };
+}
+
+function squareAtPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    const col = Math.floor((e.clientX - rect.left) / tileSize);
+    const row = Math.floor((e.clientY - rect.top) / tileSize);
+    return row >= 0 && row < 8 && col >= 0 && col < 8 ? row * 8 + col : null;
+}
+
+function toggleBoardCircle(square) {
+    boardCircles = boardCircles.includes(square)
+        ? boardCircles.filter(marked => marked !== square)
+        : [...boardCircles, square];
+}
+
+function toggleBoardArrow(from, to) {
+    const existing = boardArrows.findIndex(arrow => arrow.from === from && arrow.to === to);
+    if (existing >= 0) boardArrows.splice(existing, 1);
+    else boardArrows.push({ from, to });
+}
+
+function handlePointerDown(e) {
+    if (e.button !== 0 && e.button !== 2) return;
+    const square = squareAtPointer(e);
+    if (square === null) return;
+    e.preventDefault();
+
+    if (mobileToolV2Enabled) {
+        const now = performance.now();
+        if (lastMobileToolV2Tap && lastMobileToolV2Tap.square === square && now - lastMobileToolV2Tap.time <= 360) {
+            toggleBoardCircle(square);
+            selectedSquare = null;
+            legalMoves = [];
+            lastMobileToolV2Tap = null;
+            draw();
+            return;
+        }
+        lastMobileToolV2Tap = null;
+        dragState = { kind: 'mobile-v2-pending', from: square, to: square, x: e.clientX, y: e.clientY, startedAt: now, moved: false, pointerId: e.pointerId };
+        canvas.setPointerCapture(e.pointerId);
+        return;
+    }
+
+    if (e.button === 0 && annotationMode === 'circle') {
+        toggleBoardCircle(square);
+        draw();
+        return;
+    }
+    if (e.button === 2 || e.button === 0 && annotationMode === 'arrow') {
+        dragState = { kind: 'annotation', from: square, to: square, x: e.clientX, y: e.clientY, moved: false, allowCircle: e.button === 2, pointerId: e.pointerId };
+        canvas.setPointerCapture(e.pointerId);
+        return;
+    }
+    if (!gameActive || promotionPending || (isBotEnabled && turn === PIECES.BLACK)) return;
+
+    if (selectedSquare !== null && legalMoves.includes(square)) {
+        dragState = { kind: 'move', from: selectedSquare, piece: board[selectedSquare], x: e.clientX, y: e.clientY, moved: false, pointerId: e.pointerId };
+    } else if ((board[square] & 24) === turn) {
+        selectedSquare = square;
+        legalMoves = calculateLegalMoves(square, board);
+        dragState = { kind: 'piece', from: square, piece: board[square], x: e.clientX, y: e.clientY, moved: false, pointerId: e.pointerId };
+    } else {
+        selectedSquare = null;
+        legalMoves = [];
+        dragState = null;
+    }
+    if (dragState) canvas.setPointerCapture(e.pointerId);
+    draw();
+}
+
+function handlePointerMove(e) {
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+    const rect = canvas.getBoundingClientRect();
+    dragState.x = e.clientX - rect.left;
+    dragState.y = e.clientY - rect.top;
+    const startX = (dragState.from % 8 + 0.5) * tileSize;
+    const startY = (Math.floor(dragState.from / 8) + 0.5) * tileSize;
+    const distanceFromStart = Math.hypot(dragState.x - startX, dragState.y - startY);
+    if (dragState.kind === 'mobile-v2-pending' && distanceFromStart > 5) {
+        if (performance.now() - dragState.startedAt >= 1000) {
+            dragState.kind = 'annotation';
+            dragState.allowCircle = false;
+            selectedSquare = null;
+            legalMoves = [];
+        } else if (gameActive && !promotionPending && !(isBotEnabled && turn === PIECES.BLACK) && (board[dragState.from] & 24) === turn) {
+            dragState.kind = 'piece';
+            dragState.piece = board[dragState.from];
+            selectedSquare = dragState.from;
+            legalMoves = calculateLegalMoves(dragState.from, board);
+        } else {
+            dragState.kind = 'mobile-v2-ignored';
+        }
+    }
+    dragState.moved = dragState.moved || distanceFromStart > 5;
+    if (motionBlurEnabled && dragState.kind !== 'annotation' && dragState.moved) {
+        dragState.trail = dragState.trail || [];
+        dragState.trail.push({ x: dragState.x, y: dragState.y, time: performance.now() });
+        dragState.trail = dragState.trail.filter(point => performance.now() - point.time < getMotionBlurDuration());
+    }
+    if (dragState.kind === 'annotation') dragState.to = squareAtPointer(e);
+    draw();
+}
+
+function handlePointerUp(e) {
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+    const state = dragState;
+    const target = squareAtPointer(e);
+    dragState = null;
+
+    if (state.kind === 'mobile-v2-pending') {
+        const heldFor = performance.now() - state.startedAt;
+        if (!state.moved && target === state.from && heldFor < 1000) {
+            lastMobileToolV2Tap = { square: state.from, time: performance.now() };
+            if (gameActive && !promotionPending && !(isBotEnabled && turn === PIECES.BLACK) && (board[state.from] & 24) === turn) {
+                selectedSquare = state.from;
+                legalMoves = calculateLegalMoves(state.from, board);
+            }
+        } else {
+            lastMobileToolV2Tap = null;
+        }
+    } else if (state.kind === 'annotation') {
+        if (target !== null && target !== state.from) toggleBoardArrow(state.from, target);
+        else if (target === state.from && state.allowCircle) toggleBoardCircle(state.from);
+    } else if (target !== null && legalMoves.includes(target) && (state.kind === 'move' || target !== state.from && state.moved)) {
+        movePiece(state.from, target);
+    }
+    draw();
+}
+
+function handlePointerCancel(e) {
+    if (dragState && dragState.pointerId === e.pointerId) {
+        dragState = null;
+        draw();
+    }
+}
+
+function isSquareAttacked(sq, defenderColor, b) {
+    const attackerColor = (defenderColor === 8) ? 16 : 8;
+    const r = Math.floor(sq / 8), c = sq % 8;
+
+    // Pawn attacks
+    const pawnDir = (attackerColor === 8) ? 1 : -1;
+    for (let dc of [-1, 1]) {
+        const ar = r + pawnDir, ac = c + dc;
+        if (ar >= 0 && ar < 8 && ac >= 0 && ac < 8) {
+            const p = b[ar * 8 + ac];
+            if (p === (PIECES.PAWN | attackerColor)) return true;
+        }
+    }
+    // Knight attacks
+    const kOffsets = [[-2, 1], [-1, 2], [1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1]];
+    for (let o of kOffsets) {
+        const ar = r + o[0], ac = c + o[1];
+        if (ar >= 0 && ar < 8 && ac >= 0 && ac < 8) {
+            if (b[ar * 8 + ac] === (PIECES.KNIGHT | attackerColor)) return true;
+        }
+    }
+    // Slider attacks
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+    for (let i = 0; i < 8; i++) {
+        const d = dirs[i];
+        let cr = r + d[0], cc = c + d[1];
+        while (cr >= 0 && cr < 8 && cc >= 0 && cc < 8) {
+            const p = b[cr * 8 + cc];
+            if (p !== 0) {
+                if ((p & 24) === attackerColor) {
+                    const type = p & 7;
+                    if (type === PIECES.QUEEN) return true;
+                    if (i < 4 && type === PIECES.ROOK) return true;
+                    if (i >= 4 && type === PIECES.BISHOP) return true;
+                }
+                break;
+            }
+            cr += d[0]; cc += d[1];
+        }
+    }
+    // King attacks
+    for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const ar = r + dr, ac = c + dc;
+            if (ar >= 0 && ar < 8 && ac >= 0 && ac < 8) {
+                if (b[ar * 8 + ac] === (PIECES.KING | attackerColor)) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function calculateLegalMoves(sq, currentBoard, castlingRights = hasMoved) {
+    const p = currentBoard[sq], type = p & 7, color = p & 24;
+    let moves = [];
+    const r = Math.floor(sq/8), c = sq%8;
+    const addIfTargetable = (nr, nc) => {
+        if (nr < 0 || nr > 7 || nc < 0 || nc > 7) return false;
+        const target = currentBoard[nr*8 + nc];
+        if (target === 0) { moves.push(nr*8 + nc); return true; }
+        if ((target & 24) !== color && (target & 7) !== PIECES.KING) { moves.push(nr*8 + nc); return false; }
+        return false;
+    };
+    if (type === PIECES.PAWN) {
+        const dir = color === 8 ? -1 : 1;
+        if (currentBoard[(r+dir)*8 + c] === 0) {
+            moves.push((r+dir)*8 + c);
+            if ((color === 8 ? r === 6 : r === 1) && currentBoard[(r+2*dir)*8 + c] === 0) moves.push((r+2*dir)*8 + c);
+        }
+        for (let dc of [-1, 1]) {
+            const tr = r + dir, tc = c + dc;
+            if (tc >= 0 && tc <= 7) {
+                const target = currentBoard[tr*8 + tc];
+                if (target && (target & 24) !== color) moves.push(tr*8 + tc);
+            }
+        }
+        if (lastMove && Math.abs(lastMove.from - lastMove.to) === 16 && currentBoard[lastMove.to] === (PIECES.PAWN | (color === PIECES.WHITE ? PIECES.BLACK : PIECES.WHITE)) && Math.floor(lastMove.to / 8) === r && Math.abs((lastMove.to % 8) - c) === 1) {
+            moves.push((r + dir) * 8 + (lastMove.to % 8));
+        }
+    } else if (type === PIECES.KNIGHT) { [[-2,1],[-1,2],[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1]].forEach(o => addIfTargetable(r+o[0], c+o[1])); }
+    else if (type === PIECES.BISHOP || type === PIECES.QUEEN || type === PIECES.ROOK) {
+        const dirs = [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0], [0,-1],[0,1]];
+        const actual = type === PIECES.BISHOP ? dirs.slice(0,4) : (type === PIECES.ROOK ? dirs.slice(4) : dirs);
+        actual.forEach(d => { for(let i=1; i<8; i++) if (!addIfTargetable(r+d[0]*i, c+d[1]*i)) break; });
+    } else if (type === PIECES.KING) {
+        for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) if(dr||dc) addIfTargetable(r+dr, c+dc);
+        const state = castlingRights[color];
+        const home = color === PIECES.WHITE ? 60 : 4;
+        const rookRow = color === PIECES.WHITE ? 56 : 0;
+        if (sq === home && !state.king && !isSquareAttacked(sq, color, currentBoard)) {
+            if (!state.rookR && currentBoard[rookRow+7] === (PIECES.ROOK | color) && currentBoard[sq+1] === 0 && currentBoard[sq+2] === 0 && !isSquareAttacked(sq+1, color, currentBoard)) moves.push(sq+2);
+            if (!state.rookL && currentBoard[rookRow] === (PIECES.ROOK | color) && currentBoard[sq-1] === 0 && currentBoard[sq-2] === 0 && currentBoard[sq-3] === 0 && !isSquareAttacked(sq-1, color, currentBoard)) moves.push(sq-2);
+        }
+    }
+    return moves.filter(m => {
+        const temp = [...currentBoard];
+        if (type === PIECES.PAWN && currentBoard[m] === 0 && m % 8 !== c) temp[m - (color === PIECES.WHITE ? -8 : 8)] = 0;
+        temp[m] = temp[sq]; temp[sq] = 0;
+        const kPos = temp.findIndex(pi => pi === (PIECES.KING | color));
+        return kPos !== -1 && !isSquareAttacked(kPos, color, temp);
+    });
+}
+
+function movePiece(f, t, promotionType = null) {
+    const p = board[f];
+    if ((p & 7) === PIECES.PAWN && (Math.floor(t/8) === 0 || Math.floor(t/8) === 7)) {
+        if (!promotionType && isBotEnabled && turn === PIECES.BLACK) promotionType = PIECES.QUEEN;
+        if (!promotionType) {
+            showPromotionModal(f, t);
+            return;
+        }
+    }
+    executeMove(f, t, promotionType ? promotionType | turn : null);
+}
+
+function showPromotionModal(f, t) {
+    promotionPending = { f, t };
+    const overlay = document.getElementById('promotion-overlay');
+    const box = document.getElementById('promotion-options'); box.innerHTML = '';
+    [PIECES.QUEEN, PIECES.ROOK, PIECES.BISHOP, PIECES.KNIGHT].forEach(type => {
+        const div = document.createElement('div'); div.className = 'promo-option';
+        const code = (turn === 8 ? 'w' : 'b') + ['','P','N','B','R','Q','K'][type];
+        div.innerHTML = `<img src="${IMAGES[code].src}">`;
+        div.onclick = () => { overlay.style.display = 'none'; executeMove(promotionPending.f, promotionPending.t, type | turn); promotionPending = null; };
+        box.appendChild(div);
+    });
+    overlay.style.display = 'flex';
+}
+
+function executeMove(f, t, promotedPiece = null) {
+    undoStack.push({ board: [...board], turn, moveHistory: [...moveHistory], lastMove: lastMove ? {...lastMove} : null, gameActive, hasMoved: JSON.parse(JSON.stringify(hasMoved)) });
+    const p = board[f], color = turn, capturedPiece = board[t];
+    const isCastle = (p & 7) === PIECES.KING && Math.abs(f - t) === 2;
+    const isEnPassant = (p & 7) === PIECES.PAWN && f % 8 !== t % 8 && board[t] === 0;
+    const isCapture = capturedPiece !== 0 || isEnPassant;
+    const animations = [{ from: f, to: t, piece: promotedPiece || p }];
+    if (isEnPassant) board[t + (color === PIECES.WHITE ? 8 : -8)] = 0;
+    if (isCastle) {
+        const rookFrom = t > f ? f + 3 : f - 4;
+        const rookTo = t > f ? f + 1 : f - 1;
+        animations.push({ from: rookFrom, to: rookTo, piece: board[rookFrom] });
+        board[rookTo] = board[rookFrom]; board[rookFrom] = 0;
+    }
+    if ((p & 7) === PIECES.KING) hasMoved[color].king = true;
+    if ((p & 7) === PIECES.ROOK) { if (f % 8 === 0) hasMoved[color].rookL = true; if (f % 8 === 7) hasMoved[color].rookR = true; }
+    if ((capturedPiece & 7) === PIECES.ROOK) {
+        const enemy = color === PIECES.WHITE ? PIECES.BLACK : PIECES.WHITE;
+        if (t === (enemy === PIECES.WHITE ? 56 : 0)) hasMoved[enemy].rookL = true;
+        if (t === (enemy === PIECES.WHITE ? 63 : 7)) hasMoved[enemy].rookR = true;
+    }
+    board[t] = promotedPiece || board[f]; board[f] = 0;
+    moveHistory.push({f, t, p: promotedPiece});
+    lastMove = {from: f, to: t};
+    turn = turn === 8 ? 16 : 8;
+    selectedSquare = null; legalMoves = [];
+    dragState = null; boardArrows = []; boardCircles = [];
+    const startedAt = performance.now();
+    moveAnimations = motionEffectsEnabled ? animations.map(animation => ({ ...animation, startedAt, duration: 380 })) : [];
+    if (!promotedPiece) playSound(isCastle ? 'castle' : isCapture ? 'capture' : 'move');
+    checkGameState();
+    draw(); 
+    updateUI();
+    if (isBotEnabled && turn === 16 && gameActive) setTimeout(makeBotMove, 400);
+}
+
+function checkGameState() {
+    let hasLegalMoves = false;
+    for(let i=0; i<64; i++) if((board[i] & 24) === turn && calculateLegalMoves(i, board).length > 0) { hasLegalMoves = true; break; }
+    
+    const kingPos = board.findIndex(p => p === (PIECES.KING | turn));
+    const inCheck = isSquareAttacked(kingPos, turn, board);
+    
+    checkSquare = inCheck ? kingPos : null;
+    checkmateSquare = null;
+
+    if (!hasLegalMoves) {
+        gameActive = false;
+        const winOverlay = document.getElementById('win-overlay');
+        const winText = document.getElementById('win-text');
+        const winDesc = document.getElementById('win-description');
+        if (inCheck) {
+            checkmateSquare = kingPos;
+            checkSquare = null;
+            winText.innerText = "Checkmate!";
+            winDesc.innerText = `${turn === 8 ? "Black" : "White"} wins the match.`;
+        } else {
+            winText.innerText = "Stalemate";
+            winDesc.innerText = "The game is a draw.";
+        }
+        winOverlay.style.display = 'flex';
+    }
+}
+
+function boardToFen() {
+    const rows = [];
+    const pieceLetters = ['', 'p', 'n', 'b', 'r', 'q', 'k'];
+    for (let row = 0; row < 8; row++) {
+        let fenRow = '', empty = 0;
+        for (let col = 0; col < 8; col++) {
+            const piece = board[row * 8 + col];
+            if (!piece) { empty++; continue; }
+            if (empty) { fenRow += empty; empty = 0; }
+            const letter = pieceLetters[piece & 7];
+            fenRow += (piece & 24) === PIECES.WHITE ? letter.toUpperCase() : letter;
+        }
+        rows.push(fenRow + (empty || ''));
+    }
+
+    let castling = '';
+    if (!hasMoved[PIECES.WHITE].king && board[60] === (PIECES.KING | PIECES.WHITE)) {
+        if (!hasMoved[PIECES.WHITE].rookR && board[63] === (PIECES.ROOK | PIECES.WHITE)) castling += 'K';
+        if (!hasMoved[PIECES.WHITE].rookL && board[56] === (PIECES.ROOK | PIECES.WHITE)) castling += 'Q';
+    }
+    if (!hasMoved[PIECES.BLACK].king && board[4] === (PIECES.KING | PIECES.BLACK)) {
+        if (!hasMoved[PIECES.BLACK].rookR && board[7] === (PIECES.ROOK | PIECES.BLACK)) castling += 'k';
+        if (!hasMoved[PIECES.BLACK].rookL && board[0] === (PIECES.ROOK | PIECES.BLACK)) castling += 'q';
+    }
+
+    let enPassant = '-';
+    if (lastMove && Math.abs(lastMove.from - lastMove.to) === 16 && (board[lastMove.to] & 7) === PIECES.PAWN) {
+        enPassant = sqToA(lastMove.to + ((board[lastMove.to] & 24) === PIECES.WHITE ? 8 : -8));
+    }
+    return `${rows.join('/')} ${turn === PIECES.WHITE ? 'w' : 'b'} ${castling || '-'} ${enPassant} 0 ${Math.floor(moveHistory.length / 2) + 1}`;
+}
+
+function startStockfishWorker() {
+    if (stockfishWorker) return;
+    if (location.protocol === 'file:') {
+        lightweightFallback = true;
+        document.getElementById('game-status').innerText = getTurnLabel();
+        document.getElementById('engine-setting-status').innerText = 'Lightweight AI active. Import a Stockfish folder to use the full engine.';
+        return;
+    }
+    try {
+        stockfishWorker = new Worker('stockfish/stockfish-17.1-single-a496a04.js');
+        stockfishWorker.onmessage = event => handleStockfishMessage(String(event.data));
+        stockfishWorker.onerror = failStockfishWorker;
+        stockfishWorker.postMessage('uci');
+    } catch (error) {
+        document.getElementById('game-status').innerText = getTurnLabel();
+        lightweightFallback = true;
+    }
+}
+
+function openStockfishDatabase() {
+    if (!stockfishDatabasePromise) {
+        stockfishDatabasePromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open('grand-chess-offline', 1);
+            request.onupgradeneeded = () => request.result.createObjectStore('engine');
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+    return stockfishDatabasePromise;
+}
+
+async function saveStockfishFolder(handle) {
+    const database = await openStockfishDatabase();
+    await new Promise((resolve, reject) => {
+        const request = database.transaction('engine', 'readwrite').objectStore('engine').put(handle, 'folder');
+        request.onsuccess = resolve;
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function forgetStockfishFolder() {
+    stockfishFolderHandle = null;
+    const database = await openStockfishDatabase();
+    await new Promise((resolve, reject) => {
+        const request = database.transaction('engine', 'readwrite').objectStore('engine').delete('folder');
+        request.onsuccess = resolve;
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function readStockfishFolder() {
+    const database = await openStockfishDatabase();
+    return new Promise((resolve, reject) => {
+        const request = database.transaction('engine', 'readonly').objectStore('engine').get('folder');
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function failStockfishWorker(error) {
+    stockfishReady = false;
+    stockfishSearching = false;
+    stockfishPendingMove = false;
+    lightweightFallback = true;
+    if (stockfishStartup) {
+        const startup = stockfishStartup;
+        stockfishStartup = null;
+        startup.reject(new Error(error && error.message ? error.message : 'Stockfish worker failed'));
+    }
+    document.getElementById('game-status').innerText = getTurnLabel();
+    document.getElementById('engine-setting-status').innerText = 'Stockfish could not start. Lightweight AI is active; you can retry the import.';
+    const button = document.getElementById('settings-import-engine');
+    if (location.protocol === 'file:') {
+        button.hidden = false;
+        button.innerText = 'Re-import Stockfish Folder';
+        forgetStockfishFolder().catch(() => {});
+    }
+    if (gameActive && isBotEnabled && turn === PIECES.BLACK) setTimeout(makeLightweightBotMove, 150);
+}
+
+function disposeStockfishWorker() {
+    if (stockfishWorker) stockfishWorker.terminate();
+    stockfishWorker = null;
+    stockfishResourceUrls.forEach(url => URL.revokeObjectURL(url));
+    stockfishResourceUrls = [];
+    stockfishReady = false;
+    stockfishSearching = false;
+}
+
+async function createImportedStockfishWorker(folderHandle) {
+    const workerFileName = 'stockfish-17.1-single-a496a04.js';
+    const workerFile = await (await folderHandle.getFileHandle(workerFileName)).getFile();
+    const workerSource = await workerFile.text();
+    if (!workerSource.includes('Stockfish.js 17.1') || !workerSource.includes('enginePartsCount=6')) {
+        throw new Error('This folder does not contain the expected Stockfish 17.1 engine.');
+    }
+
+    const partNames = Array.from({ length: 6 }, (_, index) => `stockfish-17.1-single-a496a04-part-${index}.wasm`);
+    const wasmParts = [];
+    for (const partName of partNames) {
+        const partFile = await (await folderHandle.getFileHandle(partName)).getFile();
+        if (partFile.size !== 13175551) throw new Error(`Invalid or incomplete engine file: ${partName}`);
+        wasmParts.push(partFile);
+    }
+
+    const patchedSource = workerSource.replace('enginePartsCount=6', 'enginePartsCount=null');
+    const wasmUrl = URL.createObjectURL(new Blob(wasmParts, { type: 'application/wasm' }));
+    const workerUrl = URL.createObjectURL(new Blob([patchedSource], { type: 'text/javascript' }));
+    let worker;
+    try {
+        worker = new Worker(`${workerUrl}#${encodeURIComponent(wasmUrl)}`);
+    } catch (error) {
+        URL.revokeObjectURL(wasmUrl);
+        URL.revokeObjectURL(workerUrl);
+        throw error;
+    }
+
+    stockfishWorker = worker;
+    stockfishResourceUrls = [wasmUrl, workerUrl];
+    stockfishReady = false;
+    worker.onmessage = event => handleStockfishMessage(String(event.data));
+    worker.onerror = failStockfishWorker;
+
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            if (stockfishStartup) stockfishStartup = null;
+            reject(new Error('Stockfish did not pass its startup check.'));
+        }, 20000);
+        stockfishStartup = {
+            resolve: () => { clearTimeout(timeout); resolve(); },
+            reject: error => { clearTimeout(timeout); reject(error); }
+        };
+        worker.postMessage('uci');
+    });
+}
+
+async function connectStockfishFolder() {
+    const button = document.getElementById('settings-import-engine');
+    button.disabled = true;
+    button.innerText = 'Checking Stockfish Folder...';
+    try {
+        if (!window.showDirectoryPicker) throw new Error('This browser does not support importing folders. Use Edge or Chrome.');
+        let folderHandle = stockfishFolderHandle;
+        if (folderHandle) {
+            let permission = await folderHandle.queryPermission({ mode: 'read' });
+            if (permission !== 'granted') permission = await folderHandle.requestPermission({ mode: 'read' });
+            if (permission !== 'granted') folderHandle = null;
+        }
+        if (!folderHandle) folderHandle = await window.showDirectoryPicker({ mode: 'read' });
+
+        disposeStockfishWorker();
+        await createImportedStockfishWorker(folderHandle);
+        await saveStockfishFolder(folderHandle);
+        stockfishFolderHandle = folderHandle;
+        lightweightFallback = false;
+        document.getElementById('engine-setting-status').innerText = 'Stockfish 17.1 is ready.';
+        button.hidden = true;
+        if (stockfishPendingMove) makeBotMove();
+        else document.getElementById('game-status').innerText = getTurnLabel();
+    } catch (error) {
+        disposeStockfishWorker();
+        lightweightFallback = true;
+        stockfishPendingMove = false;
+        document.getElementById('game-status').innerText = getTurnLabel();
+        document.getElementById('engine-setting-status').innerText = error.name === 'AbortError'
+            ? 'Import canceled. Lightweight AI is active.'
+            : `Import check failed: ${error.message}. Lightweight AI is active.`;
+        button.hidden = location.protocol !== 'file:';
+        button.innerText = 'Retry Stockfish Folder Import';
+        forgetStockfishFolder().catch(() => {});
+        if (gameActive && isBotEnabled && turn === PIECES.BLACK) setTimeout(makeLightweightBotMove, 150);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function initializeOfflineStockfish() {
+    const button = document.getElementById('settings-import-engine');
+    document.getElementById('settings-import-engine').hidden = location.protocol !== 'file:';
+    button.hidden = location.protocol !== 'file:';
+    if (button.hidden) return;
+    try {
+        stockfishFolderHandle = await readStockfishFolder();
+        if (!stockfishFolderHandle) return;
+        const permission = await stockfishFolderHandle.queryPermission({ mode: 'read' });
+        if (permission !== 'granted') {
+            button.innerText = 'Reconnect Stockfish Folder';
+            return;
+        }
+        button.hidden = true;
+        await createImportedStockfishWorker(stockfishFolderHandle);
+        lightweightFallback = false;
+        document.getElementById('engine-setting-status').innerText = 'Stockfish 17.1 is ready.';
+        document.getElementById('game-status').innerText = getTurnLabel();
+    } catch (error) {
+        disposeStockfishWorker();
+        lightweightFallback = true;
+        button.hidden = false;
+        button.innerText = 'Re-import Stockfish Folder';
+        document.getElementById('game-status').innerText = getTurnLabel();
+        document.getElementById('engine-setting-status').innerText = `Saved folder is invalid: ${error.message}. Lightweight AI is active.`;
+        forgetStockfishFolder().catch(() => {});
+    }
+}
+
+function handleStockfishMessage(line) {
+    if (line === 'uciok') {
+        stockfishWorker.postMessage('setoption name Threads value 1');
+        stockfishWorker.postMessage('setoption name Hash value 128');
+        stockfishWorker.postMessage('isready');
+        return;
+    }
+    if (line === 'readyok') {
+        stockfishReady = true;
+        if (stockfishStartup) {
+            const startup = stockfishStartup;
+            stockfishStartup = null;
+            startup.resolve();
+        }
+        if (stockfishPendingMove) makeBotMove();
+        return;
+    }
+
+    const match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])(?:([qrbn]))?/);
+    if (!match) return;
+
+    stockfishSearching = false;
+    const activeSearchToken = stockfishActiveSearchToken;
+    const shouldPlay = activeSearchToken === stockfishSearchToken && gameActive && isBotEnabled && turn === PIECES.BLACK && boardToFen() === stockfishSearchFen;
+    if (shouldPlay) {
+        const from = (8 - Number(match[1][1])) * 8 + match[1].charCodeAt(0) - 97;
+        const to = (8 - Number(match[2][1])) * 8 + match[2].charCodeAt(0) - 97;
+        if (calculateLegalMoves(from, board).includes(to)) {
+            const promotion = { q: PIECES.QUEEN, r: PIECES.ROOK, b: PIECES.BISHOP, n: PIECES.KNIGHT }[match[3]] || null;
+            movePiece(from, to, promotion);
+        } else {
+            document.getElementById('game-status').innerText = 'Bot move unavailable';
+        }
+    }
+    if (activeSearchToken !== stockfishSearchToken && stockfishPendingMove) makeBotMove();
+}
+
+function makeBotMove() {
+    if (!isBotEnabled || !gameActive || turn !== PIECES.BLACK) return;
+    if (lightweightFallback) {
+        makeLightweightBotMove();
+        return;
+    }
+    if (!stockfishWorker) startStockfishWorker();
+    if (!stockfishWorker) {
+        lightweightFallback = true;
+        makeLightweightBotMove();
+        return;
+    }
+    if (!stockfishReady || stockfishSearching) {
+        stockfishPendingMove = true;
+        document.getElementById('game-status').innerText = stockfishReady ? 'Bot is thinking...' : getTurnLabel();
+        return;
+    }
+
+    stockfishPendingMove = false;
+    stockfishSearching = true;
+    stockfishSearchToken++;
+    stockfishActiveSearchToken = stockfishSearchToken;
+    stockfishSearchFen = boardToFen();
+    const difficulty = difficultyLevel;
+    const settings = {
+        easy: { skill: 0, elo: 1350, time: 250 },
+        med: { skill: 5, elo: 1650, time: 700 },
+        hard: { skill: 12, elo: 2200, time: 1800 },
+        master: { skill: 20, elo: null, time: 4500 }
+    }[difficulty] || { skill: 20, elo: null, time: 4500 };
+
+    stockfishWorker.postMessage(`setoption name UCI_LimitStrength value ${settings.elo !== null}`);
+    if (settings.elo !== null) stockfishWorker.postMessage(`setoption name UCI_Elo value ${settings.elo}`);
+    stockfishWorker.postMessage(`setoption name Skill Level value ${settings.skill}`);
+    stockfishWorker.postMessage(`position fen ${stockfishSearchFen}`);
+    stockfishWorker.postMessage(`go movetime ${settings.time}`);
+    document.getElementById('game-status').innerText = 'Bot is thinking...';
+}
+
+function cancelStockfishSearch() {
+    stockfishSearchToken++;
+    stockfishPendingMove = false;
+    if (stockfishSearching && stockfishWorker) stockfishWorker.postMessage('stop');
+}
+
+function updateUI() {
+    document.getElementById('game-status').innerText = getTurnLabel();
+    const container = document.getElementById('pgn-history'); container.innerHTML = '';
+    for (let i=0; i < moveHistory.length; i+=2) {
+        const m1 = moveHistory[i], m2 = moveHistory[i+1];
+        const row = document.createElement('div'); row.className = 'move-row';
+        row.innerHTML = `<span>${(i/2)+1}.</span><span>${sqToA(m1.f)}→${sqToA(m1.t)}</span><span>${m2 ? sqToA(m2.f)+'→'+sqToA(m2.t) : ''}</span>`;
+        container.appendChild(row);
+    }
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+}
+
+function sqToA(s) { return String.fromCharCode(97+(s%8))+(8-Math.floor(s/8)); }
+
+function getTurnLabel() {
+    if (turn === PIECES.WHITE) return "White's Turn";
+    return "Black's Turn";
+}
+
+function undoMove() {
+    if (undoStack.length === 0 || promotionPending) return;
+    cancelStockfishSearch();
+    document.getElementById('win-overlay').style.display = 'none';
+    const steps = (isBotEnabled && turn === 8) ? 2 : 1;
+    for (let i=0; i < steps && undoStack.length > 0; i++) {
+        const s = undoStack.pop();
+        board = s.board; turn = s.turn; moveHistory = s.moveHistory; lastMove = s.lastMove; gameActive = s.gameActive; hasMoved = s.hasMoved;
+    }
+    selectedSquare = null; legalMoves = []; dragState = null; boardArrows = []; boardCircles = []; checkGameState(); draw(); updateUI();
+}
+
+function newGame() { if(!promotionPending) { cancelStockfishSearch(); initBoard(); checkGameState(); draw(); } }
+function toggleAI() { isBotEnabled = !isBotEnabled; document.getElementById('mode-text').innerText = isBotEnabled ? "vs Bot" : "vs Human"; newGame(); }
+
+const hasCoarsePrimaryPointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+if (navigator.maxTouchPoints > 0 && hasCoarsePrimaryPointer) document.documentElement.classList.add('touch-input-mode');
+function updateInputLayout(event) {
+    if (!event.pointerType) return;
+    document.documentElement.classList.toggle('touch-input-mode', event.pointerType === 'touch');
+    if (event.pointerType === 'mouse' && mobileToolV2Enabled) setMobileToolV2(false);
+}
+document.addEventListener('pointerdown', updateInputLayout, true);
+document.addEventListener('pointermove', updateInputLayout, true);
+
+canvas.addEventListener('pointerdown', handlePointerDown);
+canvas.addEventListener('pointermove', handlePointerMove);
+canvas.addEventListener('pointerup', handlePointerUp);
+canvas.addEventListener('pointercancel', handlePointerCancel);
+canvas.addEventListener('contextmenu', event => event.preventDefault());
+const volumeSliderShell = document.getElementById('volume-slider-shell');
+volumeSliderShell.addEventListener('pointerdown', handleVolumePointerDown);
+document.addEventListener('pointermove', handleVolumePointerMove);
+document.addEventListener('pointerup', handleVolumePointerUp);
+document.addEventListener('pointercancel', handleVolumePointerUp);
+window.addEventListener('resize', resizeCanvas);
+document.getElementById('settings-overlay').addEventListener('click', event => {
+    if (event.target.id === 'settings-overlay') closeSettings();
+});
+document.getElementById('bgm-overlay').addEventListener('click', event => {
+    if (event.target.id === 'bgm-overlay') closeBackgroundMusic();
+});
+document.getElementById('controls-help-overlay').addEventListener('click', event => {
+    if (event.target.id === 'controls-help-overlay') closeControlsHelp();
+});
+document.addEventListener('click', event => {
+    if (!event.target.closest('.theme-picker')) {
+        document.getElementById('theme-picker-menu').hidden = true;
+        document.getElementById('theme-picker-trigger').setAttribute('aria-expanded', 'false');
+        document.getElementById('difficulty-picker-menu').hidden = true;
+        document.getElementById('difficulty-picker-trigger').setAttribute('aria-expanded', 'false');
+    }
+});
+document.addEventListener('keydown', event => {
+    const target = event.target;
+    const isEditingText = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+    if (!isEditingText && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === 'c') {
+        clearBoardAnnotations();
+    }
+    if (event.key === 'Escape') {
+        closeSettings();
+        closeBackgroundMusic();
+        closeControlsHelp();
+        document.getElementById('theme-picker-menu').hidden = true;
+        document.getElementById('theme-picker-trigger').setAttribute('aria-expanded', 'false');
+        document.getElementById('difficulty-picker-menu').hidden = true;
+        document.getElementById('difficulty-picker-trigger').setAttribute('aria-expanded', 'false');
+    }
+});
+window.onload = () => { document.getElementById('app-version').innerText = `v${APP_VERSION}`; loadImages(); initBoard(); resizeCanvas(); restoreSettings(); initializeOfflineStockfish(); };
+</script>
+</body>
+</html>
