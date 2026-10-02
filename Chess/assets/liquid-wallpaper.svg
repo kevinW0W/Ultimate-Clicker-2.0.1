@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#142c4d"/>
+      <stop offset=".48" stop-color="#61558b"/>
+      <stop offset="1" stop-color="#f38b72"/>
+    </linearGradient>
+    <linearGradient id="waveA" x1="0" y1="0" x2=".9" y2="1">
+      <stop stop-color="#55c4cb"/>
+      <stop offset="1" stop-color="#286c9d"/>
+    </linearGradient>
+    <linearGradient id="waveB" x1=".1" y1="0" x2=".8" y2="1">
+      <stop stop-color="#e5a6a5"/>
+      <stop offset=".52" stop-color="#8e628c"/>
+      <stop offset="1" stop-color="#314b7c"/>
+    </linearGradient>
+    <linearGradient id="waveC" x1="0" y1="0" x2="1" y2=".8">
+      <stop stop-color="#e9bc86"/>
+      <stop offset=".42" stop-color="#bb647e"/>
+      <stop offset="1" stop-color="#35426c"/>
+    </linearGradient>
+    <filter id="soften" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <path d="M-120 270C170 170 328 124 544 208s318 126 512 28 418-98 664-24v386H-120Z" fill="#d89aa0" opacity=".3" filter="url(#soften)"/>
+  <path d="M-120 548C139 451 274 323 506 357s340 242 550 174 411-254 664-142v611H-120Z" fill="url(#waveA)"/>
+  <path d="M-120 590C102 671 279 793 509 729s341-260 543-224 375 259 668 182v379H-120Z" fill="url(#waveB)"/>
+  <path d="M-120 782C89 680 269 638 476 703s331 189 535 154 416-212 709-96v239H-120Z" fill="url(#waveC)"/>
+  <path d="M-120 864c258-88 454-31 635 36 232 87 375 29 548-24 211-65 404-46 657 18v156H-120Z" fill="#192943" opacity=".72"/>
+</svg>
