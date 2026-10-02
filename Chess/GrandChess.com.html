@@ -675,7 +675,8 @@
             <div class="setting-row"><span>Background</span><input id="background-setting" type="color" value="#1a1a1a" onchange="setBackgroundColor(this.value)"><button type="button" onclick="setBackgroundColor('')">Theme default</button></div>
             <div class="setting-block">
                 <h3>Stockfish</h3>
-                <button id="settings-import-engine" type="button" hidden onclick="connectStockfishFolder()">Import Stockfish folder</button>
+                <button id="settings-import-engine-files-button" type="button" hidden onclick="document.getElementById('settings-import-engine-files').click()">Import Stockfish folder</button>
+                <input id="settings-import-engine-files" type="file" webkitdirectory directory multiple hidden onchange="connectStockfishFiles(this.files)">
                 <p id="engine-setting-status" role="status">Full-strength engine preferred. Lightweight engine is used if loading fails.</p>
             </div>
             <div class="setting-block">
@@ -2111,12 +2112,10 @@ function failStockfishWorker(error) {
     }
     document.getElementById('game-status').innerText = getTurnLabel();
     document.getElementById('engine-setting-status').innerText = 'Stockfish could not start. Lightweight AI is active; you can retry the import.';
-    const button = document.getElementById('settings-import-engine');
-    if (location.protocol === 'file:') {
-        button.hidden = false;
-        button.innerText = 'Re-import Stockfish Folder';
-        forgetStockfishFolder().catch(() => {});
-    }
+    const button = document.getElementById('settings-import-engine-files-button');
+    button.hidden = false;
+    button.innerText = 'Retry Stockfish folder import';
+    forgetStockfishFolder().catch(() => {});
     if (gameActive && isBotEnabled && turn === PIECES.BLACK) setTimeout(makeLightweightBotMove, 150);
 }
 
@@ -2176,27 +2175,31 @@ async function createImportedStockfishWorker(folderHandle) {
     });
 }
 
-async function connectStockfishFolder() {
-    const button = document.getElementById('settings-import-engine');
-    button.disabled = true;
-    button.innerText = 'Checking Stockfish Folder...';
-    try {
-        if (!window.showDirectoryPicker) throw new Error('This browser does not support importing folders. Use Edge or Chrome.');
-        let folderHandle = stockfishFolderHandle;
-        if (folderHandle) {
-            let permission = await folderHandle.queryPermission({ mode: 'read' });
-            if (permission !== 'granted') permission = await folderHandle.requestPermission({ mode: 'read' });
-            if (permission !== 'granted') folderHandle = null;
-        }
-        if (!folderHandle) folderHandle = await window.showDirectoryPicker({ mode: 'read' });
+async function connectStockfishFiles(files) {
+    const button = document.getElementById('settings-import-engine-files-button');
+    const fileInput = document.getElementById('settings-import-engine-files');
+    if (!files || !files.length) return;
 
+    button.disabled = true;
+    button.innerText = 'Checking Stockfish Files...';
+    const filesByName = new Map(Array.from(files, file => [file.name, file]));
+    const folderHandle = {
+        getFileHandle: async fileName => {
+            const file = filesByName.get(fileName);
+            if (!file) throw new Error(`Missing required engine file: ${fileName}`);
+            return { getFile: async () => file };
+        }
+    };
+
+    try {
         disposeStockfishWorker();
         await createImportedStockfishWorker(folderHandle);
-        await saveStockfishFolder(folderHandle);
-        stockfishFolderHandle = folderHandle;
+        stockfishFolderHandle = null;
+        forgetStockfishFolder().catch(() => {});
         lightweightFallback = false;
-        document.getElementById('engine-setting-status').innerText = 'Stockfish 17.1 is ready.';
-        button.hidden = true;
+        document.getElementById('engine-setting-status').innerText = 'Stockfish 17.1 is ready for this session.';
+        button.hidden = false;
+        button.innerText = 'Choose Stockfish folder again';
         if (stockfishPendingMove) makeBotMove();
         else document.getElementById('game-status').innerText = getTurnLabel();
     } catch (error) {
@@ -2204,21 +2207,18 @@ async function connectStockfishFolder() {
         lightweightFallback = true;
         stockfishPendingMove = false;
         document.getElementById('game-status').innerText = getTurnLabel();
-        document.getElementById('engine-setting-status').innerText = error.name === 'AbortError'
-            ? 'Import canceled. Lightweight AI is active.'
-            : `Import check failed: ${error.message}. Lightweight AI is active.`;
-        button.hidden = location.protocol !== 'file:';
-        button.innerText = 'Retry Stockfish Folder Import';
-        forgetStockfishFolder().catch(() => {});
+        document.getElementById('engine-setting-status').innerText = `File import failed: ${error.message}. Lightweight AI is active.`;
+        button.hidden = false;
+        button.innerText = 'Retry Stockfish Files';
         if (gameActive && isBotEnabled && turn === PIECES.BLACK) setTimeout(makeLightweightBotMove, 150);
     } finally {
         button.disabled = false;
+        fileInput.value = '';
     }
 }
 
 async function initializeOfflineStockfish() {
-    const button = document.getElementById('settings-import-engine');
-    document.getElementById('settings-import-engine').hidden = location.protocol !== 'file:';
+    const button = document.getElementById('settings-import-engine-files-button');
     button.hidden = location.protocol !== 'file:';
     if (button.hidden) return;
     try {
