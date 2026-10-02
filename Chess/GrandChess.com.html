@@ -714,10 +714,19 @@
         }
 
         @media (max-width: 768px) and (orientation: portrait) {
+            body { overflow-x: hidden; overflow-y: auto; }
+            .app-container { min-height: 100svh; height: auto; }
             html.touch-input-mode .app-container { flex-direction: column; }
             html.touch-input-mode .game-main { flex: 0 0 auto; padding: 10px 0; width: 100%; }
             html.touch-input-mode .board-outer { max-width: 94vw; }
             html.touch-input-mode .sidebar { flex: 1; width: 100%; border-left: none; border-top: 1px solid var(--glass-border); flex-basis: 0; overflow: visible; }
+            .site-note {
+                position: static;
+                width: auto;
+                padding: 10px 16px 18px;
+                text-align: center;
+                margin-top: 8px;
+            }
             html.touch-input-mode .settings-dialog { width: 100%; }
         }
         .status-panel h2 { padding: 0 38px; }
