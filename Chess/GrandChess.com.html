@@ -33,7 +33,7 @@
 
         body {
             margin: 0;
-            padding: 0;
+            padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
             background-color: var(--bg-dark);
             color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -72,7 +72,11 @@
             inset: 0;
             z-index: 1;
             pointer-events: none;
-            background: #192943 url("assets/liquid-wallpaper.svg") center / cover no-repeat;
+            background:
+                radial-gradient(circle at 20% 18%, rgba(255,255,255,0.48), transparent 18%),
+                radial-gradient(circle at 76% 12%, rgba(148,208,255,0.38), transparent 16%),
+                radial-gradient(circle at 50% 90%, rgba(160,204,255,0.18), transparent 38%),
+                linear-gradient(180deg, rgba(172, 200, 226, 0.88) 0%, rgba(110, 135, 160, 0.9) 42%, rgba(61, 78, 92, 0.92) 100%);
         }
         .svg-filters { position: absolute; width: 0; height: 0; overflow: hidden; }
         body.theme-liquid #liquid-background { display: block; }
@@ -107,7 +111,8 @@
             justify-content: center;
             gap: 6px;
             padding: 10px;
-            padding-left: env(safe-area-inset-left);
+            padding-left: max(10px, env(safe-area-inset-left));
+            padding-top: max(10px, env(safe-area-inset-top));
         }
 
         .board-outer {
@@ -116,13 +121,15 @@
             aspect-ratio: 1/1;
             position: relative;
             margin: auto;
+            z-index: 1;
         }
 
         .board-inner {
             width: 100%;
             height: 100%;
             position: relative;
-            background: rgba(255, 255, 255, 0.03);
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.04);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border: 1px solid var(--glass-border);
@@ -185,14 +192,16 @@
 
         .sidebar {
             flex: 0 0 300px;
+            position: relative;
+            z-index: 2;
             background: var(--bg-sidebar);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             display: flex;
             flex-direction: column;
             border-left: 1px solid var(--glass-border);
-            padding-right: env(safe-area-inset-right);
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-right: max(0px, env(safe-area-inset-right));
+            padding-bottom: max(0px, env(safe-area-inset-bottom));
             max-height: 100%;
             transition: background 0.3s ease;
         }
@@ -231,10 +240,10 @@
         }
         .site-note {
             position: fixed;
-            left: 10px;
-            bottom: 8px;
+            left: max(10px, env(safe-area-inset-left));
+            bottom: max(8px, env(safe-area-inset-bottom));
             z-index: 25;
-            width: min(320px, calc(100vw - 20px));
+            width: min(320px, calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
             padding: 5px 8px;
             color: var(--text-dim);
             font-size: 10px;
@@ -272,7 +281,7 @@
         #difficulty-picker-label { min-width: 0; flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
         .theme-picker-menu {
             position: absolute;
-            z-index: 80;
+            z-index: 120;
             inset: auto 0 100%;
             max-height: min(56vh, 360px);
             overflow-y: auto;
@@ -541,6 +550,27 @@
         #bgm-stop { margin-bottom: 10px; }
         #bgm-status { min-height: 18px; margin: 8px 0 0; color: var(--text-dim); font-size: 12px; }
 
+        .theme-classic {
+            background: #1a1a1a;
+        }
+        .theme-classic .sidebar,
+        .theme-classic .board-inner,
+        .theme-classic .settings-dialog {
+            background: rgba(25, 27, 25, 0.92);
+            border-color: rgba(255,255,255,0.12);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: none;
+        }
+        .theme-classic .board-inner {
+            border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.38);
+        }
+        .theme-classic .status-panel,
+        .theme-classic .controls,
+        .theme-classic .move-history-container {
+            background: rgba(0,0,0,0.12);
+        }
         .theme-retro90 { font-family: "Courier New", monospace; }
         .theme-retro90 { background: #151813; }
         .theme-retro90 .board-inner { border: 7px solid #332c28; border-radius: 20px; box-shadow: 0 15px 42px #000, inset 0 0 18px rgba(0,0,0,0.55); }
@@ -557,10 +587,42 @@
         .theme-retroNeon { background: linear-gradient(140deg,#100c24,#071d24 52%,#2a1028); }
         .theme-retroNeon .board-inner { box-shadow: 0 0 28px rgba(52,244,218,0.27), 0 0 54px rgba(255,75,196,0.15); }
         .theme-retroNeon button.active, .theme-retroNeon .primary { box-shadow: 0 0 14px var(--accent); }
-        .theme-glass .sidebar, .theme-glass .board-inner { background: rgba(240,248,245,0.08); backdrop-filter: blur(20px) saturate(145%); }
-        .theme-liquid .sidebar, .theme-liquid .board-inner, .theme-liquid .settings-dialog { background: rgba(235,245,255,0.08); backdrop-filter: blur(22px) saturate(155%); -webkit-backdrop-filter: blur(22px) saturate(155%); border-color: rgba(255,255,255,0.38); box-shadow: 0 18px 50px rgba(0,0,0,0.2), inset 0 1px rgba(255,255,255,0.4); }
+        .theme-glass {
+            background:
+                linear-gradient(180deg, rgba(214,231,247,0.94) 0%, rgba(170,191,210,0.9) 24%, rgba(114,132,148,0.88) 100%);
+        }
+        .theme-glass .sidebar, .theme-glass .settings-dialog {
+            background: rgba(255,255,255,0.14);
+            border-color: rgba(255,255,255,0.32);
+            backdrop-filter: blur(18px) saturate(135%);
+            -webkit-backdrop-filter: blur(18px) saturate(135%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 42px rgba(21,34,47,0.2);
+        }
+        .theme-glass .board-inner {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.36);
+            backdrop-filter: blur(14px) saturate(180%);
+            -webkit-backdrop-filter: blur(14px) saturate(180%);
+            box-shadow: 0 12px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 20px rgba(255,255,255,0.08);
+        }
+        .theme-glass #board-container::before { display: none; }
+        .theme-liquid {
+            background:
+                radial-gradient(circle at 20% 18%, rgba(255,255,255,0.36), transparent 18%),
+                radial-gradient(circle at 80% 10%, rgba(173,221,255,0.4), transparent 17%),
+                linear-gradient(180deg, rgba(209,228,242,0.9) 0%, rgba(149,170,190,0.88) 32%, rgba(77,92,108,0.9) 100%);
+        }
+        .theme-liquid .sidebar, .theme-liquid .board-inner, .theme-liquid .settings-dialog { background: rgba(255,255,255,0.12); backdrop-filter: blur(22px) saturate(155%); -webkit-backdrop-filter: blur(22px) saturate(155%); border-color: rgba(255,255,255,0.35); box-shadow: 0 18px 50px rgba(0,0,0,0.16), inset 0 1px rgba(255,255,255,0.4); }
         .theme-liquid .board-inner { isolation: isolate; border-radius: 18px; }
-        .theme-liquid #board-container::before { content: ""; position: absolute; z-index: 5; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(128deg,rgba(255,255,255,0.2),transparent 28% 72%,rgba(255,255,255,0.06)); filter: url(#liquid-refraction); mix-blend-mode: screen; }
+        .theme-liquid #board-container::before { content: ""; position: absolute; z-index: 5; inset: 0; pointer-events: none; border-radius: inherit; background: linear-gradient(128deg,rgba(255,255,255,0.22),transparent 28% 72%,rgba(255,255,255,0.06)); filter: url(#liquid-refraction); mix-blend-mode: screen; }
+        .theme-liquid-fallback .sidebar, .theme-liquid-fallback .board-inner, .theme-liquid-fallback .settings-dialog {
+            background: rgba(236, 245, 240, 0.15);
+            backdrop-filter: blur(16px) saturate(125%);
+            -webkit-backdrop-filter: blur(16px) saturate(125%);
+            border-color: rgba(255,255,255,0.18);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+        }
+        .theme-liquid-fallback #board-container::before { display: none; }
         #annotation-overlay { position: absolute; inset: 0; z-index: 6; display: none; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
         .theme-liquid #annotation-overlay { display: block; }
         .theme-fluid { background: linear-gradient(120deg,#16282c,#25443d 42%,#594330 100%); background-size: 180% 180%; animation: fluidShift 16s ease-in-out infinite alternate; }
@@ -597,11 +659,65 @@
         }
         .promo-option img { width: 40px; height: 40px; }
 
+        @media (max-width: 768px) {
+            body {
+                display: block;
+                overflow: auto;
+            }
+
+            .app-container {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                max-width: 100%;
+                min-height: 100svh;
+            }
+
+            .game-main {
+                flex: 0 0 auto;
+                width: 100%;
+                max-width: 100%;
+                padding: 10px 10px 6px;
+            }
+
+            .board-outer {
+                width: min(100%, 92vw);
+                max-width: 540px;
+                margin: 0 auto;
+            }
+
+            .sidebar {
+                flex: 1 1 auto;
+                width: 100%;
+                max-width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--glass-border);
+                flex-basis: 0;
+                overflow: visible;
+            }
+
+            .controls {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .site-note {
+                position: static;
+                width: auto;
+                padding: 10px 16px 18px;
+                text-align: center;
+            }
+
+            .settings-dialog {
+                width: min(100%, 480px);
+            }
+        }
+
         @media (max-width: 768px) and (orientation: portrait) {
             html.touch-input-mode .app-container { flex-direction: column; }
             html.touch-input-mode .game-main { flex: 0 0 auto; padding: 10px 0; width: 100%; }
             html.touch-input-mode .board-outer { max-width: 94vw; }
-            html.touch-input-mode .sidebar { flex: 1; width: 100%; border-left: none; border-top: 1px solid var(--glass-border); flex-basis: 0; overflow: hidden; }
+            html.touch-input-mode .sidebar { flex: 1; width: 100%; border-left: none; border-top: 1px solid var(--glass-border); flex-basis: 0; overflow: visible; }
             html.touch-input-mode .settings-dialog { width: 100%; }
         }
         .status-panel h2 { padding: 0 38px; }
@@ -899,8 +1015,8 @@ const THEMES = {
     win95: { bg: '#008080', sidebar: '#c0c0c0', light: '#dfdfdf', dark: '#808080', accent: '#001b76' },
     dos80: { bg: '#000000', sidebar: '#050a05', light: '#07130a', dark: '#000000', accent: '#58ff75' },
     retroNeon: { bg: '#100c24', sidebar: 'rgba(12,25,34,0.92)', light: '#f39a68', dark: '#1b6370', accent: '#55f4d6' },
-    glass: { bg: '#20292b', sidebar: 'rgba(236,245,240,0.09)', light: '#d2d8bb', dark: '#678677', accent: '#b2ddae' },
-    liquid: { bg: '#25313e', sidebar: 'rgba(235,245,255,0.08)', light: 'rgba(248,252,255,0.38)', dark: 'rgba(60,83,105,0.3)', accent: '#c7ece8' },
+    glass: { bg: '#20292b', sidebar: 'rgba(236,245,240,0.09)', light: '#ebecd0', dark: '#779556', accent: '#b2ddae' },
+    liquid: { bg: '#25313e', sidebar: 'rgba(235,245,255,0.08)', light: '#ebecd0', dark: '#779556', accent: '#c7ece8' },
     fluid: { bg: '#203c38', sidebar: 'rgba(22,35,34,0.6)', light: '#d4c69a', dark: '#738e79', accent: '#efb77a' }
 };
 
@@ -1292,7 +1408,9 @@ async function importSoundFile(key, file) {
 }
 
 async function restoreSettings() {
-    const savedTheme = localStorage.getItem('grand-chess-theme');
+    const savedThemeValue = localStorage.getItem('grand-chess-theme');
+    const savedTheme = ['classic', 'shooting', 'neon', 'ocean', 'midnight', 'retro90', 'win95', 'dos80', 'retroNeon', 'glass', 'liquid', 'fluid'].includes(savedThemeValue) ? savedThemeValue : 'classic';
+    const effectiveTheme = savedTheme === 'glass' || savedTheme === 'liquid' || savedTheme === 'fluid' ? 'classic' : savedTheme;
     motionBlurEnabled = localStorage.getItem('grand-chess-motion-blur') !== 'false';
     motionBlurQuality = ['medium', 'high'].includes(localStorage.getItem('grand-chess-motion-blur-quality')) ? localStorage.getItem('grand-chess-motion-blur-quality') : 'low';
     motionEffectsEnabled = localStorage.getItem('grand-chess-motion-effects') !== 'false';
@@ -1316,7 +1434,7 @@ async function restoreSettings() {
         document.getElementById('background-setting').value = background;
         setBackgroundColor(background);
     }
-    changeTheme(savedTheme && THEMES[savedTheme] ? savedTheme : 'classic');
+    changeTheme(effectiveTheme);
     try {
         const database = await openStockfishDatabase();
         for (const key of ['move', 'capture', 'castle', 'bgm']) {
@@ -1378,16 +1496,32 @@ function initStarlight() {
     }
 }
 
+function canUseLiquidGlass() {
+    if (!window.CSS || !CSS.supports) return false;
+    const hasBackdrop = CSS.supports('backdrop-filter: blur(12px)') || CSS.supports('-webkit-backdrop-filter: blur(12px)');
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        return Boolean(hasBackdrop && gl);
+    } catch (error) {
+        return false;
+    }
+}
+
 function changeTheme(key) {
-    if (key === 'liquid' && /AppleWebKit/i.test(navigator.userAgent) && !/(Chrome|CriOS|Edg)/i.test(navigator.userAgent)) {
+    if (key === 'liquid' && !canUseLiquidGlass()) {
         key = 'glass';
-        openSettings();
-        showSettingsMessage('Liquid Glass is unavailable in this WebKit browser. Switched to Glass.');
     }
     currentTheme = key;
     const theme = THEMES[key];
-    Object.keys(THEMES).forEach(themeName => document.body.classList.remove(`theme-${themeName}`));
+    Object.keys(THEMES).forEach(themeName => {
+        document.body.classList.remove(`theme-${themeName}`);
+        document.body.classList.remove('theme-liquid-fallback');
+    });
     document.body.classList.add(`theme-${key}`);
+    if (key === 'glass' && !canUseLiquidGlass()) {
+        document.body.classList.add('theme-liquid-fallback');
+    }
     const boardContainer = document.getElementById('board-container');
     document.documentElement.style.setProperty('--bg-dark', theme.bg);
     document.documentElement.style.setProperty('--accent', theme.accent);
@@ -1422,13 +1556,21 @@ function changeTheme(key) {
 
 function toggleThemeMenu() {
     const menu = document.getElementById('theme-picker-menu');
+    const wasHidden = menu.hidden;
     menu.hidden = !menu.hidden;
+    if (!menu.hidden && wasHidden) {
+        menu.scrollTop = 0;
+    }
     document.getElementById('theme-picker-trigger').setAttribute('aria-expanded', String(!menu.hidden));
 }
 
 function toggleDifficultyMenu() {
     const menu = document.getElementById('difficulty-picker-menu');
+    const wasHidden = menu.hidden;
     menu.hidden = !menu.hidden;
+    if (!menu.hidden && wasHidden) {
+        menu.scrollTop = 0;
+    }
     document.getElementById('difficulty-picker-trigger').setAttribute('aria-expanded', String(!menu.hidden));
 }
 
@@ -1499,7 +1641,12 @@ function draw() {
     for (let r=0; r<8; r++) {
         for (let c=0; c<8; c++) {
             const i = r*8+c;
-            ctx.fillStyle = (r+c)%2===0 ? theme.light : theme.dark;
+            const isLight = (r + c) % 2 === 0;
+            if (currentTheme === 'glass') {
+                ctx.fillStyle = isLight ? 'rgba(255,255,255,0.24)' : 'rgba(91,118,93,0.38)';
+            } else {
+                ctx.fillStyle = isLight ? theme.light : theme.dark;
+            }
             ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
             
             if (checkmateSquare === i) {
@@ -1524,7 +1671,17 @@ function draw() {
             const draggedFromSquare = dragState && dragState.kind !== 'annotation' && dragState.moved && dragState.from === i;
             if (p && !draggedFromSquare) {
                 const code = (p&8?'w':'b') + ['','P','N','B','R','Q','K'][p&7];
-                if (IMAGES[code] && !moveAnimations.some(animation => animation.to === i)) ctx.drawImage(IMAGES[code], c*tileSize, r*tileSize, tileSize, tileSize);
+                if (IMAGES[code] && !moveAnimations.some(animation => animation.to === i)) {
+                    if (currentTheme === 'glass') {
+                        ctx.save();
+                        ctx.globalAlpha = 0.9;
+                        ctx.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.18))';
+                        ctx.drawImage(IMAGES[code], c*tileSize, r*tileSize, tileSize, tileSize);
+                        ctx.restore();
+                    } else {
+                        ctx.drawImage(IMAGES[code], c*tileSize, r*tileSize, tileSize, tileSize);
+                    }
+                }
             }
         }
     }
@@ -1534,7 +1691,15 @@ function draw() {
         if (IMAGES[code]) {
             const now = performance.now();
             if (motionBlurEnabled) drawMotionBlurTrail(IMAGES[code], dragState.trail || [], now);
-            ctx.drawImage(IMAGES[code], dragState.x - tileSize / 2, dragState.y - tileSize / 2, tileSize, tileSize);
+            if (currentTheme === 'glass') {
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.filter = 'drop-shadow(0 0 10px rgba(255,255,255,0.24))';
+                ctx.drawImage(IMAGES[code], dragState.x - tileSize / 2, dragState.y - tileSize / 2, tileSize, tileSize);
+                ctx.restore();
+            } else {
+                ctx.drawImage(IMAGES[code], dragState.x - tileSize / 2, dragState.y - tileSize / 2, tileSize, tileSize);
+            }
             if (motionBlurEnabled && dragState.trail && dragState.trail.some(point => now - point.time < getMotionBlurDuration())) scheduleMotionFrame();
         }
     }
@@ -1607,15 +1772,27 @@ function drawMoveAnimations() {
             animation.trail = animation.trail.filter(point => now - point.time < getMotionBlurDuration());
             drawMotionBlurTrail(image, animation.trail, now);
         }
-        ctx.drawImage(image, x - tileSize / 2, y - tileSize / 2, tileSize, tileSize);
+        if (currentTheme === 'glass') {
+            ctx.save();
+            ctx.globalAlpha = 0.9;
+            ctx.filter = 'drop-shadow(0 0 10px rgba(255,255,255,0.22))';
+            ctx.drawImage(image, x - tileSize / 2, y - tileSize / 2, tileSize, tileSize);
+            ctx.restore();
+        } else {
+            ctx.drawImage(image, x - tileSize / 2, y - tileSize / 2, tileSize, tileSize);
+        }
     }
     if (moveAnimations.length) scheduleMotionFrame();
 }
 
 function drawBoardAnnotations() {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#81b64c';
+    const accentRgb = hexToRgb(accent) || {r: 129, g: 182, b: 76};
+    const arrowFill = `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.72)`;
+    const arrowStroke = `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.9)`;
     ctx.save();
-    ctx.strokeStyle = 'rgba(38, 110, 45, 0.72)';
-    ctx.fillStyle = 'rgba(38, 110, 45, 0.72)';
+    ctx.strokeStyle = arrowStroke;
+    ctx.fillStyle = arrowFill;
     ctx.lineWidth = Math.max(3, tileSize * 0.12);
     ctx.lineCap = 'round';
     for (const square of boardCircles) {
@@ -1634,14 +1811,14 @@ function drawBoardAnnotations() {
             const path = document.createElementNS(SVG_NS, 'path');
             path.setAttribute('data-board-arrow', '');
             path.setAttribute('d', geometry.path);
-            path.setAttribute('fill', 'url(#liquid-arrow-glass)');
-            path.setAttribute('stroke', 'rgba(255,255,255,0.72)');
+            path.setAttribute('fill', `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.48)`);
+            path.setAttribute('stroke', `rgba(255,255,255,0.72)`);
             path.setAttribute('stroke-width', String(Math.max(1, tileSize * 0.018)));
             path.setAttribute('stroke-linejoin', 'round');
             path.setAttribute('filter', 'url(#liquid-arrow-refraction)');
             annotationOverlay.appendChild(path);
         } else {
-            ctx.fillStyle = 'rgba(38, 110, 45, 0.72)';
+            ctx.fillStyle = arrowFill;
             ctx.beginPath();
             ctx.moveTo(geometry.tailLeftX, geometry.tailLeftY);
             ctx.lineTo(geometry.baseLeftX, geometry.baseLeftY);
@@ -1653,6 +1830,14 @@ function drawBoardAnnotations() {
         }
     }
     ctx.restore();
+}
+
+function hexToRgb(hex) {
+    const normalized = hex.replace('#', '');
+    if (!/^[0-9a-f]{3}$/i.test(normalized) && !/^[0-9a-f]{6}$/i.test(normalized)) return null;
+    const full = normalized.length === 3 ? normalized.split('').map(ch => ch + ch).join('') : normalized;
+    const value = Number.parseInt(full, 16);
+    return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
 }
 
 function getBoardArrowGeometry(arrow) {
@@ -2326,11 +2511,11 @@ function makeBotMove() {
     stockfishSearchFen = boardToFen();
     const difficulty = difficultyLevel;
     const settings = {
-        easy: { skill: 0, elo: 1350, time: 250 },
-        med: { skill: 5, elo: 1650, time: 700 },
-        hard: { skill: 12, elo: 2200, time: 1800 },
-        master: { skill: 20, elo: null, time: 4500 }
-    }[difficulty] || { skill: 20, elo: null, time: 4500 };
+        easy: { skill: 0, elo: 1100, time: 160 },
+        med: { skill: 4, elo: 1400, time: 350 },
+        hard: { skill: 9, elo: 1750, time: 900 },
+        master: { skill: 18, elo: 2300, time: 2200 }
+    }[difficulty] || { skill: 18, elo: 2300, time: 2200 };
 
     stockfishWorker.postMessage(`setoption name UCI_LimitStrength value ${settings.elo !== null}`);
     if (settings.elo !== null) stockfishWorker.postMessage(`setoption name UCI_Elo value ${settings.elo}`);
