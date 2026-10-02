@@ -677,7 +677,7 @@
                 <h3>Stockfish</h3>
                 <button id="settings-import-engine-files-button" type="button" hidden onclick="document.getElementById('settings-import-engine-files').click()">Import Stockfish folder</button>
                 <input id="settings-import-engine-files" type="file" webkitdirectory directory multiple hidden onchange="connectStockfishFiles(this.files)">
-                <p id="engine-setting-status" role="status">Full-strength engine preferred. Lightweight engine is used if loading fails.</p>
+                <p id="engine-setting-status" role="status">Stockfish loads when you open Settings. Lightweight AI is used if loading fails.</p>
             </div>
             <div class="setting-block">
                 <h3>Move sounds</h3>
@@ -1095,6 +1095,13 @@ function showSettingsMessage(message) {
 
 function openSettings() {
     document.getElementById('settings-overlay').hidden = false;
+    const status = document.getElementById('engine-setting-status');
+    if (location.protocol === 'file:') {
+        if (!stockfishWorker) status.innerText = 'Import a Stockfish folder to load the full-strength engine.';
+    } else if (!stockfishWorker && !lightweightFallback) {
+        status.innerText = 'Loading Stockfish 17.1...';
+        startStockfishWorker();
+    }
 }
 
 function closeSettings() {
@@ -2057,6 +2064,7 @@ function startStockfishWorker() {
     } catch (error) {
         document.getElementById('game-status').innerText = getTurnLabel();
         lightweightFallback = true;
+        document.getElementById('engine-setting-status').innerText = 'Stockfish could not start. Lightweight AI is active.';
     }
 }
 
@@ -2111,7 +2119,7 @@ function failStockfishWorker(error) {
         startup.reject(new Error(error && error.message ? error.message : 'Stockfish worker failed'));
     }
     document.getElementById('game-status').innerText = getTurnLabel();
-    document.getElementById('engine-setting-status').innerText = 'Stockfish could not start. Lightweight AI is active; you can retry the import.';
+    document.getElementById('engine-setting-status').innerText = 'Stockfish could not start. Lightweight AI is active.';
     const button = document.getElementById('settings-import-engine-files-button');
     button.hidden = false;
     button.innerText = 'Retry Stockfish folder import';
@@ -2144,22 +2152,32 @@ async function createImportedStockfishWorker(folderHandle) {
         wasmParts.push(partFile);
     }
 
-    const patchedSource = workerSource.replace('enginePartsCount=6', 'enginePartsCount=null');
-    const wasmUrl = URL.createObjectURL(new Blob(wasmParts, { type: 'application/wasm' }));
-    const workerUrl = URL.createObjectURL(new Blob([patchedSource], { type: 'text/javascript' }));
+    const moduleOptions = '},listener:function(e){postMessage(e)}}';
+    if (!workerSource.includes(moduleOptions)) throw new Error('This Stockfish worker has an unsupported module loader.');
+    const patchedSource = workerSource
+        .replace('enginePartsCount=6', 'enginePartsCount=null')
+        .replace(moduleOptions, '},wasmBinary:self.stockfishWasmBinary,listener:function(e){postMessage(e)}}');
+    const wasmBinary = await new Blob(wasmParts, { type: 'application/wasm' }).arrayBuffer();
+    const bootstrapSource = 'self.onmessage=async function(event){if(event.data.type!=="initialize-stockfish")return;self.stockfishWasmBinary=new Uint8Array(event.data.wasmBinary);self.onmessage=null;(0,eval)(event.data.source);postMessage({type:"stockfish-initialized"})};';
+    const workerUrl = URL.createObjectURL(new Blob([bootstrapSource], { type: 'text/javascript' }));
     let worker;
     try {
-        worker = new Worker(`${workerUrl}#${encodeURIComponent(wasmUrl)}`);
+        worker = new Worker(workerUrl);
     } catch (error) {
-        URL.revokeObjectURL(wasmUrl);
         URL.revokeObjectURL(workerUrl);
         throw error;
     }
 
     stockfishWorker = worker;
-    stockfishResourceUrls = [wasmUrl, workerUrl];
+    stockfishResourceUrls = [workerUrl];
     stockfishReady = false;
-    worker.onmessage = event => handleStockfishMessage(String(event.data));
+    worker.onmessage = event => {
+        if (event.data && event.data.type === 'stockfish-initialized') {
+            worker.postMessage('uci');
+            return;
+        }
+        handleStockfishMessage(String(event.data));
+    };
     worker.onerror = failStockfishWorker;
 
     await new Promise((resolve, reject) => {
@@ -2171,7 +2189,7 @@ async function createImportedStockfishWorker(folderHandle) {
             resolve: () => { clearTimeout(timeout); resolve(); },
             reject: error => { clearTimeout(timeout); reject(error); }
         };
-        worker.postMessage('uci');
+        worker.postMessage({ type: 'initialize-stockfish', source: patchedSource, wasmBinary }, [wasmBinary]);
     });
 }
 
@@ -2254,6 +2272,7 @@ function handleStockfishMessage(line) {
     }
     if (line === 'readyok') {
         stockfishReady = true;
+        document.getElementById('engine-setting-status').innerText = 'Stockfish 17.1 is ready.';
         if (stockfishStartup) {
             const startup = stockfishStartup;
             stockfishStartup = null;
