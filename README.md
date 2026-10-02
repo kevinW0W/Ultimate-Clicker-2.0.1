@@ -13,7 +13,7 @@ While certain components in this compilation leverage legacy design patterns or 
 Since this repository has **GitHub Pages** enabled, you can play the latest live versions of these games directly in your browser without downloading any files:
 
 *   🚀 **[Launch Main Clicker Game](https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/Clicker%20Game.html)**
-*   ♟️ **[Play Classic Chess](https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/GrandChess.com.html)**
+*   ♟️ **[Play Classic Chess](https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/Chess/GrandChess.com.html)**
 *   🔮 **[Play Glass Chess Variant](https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/GlassChess.html)**
 *   🎯 **[Play Orb-Tosser](https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/Orb-Tosser.html)**
 
