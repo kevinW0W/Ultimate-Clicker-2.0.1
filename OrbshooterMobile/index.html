@@ -1487,13 +1487,15 @@
 
             const hbGroup = new THREE.Group();
             hbGroup.position.y = 1.0;
-            const bg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.1), new THREE.MeshBasicMaterial({ color: 0x550000 }));
+            const bg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.1), new THREE.MeshBasicMaterial({ color: 0x222222 }));
+            bg.visible = false;
             const fg = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.1), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
             fg.position.z = 0.01;
             fg.userData.isFg = true;
             hbGroup.add(bg, fg);
             bot.add(hbGroup);
             bot.userData.healthBar = fg;
+            bot.userData.healthBarBackground = bg;
             
             let bx, bz;
             do {
@@ -3530,6 +3532,11 @@
                             if (gameMode !== 'ffa' && botGroup.userData.team === 'blue') return;
 
                             botGroup.userData.hp -= weapon.damage;
+                            const hpPercent = Math.max(0, botGroup.userData.hp / 100);
+                            botGroup.userData.healthBar.scale.x = hpPercent;
+                            botGroup.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
+                            botGroup.userData.healthBar.material.color.setHex(0x00ff00);
+                            botGroup.userData.healthBarBackground.visible = hpPercent < 1;
                             if (botGroup.userData.hp <= 0) {
                                 showHitMarker(false);
                                 logFeed(`${ownerData.name} knifed ${botGroup.userData.name}`);
@@ -3605,7 +3612,8 @@
                             const hpPercent = Math.max(0, b.userData.hp / 100);
                             b.userData.healthBar.scale.x = hpPercent;
                             b.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
-                            b.userData.healthBar.material.color.setHSL(hpPercent * 0.3, 1, 0.5);
+                            b.userData.healthBar.material.color.setHex(0x00ff00);
+                            b.userData.healthBarBackground.visible = hpPercent < 1;
 
                             if(b.userData.hp <= 0) {
                                 logFeed(`${ownerData.name} knifed ${b.userData.name}`);
@@ -3732,6 +3740,12 @@
             } else {
                 entity.position.set(rx, 0.9, rz);
                 entity.userData.hp = 100;
+                if (entity.userData.healthBar) {
+                    entity.userData.healthBar.scale.x = 1;
+                    entity.userData.healthBar.position.x = 0;
+                    entity.userData.healthBar.material.color.setHex(0x00ff00);
+                    if (entity.userData.healthBarBackground) entity.userData.healthBarBackground.visible = false;
+                }
             }
         }
 
@@ -4333,7 +4347,8 @@
                         const hpPercent = Math.max(0, bot.userData.hp / 100);
                         bot.userData.healthBar.scale.x = hpPercent;
                         bot.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
-                        bot.userData.healthBar.material.color.setHSL(hpPercent * 0.3, 1, 0.5);
+                        bot.userData.healthBar.material.color.setHex(0x00ff00);
+                        bot.userData.healthBarBackground.visible = hpPercent < 1;
 
                         if (p.userData.ownerId === "player") bot.userData.aggroTarget = "player";
                         
