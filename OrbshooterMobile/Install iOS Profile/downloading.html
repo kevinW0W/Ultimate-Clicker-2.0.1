@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Download the Orb Tosser iOS configuration profile.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Download Orb Tosser Profile">
+    <meta property="og:description" content="Downloading the Orb Tosser iOS configuration profile.">
+    <title>Downloading Orb Tosser Profile…</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            display: grid;
+            place-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #0f172a;
+            background: linear-gradient(135deg, #f1f5f9, #dbeafe);
+        }
+        main {
+            width: min(100%, 420px);
+            padding: 36px 28px;
+            text-align: center;
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, .1);
+        }
+        img { width: 80px; height: 80px; object-fit: cover; border-radius: 20px; }
+        h1 { margin: 20px 0 8px; font-size: 25px; }
+        p { margin: 0 0 24px; color: #475569; line-height: 1.5; }
+        a {
+            display: block;
+            padding: 15px 20px;
+            color: white;
+            background: #2563eb;
+            border-radius: 14px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        a:hover { background: #1d4ed8; }
+        .note { margin: 18px 0 0; font-size: 13px; }
+        .status { min-height: 24px; margin-top: 16px; font-size: 14px; }
+        .popup-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, .55);
+        }
+        .popup-backdrop[hidden] { display: none; }
+        .popup {
+            width: min(100%, 360px);
+            padding: 26px;
+            text-align: center;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, .25);
+        }
+        .popup h2 { margin: 0 0 10px; font-size: 20px; }
+        .popup p { margin: 0; }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="Icon.PNG" alt="Orb Tosser icon">
+        <h1 id="heading">Downloading…</h1>
+        <p id="description">Your Orb Tosser configuration profile is being opened for download.</p>
+        <a id="downloadLink" href="Install%20File%20Config/Orb%20Tosser.mobileconfig">Download profile again</a>
+        <p class="note">After downloading, open Settings and tap <strong>Profile Downloaded</strong> to install it.</p>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+    </main>
+    <div class="popup-backdrop" id="popupBackdrop" role="dialog" aria-modal="true" aria-labelledby="popupTitle" hidden>
+        <div class="popup">
+            <h2 id="popupTitle">Download started</h2>
+            <p>When it finishes, open Settings, tap <strong>Profile Downloaded</strong>, then tap <strong>Install</strong>.</p>
+        </div>
+    </div>
+    <script>
+        const downloadLink = document.getElementById("downloadLink");
+        const popupBackdrop = document.getElementById("popupBackdrop");
+
+        window.addEventListener("load", () => {
+            window.setTimeout(() => {
+                downloadLink.click();
+                document.getElementById("heading").textContent = "Downloading…";
+                document.getElementById("description").textContent = "Your profile download should begin now.";
+                document.getElementById("status").textContent = "If it did not start, tap Download profile again.";
+                popupBackdrop.hidden = false;
+            }, 500);
+        });
+
+        popupBackdrop.addEventListener("click", (event) => {
+            if (event.target === popupBackdrop) popupBackdrop.hidden = true;
+        });
+    </script>
+</body>
+</html>
