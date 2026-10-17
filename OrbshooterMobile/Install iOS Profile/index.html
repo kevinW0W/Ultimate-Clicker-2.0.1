@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orb Tosser — iOS Installation</title>
+    <meta name="description" content="Install the Orb Tosser iOS configuration profile and follow the step-by-step setup guide.">
+    <!-- Replace YOUR-USERNAME and YOUR-REPOSITORY with the GitHub Pages address after publishing. -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Orb Tosser — iOS Installation">
+    <meta property="og:description" content="Install the Orb Tosser iOS configuration profile and follow the step-by-step setup guide.">
+    <meta property="og:url" content="https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/">
+    <meta property="og:image" content="https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/social-preview.png">
+    <meta property="og:image:alt" content="Orb Tosser banner">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Orb Tosser — iOS Installation">
+    <meta name="twitter:description" content="Install the Orb Tosser iOS configuration profile and follow the step-by-step setup guide.">
+    <meta name="twitter:image" content="https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/social-preview.png">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .installer-container {
+            max-width: 360px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .installer-card {
+            background: #ffffff;
+            padding: 32px;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .icon-container {
+            width: 84px;
+            height: 84px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .app-icon {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            -webkit-user-drag: none;
+            user-drag: none;
+            pointer-events: auto;
+        }
+
+        .app-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 6px 0;
+        }
+
+        .app-subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0 0 26px 0;
+            line-height: 1.4;
+        }
+
+        .profile-note {
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.5;
+            margin: -12px 0 20px;
+        }
+
+        .btn-install,
+        .btn-share {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 14px 24px;
+            border-radius: 14px;
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .btn-install {
+            background: #2563eb;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-install:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .btn-share {
+            margin-top: 12px;
+            background: #e0f2fe;
+            color: #0f172a;
+            border: 1px solid #bae6fd;
+        }
+
+        .btn-share:hover {
+            background: #bae6fd;
+            transform: translateY(-1px);
+        }
+
+        .guide-card {
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            margin-top: 24px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .guide-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 20px 0;
+        }
+
+        .guide-steps {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-item + .step-item {
+            margin-top: 24px;
+        }
+
+        .step-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 700;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .step-text {
+            font-size: 13.5px;
+            color: #475569;
+            line-height: 1.5;
+            margin: 0 0 0 12px;
+        }
+
+        .step-text strong {
+            color: #0f172a;
+        }
+
+        .step-screenshot-box {
+            margin-left: 34px;
+            margin-top: 10px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .step-screenshot {
+            width: 100%;
+            height: auto;
+            display: block;
+            -webkit-user-drag: none;
+            user-drag: none;
+        }
+
+        .platform-notice {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: #0f172a;
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .platform-notice[hidden] {
+            display: none;
+        }
+
+        .platform-notice h1 {
+            max-width: 480px;
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.25;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="platformNotice" class="platform-notice" role="alertdialog" aria-modal="true" aria-labelledby="platformNoticeTitle" hidden>
+        <h1 id="platformNoticeTitle">This is for iOS only to install.</h1>
+    </div>
+
+    <div class="installer-container">
+        
+        <!-- Main Installer Box -->
+        <div class="installer-card">
+            <div class="icon-container">
+                <img class="app-icon" src="Icon.PNG" alt="Orb Tosser app icon" draggable="false" oncontextmenu="return false;">
+            </div>
+            
+            <h2 class="app-title">Orb Tosser</h2>
+            <p class="app-subtitle">Download the configuration profile to install Orb Tosser.</p>
+            <p class="profile-note">This profile adds an iOS Web Clip that opens the Orb Tosser website; it does not install a standalone app. This describes the profile's function, but cannot guarantee the website is virus-free.</p>
+            
+            <button id="installButton" type="button" class="btn-install" aria-label="Download profile">
+                Download Profile
+            </button>
+            <button id="shareButton" type="button" class="btn-share" aria-label="Share profile link">
+                Share
+            </button>
+        </div>
+
+        <!-- iOS Step-by-Step Guide Box -->
+        <div class="guide-card">
+            <h3 class="guide-title">📱 How to Install on iOS</h3>
+            <ul class="guide-steps">
+                
+                <!-- Step 1 -->
+                <li class="step-item">
+                    <div class="step-header">
+                        <span class="step-number">1</span>
+                        <p class="step-text">Tap <strong>Download Profile</strong> above and choose <strong>Allow</strong> when prompted to download the configuration profile.</p>
+                    </div>
+                    <div class="step-screenshot-box">
+                        <img class="step-screenshot" src="Images%20Guide/step1.png" alt="Step 1 Screenshot" draggable="false" oncontextmenu="return false;">
+                    </div>
+                </li>
+
+                <!-- Step 2 -->
+                <li class="step-item">
+                    <div class="step-header">
+                        <span class="step-number">2</span>
+                        <p class="step-text">Open your device's <strong>Settings</strong> app.</p>
+                    </div>
+                    <div class="step-screenshot-box">
+                        <img class="step-screenshot" src="Images%20Guide/step2.png" alt="Step 2 Screenshot">
+                    </div>
+                </li>
+
+                <!-- Step 3 -->
+                <li class="step-item">
+                    <div class="step-header">
+                        <span class="step-number">3</span>
+                        <p class="step-text">Tap the <strong>Profile Downloaded</strong> banner right at the top of the menu screen.</p>
+                    </div>
+                    <div class="step-screenshot-box">
+                        <img class="step-screenshot" src="Images%20Guide/step3.png" alt="Step 3 Screenshot">
+                    </div>
+                </li>
+
+                <!-- Step 4 -->
+                <li class="step-item">
+                    <div class="step-header">
+                        <span class="step-number">4</span>
+                        <p class="step-text">Tap <strong>Install</strong> in the top-right corner, enter your passcode, and confirm the security prompts.</p>
+                    </div>
+                    <div class="step-screenshot-box">
+                        <img class="step-screenshot" src="Images%20Guide/step4.png" alt="Step 4 Screenshot">
+                    </div>
+                </li>
+
+                <!-- Step 5 -->
+                <li class="step-item">
+                    <div class="step-header">
+                        <span class="step-number">5</span>
+                        <p class="step-text">Installed <strong>Apps</strong> will be appear here.</p>
+                    </div>
+                    <div class="step-screenshot-box">
+                        <img class="step-screenshot" src="Images%20Guide/step5.png" alt="Step 5 Screenshot">
+                    </div>
+                </li>
+
+            </ul>
+        </div>
+
+    </div>
+
+    <script>
+        const installButton = document.getElementById("installButton");
+        const shareButton = document.getElementById("shareButton");
+        const profileUrl = new URL("Install%20File%20Config/Orb%20Tosser.mobileconfig", window.location.href).href;
+        const shareUrl = window.location.href;
+
+        installButton.addEventListener("click", () => {
+            const tempLink = document.createElement("a");
+            tempLink.href = profileUrl;
+            tempLink.download = "Orb Tosser.mobileconfig";
+            tempLink.rel = "noopener";
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            tempLink.remove();
+        });
+
+        shareButton.addEventListener("click", async () => {
+            const shareData = {
+                title: "Orb Tosser",
+                text: "Open the Orb Tosser iOS install page and follow the setup steps.",
+                url: shareUrl
+            };
+
+            try {
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                    return;
+                }
+            } catch (error) {
+                if (error && error.name !== "AbortError") {
+                    console.warn("Share failed:", error);
+                }
+            }
+
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                const originalText = shareButton.textContent;
+                shareButton.textContent = "Link copied";
+                setTimeout(() => {
+                    shareButton.textContent = originalText;
+                }, 1800);
+            } catch (error) {
+                console.warn("Copy failed:", error);
+                window.prompt("Copy this link:", shareUrl);
+            }
+        });
+
+        document.addEventListener("contextmenu", (event) => {
+            const target = event.target;
+            if (target && target.tagName === "IMG") {
+                event.preventDefault();
+            }
+        });
+
+        document.addEventListener("dragstart", (event) => {
+            if (event.target && event.target.tagName === "IMG") {
+                event.preventDefault();
+            }
+        });
+
+        if (/Android/i.test(navigator.userAgent)) {
+            document.getElementById("platformNotice").hidden = false;
+            document.querySelector(".installer-container").inert = true;
+        }
+    </script>
+
+</body>
+</html>
