@@ -138,6 +138,7 @@
         #overlay::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
         @media screen and (max-width: 600px) {
             #overlay { padding: 16px 12px; }
+            #weapon-name { bottom: calc(40px + 1em + 8px); right: 40px; font-size: 14px; }
             #overlay > h1 { font-size: 32px !important; margin: 0 0 8px !important; }
             #overlay > p:not(#loadout-instructions) { margin-bottom: 12px !important; font-size: 12px; }
             #loadout-grid { gap: 8px !important; }
@@ -238,7 +239,7 @@
             backdrop-filter: blur(5px);
             z-index: 20;
         }
-        #weapon-name { position: absolute; bottom: 80px; right: 40px; font-size: 16px; font-weight: bold; color: #0ff; text-shadow: 1px 1px 0 #000; pointer-events: none; }
+        #weapon-name { position: absolute; bottom: 80px; right: 40px; z-index: 25; font-size: 16px; font-weight: bold; color: #0ff; text-shadow: 2px 2px 3px #000; pointer-events: none; white-space: nowrap; }
         #aim-btn { border-color: #ff0; background: rgba(255, 255, 0, 0.2); margin-right: 10px; }
         
         /* Hit Marker */
@@ -293,7 +294,7 @@
             #health-display, #ammo-display { bottom: 5vw !important; font-size: 3.2vw; }
             #health-display { left: 5vw; }
             #ammo-display { right: 5vw; }
-            #weapon-name { bottom: 10vw; right: 5vw; font-size: 1.8vw; }
+            #weapon-name { bottom: 9vw; right: 5vw; font-size: 1.8vw; }
             #mobile-controls { top: 0; bottom: auto; height: var(--app-height, 100vh); padding: 0; }
             .joystick-area { width: 14vw; height: 14vw; }
             #move-stick { bottom: 5vw !important; left: 5vw !important; }
