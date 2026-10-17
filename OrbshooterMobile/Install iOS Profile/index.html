@@ -363,8 +363,8 @@
         const installButton = document.getElementById("installButton");
         const shareButton = document.getElementById("shareButton");
         const profileUrl = new URL("Install%20File%20Config/Orb%20Tosser.mobileconfig", window.location.href).href;
-        // Share the profile file itself so recipients go straight to the download.
-        const shareUrl = profileUrl;
+        // Share the download screen, where recipients can install the profile.
+        const shareUrl = new URL("downloading.html", window.location.href).href;
 
         installButton.addEventListener("click", () => {
             const tempLink = document.createElement("a");
@@ -379,7 +379,7 @@
         shareButton.addEventListener("click", async () => {
             const shareData = {
                 title: "Orb Tosser",
-                text: "Download the Orb Tosser iOS configuration profile.",
+                text: "Open this page and tap Install Mobileconfig to download the Orb Tosser profile.",
                 url: shareUrl
             };
 
