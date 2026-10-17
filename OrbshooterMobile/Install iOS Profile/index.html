@@ -90,6 +90,7 @@
         }
 
         .btn-install,
+        .btn-game,
         .btn-share {
             display: inline-flex;
             align-items: center;
@@ -120,6 +121,26 @@
             background: #1d4ed8;
             transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+        }
+
+        .btn-game {
+            gap: 10px;
+            margin-top: 12px;
+            background: #059669;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(5, 150, 105, 0.25);
+        }
+
+        .btn-game:hover {
+            background: #047857;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(5, 150, 105, 0.35);
+        }
+
+        .btn-game svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
         }
 
         .btn-share {
@@ -261,6 +282,13 @@
             <button id="installButton" type="button" class="btn-install" aria-label="Download profile">
                 Download Profile
             </button>
+            <a class="btn-game" href="https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/OrbshooterMobile/Orb-TosserMobile.html" aria-label="Play Orb Tosser now">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M6 11h4m-2-2v4m7-1h.01M18 10h.01"/>
+                    <path d="M7 6h10a4 4 0 0 1 3.9 3.1l1 4.5A3 3 0 0 1 17 16l-2-2H9l-2 2a3 3 0 0 1-4.9-2.4l1-4.5A4 4 0 0 1 7 6Z"/>
+                </svg>
+                Play Orb Tosser Now
+            </a>
             <button id="shareButton" type="button" class="btn-share" aria-label="Share profile link">
                 Share
             </button>
