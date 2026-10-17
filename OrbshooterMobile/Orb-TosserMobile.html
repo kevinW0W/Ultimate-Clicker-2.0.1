@@ -123,6 +123,23 @@
         #overlay::-webkit-scrollbar { width: 8px; }
         #overlay::-webkit-scrollbar-track { background: #000; }
         #overlay::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
+        @media screen and (max-width: 600px) {
+            #overlay { padding: 16px 12px; }
+            #overlay > h1 { font-size: 32px !important; margin: 0 0 8px !important; }
+            #overlay > p:not(#loadout-instructions) { margin-bottom: 12px !important; font-size: 12px; }
+            #loadout-grid { gap: 8px !important; }
+            #loadout-grid .btn { flex: 1 1 calc(50% - 8px); width: auto !important; min-width: 0; margin: 0; padding: 8px !important; font-size: 12px !important; }
+            #loadout-instructions { margin: 12px 0 8px !important; font-size: 12px !important; }
+            #loadout-settings, #respawn-btn { margin: 8px 0 !important; padding: 10px 16px; font-size: 16px; }
+        }
+        @media screen and (max-height: 500px) {
+            #intro-screen { justify-content: flex-start !important; overflow-y: auto; box-sizing: border-box; padding: 16px 12px; }
+            body #intro-screen h1 { font-size: 36px !important; margin: 0 0 8px; }
+            #play-intro-btn { margin-top: 16px !important; padding: 12px 32px !important; font-size: 22px !important; }
+            #overlay { padding-top: 12px; padding-bottom: 12px; }
+            body #overlay > h1 { font-size: 32px !important; margin-bottom: 8px !important; }
+            #loadout-instructions { margin-top: 12px !important; }
+        }
         #layout-editor-ui {
             display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             z-index: 600; gap: 10px; align-items: center; padding: 10px 14px;
@@ -630,6 +647,7 @@
         gameBgm.preload = 'auto';
         gameBgm.volume = 0.3;
         let customBgmUrl = null;
+        const CUSTOM_BGM_DATABASE = 'orbTosserAudio';
         const COLLISION_RADIUS = 0.5; 
 
         const BASE_BOT_NAMES = ["OrbMaster", "NeonNexus", "VoidWalker", "Cipher", "Glitch", "Echo", "Spectre", "Phantom", "Viper", "Cobra", "Raven", "Wolf", "Bear", "Eagle", "Shadow", "Ghost", "Reaper", "Storm", "Blaze", "Frost", "Titan", "Onyx", "Steel", "Razor", "Blade"];
@@ -978,6 +996,61 @@
             menuBgm.play().catch(e => console.warn('Menu music could not start:', e));
         }
 
+        function openCustomBgmDatabase() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) {
+                    reject(new Error('IndexedDB is unavailable.'));
+                    return;
+                }
+                const request = indexedDB.open(CUSTOM_BGM_DATABASE, 1);
+                request.onupgradeneeded = () => request.result.createObjectStore('tracks');
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error || new Error('Could not open audio storage.'));
+            });
+        }
+
+        function saveCustomBgmFile(file) {
+            return openCustomBgmDatabase().then(db => new Promise((resolve, reject) => {
+                const transaction = db.transaction('tracks', 'readwrite');
+                transaction.objectStore('tracks').put(file, 'custom');
+                transaction.oncomplete = () => { db.close(); resolve(); };
+                transaction.onerror = () => { db.close(); reject(transaction.error || new Error('Could not save the audio file.')); };
+                transaction.onabort = () => { db.close(); reject(transaction.error || new Error('Audio file save was cancelled.')); };
+            }));
+        }
+
+        function loadCustomBgmFile() {
+            return openCustomBgmDatabase().then(db => new Promise((resolve, reject) => {
+                const transaction = db.transaction('tracks', 'readonly');
+                const request = transaction.objectStore('tracks').get('custom');
+                request.onsuccess = () => { db.close(); resolve(request.result || null); };
+                request.onerror = () => { db.close(); reject(request.error || new Error('Could not load the saved audio file.')); };
+            }));
+        }
+
+        function applySelectedGameBgm() {
+            const bgmSelect = document.getElementById('bgm-select');
+            const selectedBgm = bgmSelect.value === 'custom' ? customBgmUrl : gameTracks[parseInt(bgmSelect.value, 10)];
+            if (selectedBgm && gameBgm.dataset.track !== selectedBgm) {
+                gameBgm.pause();
+                gameBgm.src = selectedBgm;
+                gameBgm.dataset.track = selectedBgm;
+                gameBgm.load();
+                if (gameHasStarted) playGameMusic();
+            }
+        }
+
+        function restoreCustomBgm() {
+            loadCustomBgmFile().then(file => {
+                if (!file) return;
+                if (customBgmUrl) URL.revokeObjectURL(customBgmUrl);
+                customBgmUrl = URL.createObjectURL(file);
+                if (document.getElementById('bgm-select').value === 'custom') {
+                    applySelectedGameBgm();
+                }
+            }).catch(error => console.warn('Saved custom music could not be restored:', error));
+        }
+
         function importCustomBgm(event) {
             const file = event.target.files && event.target.files[0];
             if (!file) return;
@@ -994,6 +1067,10 @@
             customBgmUrl = URL.createObjectURL(file);
             document.getElementById('bgm-select').value = 'custom';
             updateSettings();
+            saveCustomBgmFile(file).catch(error => {
+                console.warn('Custom music could not be saved:', error);
+                alert('The custom track is playing, but could not be saved on this device.');
+            });
         }
 
         function configureCustomBgmPicker() {
@@ -1847,14 +1924,7 @@
             const bgmSelect = document.getElementById('bgm-select');
             const isCustomBgm = bgmSelect.value === 'custom';
             document.getElementById('custom-bgm-import').style.display = isCustomBgm ? 'flex' : 'none';
-            const selectedBgm = isCustomBgm ? customBgmUrl : gameTracks[parseInt(bgmSelect.value, 10)];
-            if (selectedBgm && gameBgm.dataset.track !== selectedBgm) {
-                gameBgm.pause();
-                gameBgm.src = selectedBgm;
-                gameBgm.dataset.track = selectedBgm;
-                gameBgm.load();
-                if (gameHasStarted) playGameMusic();
-            }
+            applySelectedGameBgm();
 
             menuBgm.volume = vol;
             introBgm.volume = vol;
@@ -1891,7 +1961,7 @@
                 mobileAutoAim: document.getElementById('mobile-auto-aim-check').checked,
                 mobileAutoShoot: document.getElementById('mobile-auto-shoot-check').checked,
                 glossy: document.getElementById('glossy-check').checked,
-                bgmIndex: document.getElementById('bgm-select').value === 'custom' ? '0' : document.getElementById('bgm-select').value,
+                bgmIndex: document.getElementById('bgm-select').value,
                 music: document.getElementById('music-slider').value,
                 renderScale: document.getElementById('res-slider').value
             };
@@ -1925,6 +1995,7 @@
             }
             document.getElementById('fps-30-btn').innerText = frameRateLimit === 30 ? '30 FPS: ON' : '30 FPS: OFF';
             updateSettings();
+            restoreCustomBgm();
         }
 
         function saveControlMappings() {
