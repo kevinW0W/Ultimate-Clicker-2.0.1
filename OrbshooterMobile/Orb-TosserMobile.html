@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Orb Tosser Mobile</title>
     <meta name="description" content="Play Orb Tosser, a fast-paced mobile orb-throwing game.">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#0033aa">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Orb Tosser">
@@ -30,9 +30,11 @@
     <meta name="twitter:image" content="og-thumbnail.png">
     <meta name="twitter:image:alt" content="Orb Tosser Mobile game preview">
     <style>
-        html, body { width: 100%; height: 100%; }
-        body { margin: 0; overflow: hidden; min-height: 100vh; min-height: 100dvh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
-        canvas { display: block; }
+        :root { --app-height: 100vh; }
+        html, body { width: 100%; height: var(--app-height, 100vh); }
+        body { margin: 0; overflow: hidden; min-height: var(--app-height, 100vh); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #000; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; -webkit-overflow-scrolling: touch; }
+        #ios-status-bar-tint { position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); z-index: 9999; pointer-events: none; background: #0033aa; }
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 0; }
         #ui {
             position: absolute;
             top: 20px;
@@ -61,6 +63,12 @@
             border-radius: 5px;
             font-size: 14px;
             text-align: left;
+            max-height: 35vh;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            pointer-events: auto;
         }
         .lb-row { display: flex; justify-content: space-between; width: 150px; margin-bottom: 2px; }
         #health-display {
@@ -81,6 +89,7 @@
             border-radius: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none;
+            z-index: 30;
         }
         #aim-dot {
             position: absolute;
@@ -93,10 +102,11 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
             opacity: 0;
+            z-index: 30;
         }
         #overlay {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0; left: 0; width: 100%; height: var(--app-height, 100vh);
             overflow-y: auto;
             background: rgba(0,0,0,0.7);
             display: none;
@@ -121,6 +131,8 @@
         #desktop-only-screen { display: none; position: fixed; inset: 0; z-index: 2000; background: #000; color: #0ff; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; box-sizing: border-box; }
         #desktop-only-screen h1 { margin: 0 0 12px; font-size: 42px; }
         #desktop-only-screen p { margin: 0; color: #fff; font-size: 18px; }
+        #desktop-debug-menu { display: none; position: fixed; top: 12px; left: 12px; z-index: 2001; align-items: center; padding: 4px; background: rgba(0,0,0,0.75); border: 1px solid #0ff; border-radius: 5px; }
+        #desktop-debug-menu .btn { margin: 0; padding: 4px 7px; font-size: 10px; }
         #overlay::-webkit-scrollbar { width: 8px; }
         #overlay::-webkit-scrollbar-track { background: #000; }
         #overlay::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
@@ -132,14 +144,20 @@
             #loadout-grid .btn { flex: 1 1 calc(50% - 8px); width: auto !important; min-width: 0; margin: 0; padding: 8px !important; font-size: 12px !important; }
             #loadout-instructions { margin: 12px 0 8px !important; font-size: 12px !important; }
             #loadout-settings, #respawn-btn { margin: 8px 0 !important; padding: 10px 16px; font-size: 16px; }
+            #game-over-screen > h1 { font-size: 32px !important; margin: 0 0 8px !important; }
+            #game-over-screen > .btn { min-width: 140px; margin: 5px; padding: 8px 14px; font-size: 14px; }
         }
         @media screen and (max-height: 500px) {
-            #intro-screen { justify-content: flex-start !important; overflow-y: auto; box-sizing: border-box; padding: 16px 12px; }
+            #intro-screen { justify-content: center !important; overflow-y: auto; box-sizing: border-box; padding: 16px 12px; }
             body #intro-screen h1 { font-size: 36px !important; margin: 0 0 8px; }
             #play-intro-btn { margin-top: 16px !important; padding: 12px 32px !important; font-size: 22px !important; }
             #overlay { padding-top: 12px; padding-bottom: 12px; }
             body #overlay > h1 { font-size: 32px !important; margin-bottom: 8px !important; }
             #loadout-instructions { margin-top: 12px !important; }
+            #game-over-screen { padding-top: 8px; padding-bottom: 8px; }
+            #game-over-screen > h1 { font-size: 32px !important; margin-bottom: 8px !important; }
+            #final-scores { max-height: 35vh; }
+            #game-over-screen > .btn { margin: 4px; padding: 7px 14px; font-size: 14px; }
         }
         #layout-editor-ui {
             display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
@@ -158,7 +176,7 @@
         #control-edit-menu .btn { margin: 0; padding: 8px 10px; font-size: 12px; }
         .layout-control-selected { outline: 3px solid #fff; box-shadow: 0 0 16px #0ff; }
         #main-menu {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0; width: 100%; height: var(--app-height, 100vh);
             background: rgba(0,0,0,0.85); display: none;
             flex-direction: column; align-items: center; justify-content: center;
             z-index: 300;
@@ -167,7 +185,7 @@
             position: absolute;
             top: 0;
             bottom: auto;
-            height: 100%;
+            height: var(--app-height, 100vh);
             width: 100%;
             display: none;
             justify-content: space-between;
@@ -188,10 +206,15 @@
             z-index: 20; /* Added z-index to receive touches on top of look zone */
         }
         #game-over-screen {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: var(--app-height, 100vh);
             background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column;
-            align-items: center; justify-content: center; color: white;
+            align-items: center; justify-content: flex-start; color: white;
+            box-sizing: border-box; padding: 12px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
         }
+        #game-over-screen::-webkit-scrollbar, #final-scores::-webkit-scrollbar { display: none; }
+        #final-scores { width: min(100%, 280px); max-height: 45vh; flex: 0 0 auto; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: none; -ms-overflow-style: none; }
+        #final-scores h1 { font-size: 36px !important; }
+        #game-over-screen > .btn { min-width: 150px; margin: 6px; padding: 9px 18px; font-size: 16px; }
         .btn { padding: 15px 30px; background: #0ff; color: #000; border: none; font-size: 20px; cursor: pointer; margin: 10px; border-radius: 5px; font-weight: bold; }
         .btn:hover { background: #fff; }
         .controller-focus {
@@ -241,6 +264,24 @@
             0%, 100% { opacity: 1; text-shadow: 0 0 20px #0ff; }
             50% { opacity: 0.8; text-shadow: 0 0 10px #0ff; }
         }
+        #install-ios-btn {
+            display: none;
+            position: absolute;
+            right: max(16px, env(safe-area-inset-right));
+            bottom: max(16px, env(safe-area-inset-bottom));
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border: 2px solid #0ff;
+            border-radius: 5px;
+            background: #0ff;
+            color: #000;
+            font-weight: bold;
+            text-decoration: none;
+            z-index: 1;
+        }
+        #install-ios-btn:hover { background: #fff; }
+        #install-ios-btn img { width: 28px; height: 28px; object-fit: contain; }
 
         /* Keep touch controls and HUD proportional on iPad-sized viewports. */
         @media screen and (min-width: 768px) and (max-width: 1366px) {
@@ -253,7 +294,7 @@
             #health-display { left: 5vw; }
             #ammo-display { right: 5vw; }
             #weapon-name { bottom: 10vw; right: 5vw; font-size: 1.8vw; }
-            #mobile-controls { top: 0; bottom: auto; height: 100%; padding: 0; }
+            #mobile-controls { top: 0; bottom: auto; height: var(--app-height, 100vh); padding: 0; }
             .joystick-area { width: 14vw; height: 14vw; }
             #move-stick { bottom: 5vw !important; left: 5vw !important; }
             #crouch-btn { bottom: 5vw !important; left: 21vw !important; width: 9vw !important; height: 9vw !important; }
@@ -290,6 +331,7 @@
     <div id="controller-cursor" style="position: absolute; width: 20px; height: 20px; background: rgba(255, 0, 0, 0.7); border: 2px solid white; border-radius: 50%; pointer-events: none; display: none; z-index: 1000; transform: translate(-50%, -50%); box-shadow: 0 0 10px red;"></div>
 </head>
 <body>
+    <div id="ios-status-bar-tint" aria-hidden="true"></div>
     <div id="overlay">
         <h1 style="font-size: 48px; margin-bottom: 10px;">ORB TOSSER</h1>
         <p style="margin-bottom: 20px;">SELECT A LOADOUT (PRESS SPACEBAR TO DEPLOY)</p>
@@ -310,6 +352,9 @@
         <h1>THIS GAME IS FOR MOBILE ONLY</h1>
         <p>Open it on an iPhone or iPad to play.</p>
     </div>
+    <div id="desktop-debug-menu">
+        <button class="btn" type="button" onclick="closeDesktopDebug()">Close debug</button>
+    </div>
     <div id="layout-editor-ui">
         <span id="layout-editor-tip">Tap a control, then choose Move or Resize. Positions save automatically.</span>
         <button class="btn" onclick="saveLayout()">DONE</button>
@@ -321,10 +366,11 @@
         <button class="btn" onclick="resizeSelectedControl(10)">+</button>
     </div>
     
-    <div id="intro-screen" style="position:absolute; top:0; left:0; width:100%; height:100%; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:400; opacity:1; transition: opacity 1s ease;">
+    <div id="intro-screen" style="position:absolute; top:0; left:0; width:100%; height:var(--app-height, 100vh); background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:400; opacity:1; transition: opacity 1s ease;">
         <h1 style="font-size: 60px; color: #0ff; animation: flicker 3s infinite alternate;">ORB TOSSER</h1>
         <button id="play-intro-btn" class="btn" style="margin-top: 40px; opacity: 0; animation: fadeInBtn 1s 0.5s forwards; font-size: 30px; padding: 20px 60px; border: 2px solid #0ff; box-shadow: 0 0 20px #0ff;">START GAME</button>
         <div style="margin-top: 20px; color: #0ff; font-size: 16px; opacity: 0; animation: fadeInBtn 1s 1s forwards; text-shadow: 0 0 5px #0ff;">PRESS START / A / TAP</div>
+        <a id="install-ios-btn" href="https://kevinw0w.github.io/Ultimate-Clicker-2.0.1/OrbshooterMobile/Install%20iOS%20Profile/" aria-label="Install on iOS"><img src="touchicon.png" alt="">Install on iOS</a>
     </div>
 
     <div id="main-menu">
@@ -342,7 +388,7 @@
         <button class="btn" onclick="quitGame()" style="background: #555; color: #fff;">QUIT TO MENU</button>
     </div>
 
-    <div id="pause-menu" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#0ff; z-index:100;">
+    <div id="pause-menu" style="display:none; position:absolute; top:0; left:0; width:100%; height:var(--app-height, 100vh); background:rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#0ff; z-index:100;">
         <h1 style="font-size: 48px; margin-bottom: 10px;">PAUSED</h1>
         <button class="btn" onclick="resumeGame()">RESUME</button>
         <button class="btn" onclick="respawnToLoadout()" style="background: #008888; color: #fff;">RESPAWN / LOADOUT</button>
@@ -364,9 +410,14 @@
         <div style="display:flex; justify-content:space-between;"><span>Auto Graphics</span> <input type="checkbox" id="auto-graphics-check" checked onchange="updateSettings()"></div>
         <div id="graphics-preset-label" style="text-align:center; font-size:12px; color:#aaa; margin-top:-10px;">GRAPHICS: AUTO</div>
         <div style="display:flex; justify-content:space-between;"><span>Show FPS</span> <input type="checkbox" id="show-fps-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Show Crosshair</span> <input type="checkbox" id="show-crosshair-check" checked onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Disable Post-Processing</span> <input type="checkbox" id="disable-post-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between; align-items:center;"><span>Frame Rate</span> <button id="fps-30-btn" class="btn" type="button" onclick="toggleFrameRate()" style="font-size:14px; padding:8px 12px; margin:0;">30 FPS: OFF</button></div>
+        <div style="display:flex; justify-content:space-between;"><span>Desktop Toggle Sprint</span> <input type="checkbox" id="toggle-sprint-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Desktop Toggle Crouch</span> <input type="checkbox" id="desktop-toggle-crouch-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Mobile Toggle Aim</span> <input type="checkbox" id="toggle-aim-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mobile Toggle Crouch</span> <input type="checkbox" id="toggle-crouch-check" onchange="updateSettings()"></div>
+        <div style="display:flex; justify-content:space-between;"><span>Mobile Toggle Slide</span> <input type="checkbox" id="toggle-slide-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Mobile Auto Aim</span> <input type="checkbox" id="mobile-auto-aim-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Mobile Auto Shoot</span> <input type="checkbox" id="mobile-auto-shoot-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Glossy Sky</span> <input type="checkbox" id="glossy-check" onchange="updateSettings()"></div>
@@ -378,7 +429,9 @@
         </select></div>
         <div id="custom-bgm-import" style="display:none; flex-direction:column; gap:8px;">
             <span>Import Custom BG Music</span>
-            <input id="custom-bgm-file" type="file" accept="*/*" onchange="importCustomBgm(event)" style="color:#fff; max-width:100%;">
+            <button class="btn" type="button" onclick="document.getElementById('custom-bgm-file').click()" style="margin:0; padding:8px 12px; font-size:14px;">CHOOSE FILE</button>
+            <input id="custom-bgm-file" type="file" accept="*/*" onchange="importCustomBgm(event)" style="display:none;">
+            <span id="custom-bgm-status" style="font-size:12px; color:#aaa;">No custom track saved on this device.</span>
         </div>
         <div style="display:flex; justify-content:space-between;"><span>Music Vol</span> <input type="range" id="music-slider" min="0" max="1" step="0.1" value="0.3" oninput="updateSettings()"> <span id="music-val">0.3</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Render Scale</span> <input type="range" id="res-slider" min="0.2" max="1.5" step="0.1" value="1.0" oninput="updateSettings()"> <span id="res-val">1.0</span></div>
@@ -441,12 +494,16 @@
         let ctrlIsAiming = false, ctrlIsFiring = false;
         let canJump = true;
         let isSliding = false;
+        let isSlideJumping = false;
         let slideEndTime = 0;
         let playerKillstreak = 0;
         let hasFastReloadPerk = false;
         let hasSpeedPerk = false;
+        const MOBILE_SLIDE_DURATION = 2000;
         let botRaycaster = new THREE.Raycaster();
         let velocity = new THREE.Vector3();
+        let slideDirection = new THREE.Vector3();
+        let isDesktopSlideHeld = false;
         let playerPosition = new THREE.Vector3(); // Isolated physics reference position
         let projectiles = [];
         let bots = [];
@@ -469,7 +526,13 @@
         let isChargingKnife = false;
         let knifeChargeStartTime = 0;
         let gamepadConnected = false;
+        let isToggleSprint = false;
+        let isDesktopToggleCrouch = false;
         let isToggleAim = false;
+        let isToggleCrouch = false;
+        let isMobileCrouchToggled = false;
+        let isToggleSlide = false;
+        let isMobileSlideToggled = false;
         let isLowPowerMode = false;
         let isEditingLayout = false;
         let menuSelectionIndex = 0;
@@ -491,6 +554,7 @@
         let autoGraphics = true;
         let autoRenderScale = null;
         let showFps = false;
+        let showCrosshair = true;
         let disablePostProcessing = false;
         let fpsSampleStart = 0;
         let fpsSampleFrames = 0;
@@ -743,11 +807,14 @@
             const isTouch = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window);
             const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
             const isIpad = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || isIpad;
             isMobile = isTouch && (isMobileUA || isIpad);
+            const desktopDebugActive = !isMobile && sessionStorage.getItem('orbTosserDesktopDebug') === 'true';
+            if (isIOS || desktopDebugActive) document.getElementById('install-ios-btn').style.display = 'flex';
             configureCustomBgmPicker();
             if (!isMobile) {
-                document.getElementById('desktop-only-screen').style.display = 'flex';
-                return;
+                document.getElementById('desktop-only-screen').style.display = desktopDebugActive ? 'none' : 'flex';
+                if (desktopDebugActive) updateDesktopDebugMenu();
             }
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'block';
@@ -757,7 +824,7 @@
                 document.getElementById('health-display').style.bottom = '120px';
                 
                 document.addEventListener('touchmove', (e) => {
-                    if (e.target.closest('#overlay') || e.target.closest('#settings-menu')) return;
+                    if (e.target.closest('#overlay') || e.target.closest('#settings-menu') || e.target.closest('#leaderboard') || e.target.closest('#final-scores') || e.target.closest('#game-over-screen')) return;
                     e.preventDefault();
                 }, { passive: false });
                 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -867,7 +934,70 @@
             setupControls();
             animate();
             window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('orientationchange', onWindowResize, false);
+            if (window.visualViewport && window.visualViewport.addEventListener) {
+                window.visualViewport.addEventListener('resize', onWindowResize, false);
+            }
+            onWindowResize();
         }
+
+        function openDesktopDebug() {
+            sessionStorage.setItem('orbTosserDesktopDebug', 'true');
+            document.getElementById('install-ios-btn').style.display = 'flex';
+            document.getElementById('desktop-only-screen').style.display = 'none';
+            updateDesktopDebugMenu();
+        }
+
+        function updateDesktopDebugMenu() {
+            if (sessionStorage.getItem('orbTosserDesktopDebug') !== 'true') return;
+            document.getElementById('desktop-debug-menu').style.display = gameHasStarted ? 'none' : 'flex';
+        }
+
+        function closeDesktopDebug() {
+            sessionStorage.removeItem('orbTosserDesktopDebug');
+            document.getElementById('install-ios-btn').style.display = 'none';
+            if (document.pointerLockElement) document.exitPointerLock();
+            gameHasStarted = false;
+            updateGameTheme();
+            onWindowResize();
+            isGameOver = false;
+            isFiring = false;
+            ctrlIsFiring = false;
+            isAiming = false;
+            ctrlIsAiming = false;
+            introBgm.pause();
+            menuBgm.pause();
+            gameBgm.pause();
+            document.getElementById('intro-screen').style.display = 'flex';
+            document.getElementById('intro-screen').style.opacity = '1';
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
+            document.getElementById('settings-menu').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('desktop-debug-menu').style.display = 'none';
+            document.getElementById('desktop-only-screen').style.display = 'flex';
+        }
+
+        function updateGameTheme() {
+            const themeColor = document.querySelector('meta[name="theme-color"]');
+            if (!themeColor) return;
+
+            // Keep the browser toolbar in the game's blue palette. The slow
+            // hue and brightness drift gives it a subtle rotating effect.
+            const phase = (Date.now() % 12000) / 12000;
+            const wave = (Math.sin(phase * Math.PI * 2) + 1) / 2;
+            const green = Math.round(20 + wave * 90);
+            const blue = Math.round((gameHasStarted ? 150 : 75) + wave * (gameHasStarted ? 105 : 100));
+            const blueTint = `#00${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`;
+            themeColor.content = blueTint;
+            const statusBarTint = document.getElementById('ios-status-bar-tint');
+            if (statusBarTint) statusBarTint.style.backgroundColor = blueTint;
+        }
+
+        // Refresh the theme-color meta tag so supported mobile browser
+        // toolbars animate through blue shades instead of staying static.
+        setInterval(updateGameTheme, 250);
 
         function generateLoadoutButtons() {
             const grid = document.getElementById('loadout-grid');
@@ -890,11 +1020,18 @@
         }
 
         function onWindowResize() {
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            camera.aspect = width / height;
+            const viewport = window.visualViewport;
+            const visibleWidth = Math.max(1, Math.round(viewport ? viewport.width : window.innerWidth));
+            const visibleHeight = Math.max(1, Math.round(viewport ? viewport.height : window.innerHeight));
+            const width = gameHasStarted ? Math.max(1, Math.round(window.innerWidth)) : visibleWidth;
+            const renderHeight = gameHasStarted
+                ? Math.max(window.innerHeight, viewport ? viewport.offsetTop + viewport.height : 0)
+                : visibleHeight;
+            document.documentElement.style.setProperty('--app-height', visibleHeight + 'px');
+            document.documentElement.style.setProperty('--render-height', renderHeight + 'px');
+            camera.aspect = width / renderHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(width, height);
+            renderer.setSize(width, renderHeight);
             applySavedMobileLayout();
         }
 
@@ -1011,20 +1148,34 @@
         }
 
         function saveCustomBgmFile(file) {
-            return openCustomBgmDatabase().then(db => new Promise((resolve, reject) => {
-                const transaction = db.transaction('tracks', 'readwrite');
-                transaction.objectStore('tracks').put(file, 'custom');
-                transaction.oncomplete = () => { db.close(); resolve(); };
-                transaction.onerror = () => { db.close(); reject(transaction.error || new Error('Could not save the audio file.')); };
-                transaction.onabort = () => { db.close(); reject(transaction.error || new Error('Audio file save was cancelled.')); };
-            }));
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(reader.error || new Error('Could not read the audio file.'));
+                reader.onload = () => {
+                    openCustomBgmDatabase().then(db => new Promise((resolveSave, rejectSave) => {
+                        const transaction = db.transaction('tracks', 'readwrite');
+                        transaction.objectStore('tracks').put({ data: reader.result, type: file.type, name: file.name }, 'custom');
+                        transaction.oncomplete = () => { db.close(); resolveSave(); };
+                        transaction.onerror = () => { db.close(); rejectSave(transaction.error || new Error('Could not save the audio file.')); };
+                        transaction.onabort = () => { db.close(); rejectSave(transaction.error || new Error('Audio file save was cancelled.')); };
+                    })).then(resolve, reject);
+                };
+                reader.readAsArrayBuffer(file);
+            });
         }
 
         function loadCustomBgmFile() {
             return openCustomBgmDatabase().then(db => new Promise((resolve, reject) => {
                 const transaction = db.transaction('tracks', 'readonly');
                 const request = transaction.objectStore('tracks').get('custom');
-                request.onsuccess = () => { db.close(); resolve(request.result || null); };
+                request.onsuccess = () => {
+                    const stored = request.result;
+                    const file = stored instanceof Blob ? stored :
+                        (stored && stored.data instanceof ArrayBuffer ? new Blob([stored.data], { type: stored.type || '' }) : null);
+                    const name = stored && stored.name ? stored.name : (file && file.name) || 'Custom audio track';
+                    db.close();
+                    resolve(file ? { file, name } : null);
+                };
                 request.onerror = () => { db.close(); reject(request.error || new Error('Could not load the saved audio file.')); };
             }));
         }
@@ -1032,6 +1183,10 @@
         function applySelectedGameBgm() {
             const bgmSelect = document.getElementById('bgm-select');
             const selectedBgm = bgmSelect.value === 'custom' ? customBgmUrl : gameTracks[parseInt(bgmSelect.value, 10)];
+            if (bgmSelect.value === 'custom' && !customBgmUrl) {
+                gameBgm.pause();
+                return;
+            }
             if (selectedBgm && gameBgm.dataset.track !== selectedBgm) {
                 gameBgm.pause();
                 gameBgm.src = selectedBgm;
@@ -1042,14 +1197,23 @@
         }
 
         function restoreCustomBgm() {
-            loadCustomBgmFile().then(file => {
-                if (!file) return;
+            loadCustomBgmFile().then(track => {
+                if (!track) {
+                    document.getElementById('custom-bgm-status').innerText = document.getElementById('bgm-select').value === 'custom'
+                        ? 'Custom track not found. Choose the file again.'
+                        : 'No custom track saved on this device.';
+                    return;
+                }
                 if (customBgmUrl) URL.revokeObjectURL(customBgmUrl);
-                customBgmUrl = URL.createObjectURL(file);
+                customBgmUrl = URL.createObjectURL(track.file);
+                document.getElementById('custom-bgm-status').innerText = `Saved on this device: ${track.name}`;
                 if (document.getElementById('bgm-select').value === 'custom') {
                     applySelectedGameBgm();
                 }
-            }).catch(error => console.warn('Saved custom music could not be restored:', error));
+            }).catch(error => {
+                document.getElementById('custom-bgm-status').innerText = 'Could not restore the saved track. Choose the file again.';
+                console.warn('Saved custom music could not be restored:', error);
+            });
         }
 
         function importCustomBgm(event) {
@@ -1067,8 +1231,12 @@
             if (customBgmUrl) URL.revokeObjectURL(customBgmUrl);
             customBgmUrl = URL.createObjectURL(file);
             document.getElementById('bgm-select').value = 'custom';
+            document.getElementById('custom-bgm-status').innerText = 'Saving custom track...';
             updateSettings();
-            saveCustomBgmFile(file).catch(error => {
+            saveCustomBgmFile(file).then(() => {
+                document.getElementById('custom-bgm-status').innerText = `Saved on this device: ${file.name}`;
+            }).catch(error => {
+                document.getElementById('custom-bgm-status').innerText = 'Could not save this track for refresh.';
                 console.warn('Custom music could not be saved:', error);
                 alert('The custom track is playing, but could not be saved on this device.');
             });
@@ -1412,6 +1580,9 @@
             availableBotNames = [...BASE_BOT_NAMES];
 
             gameHasStarted = true;
+            updateGameTheme();
+            onWindowResize();
+            updateDesktopDebugMenu();
             
             if (gameMode === 'gungame') {
                 playerGunGameIndex = 0;
@@ -1512,11 +1683,30 @@
             if (disablePostProcessing) applyPostProcessingSetting();
         }
 
+        function updateMobileAimButtonState() {
+            const aimBtn = document.getElementById('aim-btn');
+            if (!aimBtn) return;
+
+            const knifeUnavailable = isMobile && !isEditingLayout && currentWeapon.isMelee &&
+                playerInventory[2] && playerInventory[2].ammo <= 0;
+            aimBtn.setAttribute('aria-disabled', knifeUnavailable ? 'true' : 'false');
+            aimBtn.style.opacity = knifeUnavailable ? '0.4' : '';
+
+            if (knifeUnavailable) {
+                isChargingKnife = false;
+                isAiming = false;
+                aimBtn.style.background = 'rgba(255,255,0,0.2)';
+                document.getElementById('crosshair').style.opacity = '1';
+                document.getElementById('aim-dot').style.opacity = '0';
+            }
+        }
+
         function updateAmmoDisplay() {
             const currentAmmo = playerInventory[activeSlot].ammo;
             const max = currentWeapon.maxAmmo;
             document.getElementById('ammo-display').innerText = currentAmmo === Infinity ? "∞" : `${currentAmmo} / ${max}`;
             document.getElementById('weapon-name').innerText = currentWeapon.name;
+            updateMobileAimButtonState();
         }
 
         function setControllerCursorVisibility(visible) {
@@ -1706,6 +1896,9 @@
 
         function quitGame() {
             gameHasStarted = false;
+            updateGameTheme();
+            onWindowResize();
+            updateDesktopDebugMenu();
             isGameOver = false;
             isSelectingRespawnLoadout = false;
             playerHealth = 100;
@@ -1884,11 +2077,22 @@
             lowPowerCheck.disabled = autoGraphics;
             renderScale.disabled = autoGraphics;
             isLowPowerMode = document.getElementById('low-power-check').checked;
+            isToggleSprint = document.getElementById('toggle-sprint-check').checked;
+            isDesktopToggleCrouch = document.getElementById('desktop-toggle-crouch-check').checked;
             isToggleAim = document.getElementById('toggle-aim-check').checked;
+            isToggleCrouch = document.getElementById('toggle-crouch-check').checked;
+            if (!isToggleCrouch) {
+                isMobileCrouchToggled = false;
+                if (isMobile && !isSliding) isCrouching = false;
+            }
+            isToggleSlide = document.getElementById('toggle-slide-check').checked;
+            if (!isToggleSlide && isMobileSlideToggled) endSlide();
             mobileAutoAim = document.getElementById('mobile-auto-aim-check').checked;
             mobileAutoShoot = document.getElementById('mobile-auto-shoot-check').checked;
             isAbsoluteAim = document.getElementById('abs-aim-check').checked;
             showFps = document.getElementById('show-fps-check').checked;
+            showCrosshair = document.getElementById('show-crosshair-check').checked;
+            document.getElementById('crosshair').style.display = showCrosshair ? 'block' : 'none';
             disablePostProcessing = document.getElementById('disable-post-check').checked;
             document.getElementById('fps-display').style.display = showFps ? 'block' : 'none';
             mouseSensitivity = document.getElementById('sens-slider').value * 0.001;
@@ -1956,9 +2160,15 @@
                 lowPower: document.getElementById('low-power-check').checked,
                 autoGraphics: document.getElementById('auto-graphics-check').checked,
                 showFps: document.getElementById('show-fps-check').checked,
+                showCrosshair: document.getElementById('show-crosshair-check').checked,
                 disablePostProcessing: document.getElementById('disable-post-check').checked,
                 frameRateLimit: frameRateLimit,
+                toggleSprint: document.getElementById('toggle-sprint-check').checked,
+                toggleSprintVersion: 1,
+                desktopToggleCrouch: document.getElementById('desktop-toggle-crouch-check').checked,
+                desktopToggleCrouchVersion: 1,
                 toggleAim: document.getElementById('toggle-aim-check').checked,
+                toggleCrouch: document.getElementById('toggle-crouch-check').checked,
                 mobileAutoAim: document.getElementById('mobile-auto-aim-check').checked,
                 mobileAutoShoot: document.getElementById('mobile-auto-shoot-check').checked,
                 glossy: document.getElementById('glossy-check').checked,
@@ -1966,6 +2176,7 @@
                 music: document.getElementById('music-slider').value,
                 renderScale: document.getElementById('res-slider').value
             };
+            if (document.getElementById('toggle-slide-check').checked) settings.toggleSlide = true;
             localStorage.setItem('orbTosserSettings', JSON.stringify(settings));
         }
 
@@ -1983,9 +2194,18 @@
                     if (settings.lowPower !== undefined) document.getElementById('low-power-check').checked = settings.lowPower;
                     if (settings.autoGraphics !== undefined) document.getElementById('auto-graphics-check').checked = settings.autoGraphics;
                     if (settings.showFps !== undefined) document.getElementById('show-fps-check').checked = settings.showFps;
+                    if (settings.showCrosshair !== undefined) document.getElementById('show-crosshair-check').checked = settings.showCrosshair;
                     if (settings.disablePostProcessing !== undefined) document.getElementById('disable-post-check').checked = settings.disablePostProcessing;
                     if (settings.frameRateLimit === 30 || settings.frameRateLimit === 60) frameRateLimit = settings.frameRateLimit;
+                    if (settings.toggleSprintVersion === 1 && settings.toggleSprint !== undefined) {
+                        document.getElementById('toggle-sprint-check').checked = settings.toggleSprint;
+                    }
+                    if (settings.desktopToggleCrouchVersion === 1 && settings.desktopToggleCrouch !== undefined) {
+                        document.getElementById('desktop-toggle-crouch-check').checked = settings.desktopToggleCrouch;
+                    }
                     if (settings.toggleAim !== undefined) document.getElementById('toggle-aim-check').checked = settings.toggleAim;
+                    if (settings.toggleCrouch !== undefined) document.getElementById('toggle-crouch-check').checked = settings.toggleCrouch;
+                    if (settings.toggleSlide !== undefined) document.getElementById('toggle-slide-check').checked = settings.toggleSlide;
                     if (settings.mobileAutoAim !== undefined) document.getElementById('mobile-auto-aim-check').checked = settings.mobileAutoAim;
                     if (settings.mobileAutoShoot !== undefined) document.getElementById('mobile-auto-shoot-check').checked = settings.mobileAutoShoot;
                     if (settings.glossy !== undefined) document.getElementById('glossy-check').checked = settings.glossy;
@@ -2045,9 +2265,14 @@
             document.getElementById('low-power-check').checked = false;
             document.getElementById('auto-graphics-check').checked = true;
             document.getElementById('show-fps-check').checked = false;
+            document.getElementById('show-crosshair-check').checked = true;
             document.getElementById('disable-post-check').checked = false;
             frameRateLimit = 60;
+            document.getElementById('toggle-sprint-check').checked = false;
+            document.getElementById('desktop-toggle-crouch-check').checked = false;
             document.getElementById('toggle-aim-check').checked = false;
+            document.getElementById('toggle-crouch-check').checked = false;
+            document.getElementById('toggle-slide-check').checked = false;
             document.getElementById('mobile-auto-aim-check').checked = false;
             document.getElementById('mobile-auto-shoot-check').checked = false;
             document.getElementById('glossy-check').checked = false;
@@ -2056,6 +2281,43 @@
             document.getElementById('res-slider').value = '1.0';
             
             location.reload();
+        }
+
+        function beginSlide(duration) {
+            if (!isSprinting || !canJump || isSliding) return false;
+            isSliding = true;
+            isDesktopSlideHeld = false;
+            isSlideJumping = false;
+            isCrouching = true;
+            slideEndTime = Date.now() + duration;
+            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
+            slideDirection.copy(forward).normalize();
+            velocity.x += slideDirection.x * 15;
+            velocity.z += slideDirection.z * 15;
+            canJump = false;
+            return true;
+        }
+
+        function endSlide() {
+            isSliding = false;
+            isDesktopSlideHeld = false;
+            isSlideJumping = false;
+            if (isMobile) {
+                isMobileSlideToggled = false;
+                isCrouching = isToggleCrouch && isMobileCrouchToggled;
+                const crouchBtn = document.getElementById('crouch-btn');
+                crouchBtn.style.background = isCrouching ? 'rgba(255,255,255,0.5)' : 'rgba(0,255,255,0.2)';
+            } else {
+                isCrouching = false;
+            }
+        }
+
+        function jumpPlayer() {
+            if (isSlideJumping || (!canJump && !isSliding)) return false;
+            if (isSliding) isSlideJumping = true;
+            velocity.y = JUMP_FORCE;
+            canJump = false;
+            return true;
         }
 
         function setupControls() {
@@ -2080,6 +2342,22 @@
             window.addEventListener('keydown', function(e) {
                 if(e.code === 'Space' && e.target == document.body) {
                     e.preventDefault();
+                }
+            });
+
+            const desktopDebugKeys = ['KeyD', 'KeyE', 'KeyB', 'KeyU', 'KeyG'];
+            let desktopDebugSequenceIndex = 0;
+            window.addEventListener('keydown', (e) => {
+                if (document.getElementById('desktop-only-screen').style.display !== 'flex' || e.repeat) return;
+
+                if (e.code === desktopDebugKeys[desktopDebugSequenceIndex]) {
+                    desktopDebugSequenceIndex++;
+                    if (desktopDebugSequenceIndex === desktopDebugKeys.length) {
+                        desktopDebugSequenceIndex = 0;
+                        openDesktopDebug();
+                    }
+                } else {
+                    desktopDebugSequenceIndex = 0;
                 }
             });
 
@@ -2192,23 +2470,25 @@
                     case keyBindings.moveLeft: moveLeft = true; break;
                     case keyBindings.moveRight: moveRight = true; break;
                     case keyBindings.jump:
-                        if (canJump && !isSliding) {
-                            velocity.y = JUMP_FORCE;
-                            canJump = false;
-                        }
+                        jumpPlayer();
                         break;
                     case keyBindings.sprint:
-                        isSprinting = true;
+                        if (!isMobile && isToggleSprint) {
+                            if (!e.repeat) isSprinting = !isSprinting;
+                        } else {
+                            isSprinting = true;
+                        }
                         break;
                     case keyBindings.crouch:
-                        if (isSprinting && canJump) {
-                            isSliding = true;
-                            isCrouching = true;
-                            slideEndTime = Date.now() + 700;
-                            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-                            velocity.x += forward.x * 15;
-                            velocity.z += forward.z * 15;
-                            canJump = false;
+                        if (e.repeat) break;
+                        if (isMobile) {
+                            if (!beginSlide(MOBILE_SLIDE_DURATION)) isCrouching = true;
+                        } else if (isSliding) {
+                            endSlide();
+                        } else if (isSprinting) {
+                            if (beginSlide(Number.POSITIVE_INFINITY)) isDesktopSlideHeld = true;
+                        } else if (isDesktopToggleCrouch) {
+                            isCrouching = !isCrouching;
                         } else {
                             isCrouching = true;
                         }
@@ -2236,8 +2516,22 @@
                     case keyBindings.moveBackward: moveBackward = false; break;
                     case keyBindings.moveLeft: moveLeft = false; break;
                     case keyBindings.moveRight: moveRight = false; break;
-                    case keyBindings.sprint: isSprinting = false; break;
-                    case keyBindings.crouch: isCrouching = false; break;
+                    case keyBindings.sprint:
+                        if (isMobile || !isToggleSprint) {
+                            isSprinting = false;
+                            if (!isMobile && isSliding) endSlide();
+                        }
+                        break;
+                    case keyBindings.crouch:
+                        if (isMobile) {
+                            isCrouching = isMobile && isToggleCrouch && isMobileCrouchToggled;
+                        } else if (isSliding) {
+                            slideEndTime = Date.now() + 700;
+                            isDesktopSlideHeld = false;
+                        } else if (!isDesktopToggleCrouch) {
+                            isCrouching = false;
+                        }
+                        break;
                 }
             });
 
@@ -2284,8 +2578,21 @@
             const aimBtn = document.getElementById('aim-btn');
             aimBtn.addEventListener('touchstart', (e) => { 
                 if (isEditingLayout) return;
+                if (currentWeapon.isMelee && playerInventory[2] && playerInventory[2].ammo <= 0) {
+                    e.preventDefault();
+                    return;
+                }
                 e.preventDefault(); 
-                if (isToggleAim) {
+                if (currentWeapon.isMelee && playerInventory[2] && playerInventory[2].ammo > 0) {
+                    if (isToggleAim && isChargingKnife) {
+                        isChargingKnife = false;
+                        aimBtn.style.background = 'rgba(255,255,0,0.2)';
+                    } else {
+                        isChargingKnife = true;
+                        knifeChargeStartTime = Date.now();
+                        aimBtn.style.background = 'rgba(255,255,0,0.5)';
+                    }
+                } else if (isToggleAim) {
                     isAiming = !isAiming;
                     if (isAiming) {
                         aimBtn.style.background = "rgba(255,255,0,0.5)"; 
@@ -2304,8 +2611,11 @@
             });
             aimBtn.addEventListener('touchend', (e) => { 
                 e.preventDefault(); 
-                if (!isToggleAim) {
-                    isAiming = false; aimBtn.style.background = "rgba(255,255,0,0.2)"; 
+                if (isChargingKnife && !isToggleAim) {
+                    isChargingKnife = false;
+                    aimBtn.style.background = 'rgba(255,255,0,0.2)';
+                } else if (!isToggleAim) {
+                    isAiming = false; aimBtn.style.background = "rgba(255,255,0,0.2)";
                     document.getElementById('crosshair').style.opacity = '1';
                     document.getElementById('aim-dot').style.opacity = '0';
                 }
@@ -2317,7 +2627,13 @@
                 if (isEditingLayout) return;
                 e.preventDefault(); 
                 isFiring = true;
-                fireProjectile(camera, { name: "Player", id: "player" }); 
+                if (isChargingKnife) {
+                    throwKnife();
+                    isChargingKnife = false;
+                    if (currentWeapon.isMelee && isToggleAim) aimBtn.style.background = 'rgba(255,255,0,0.2)';
+                } else {
+                    fireProjectile(camera, { name: "Player", id: "player" });
+                }
                 fireBtn.style.background = "rgba(0,255,255,0.5)"; 
             });
             fireBtn.addEventListener('touchend', (e) => { e.preventDefault(); isFiring = false; fireBtn.style.background = "rgba(0,255,255,0.2)"; });
@@ -2333,7 +2649,7 @@
             jumpBtn.addEventListener('touchstart', (e) => { 
                 if (isEditingLayout) return;
                 e.preventDefault(); 
-                if(canJump && !isSliding) { velocity.y = JUMP_FORCE; canJump = false; }
+                jumpPlayer();
                 jumpBtn.style.background = "rgba(255,255,255,0.5)"; 
             });
             jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); jumpBtn.style.background = "rgba(0,255,255,0.2)"; });
@@ -2342,15 +2658,24 @@
             crouchBtn.addEventListener('touchstart', (e) => { 
                 if (isEditingLayout) return;
                 e.preventDefault(); 
-                if (isSprinting && canJump) {
-                    isSliding = true; isCrouching = true; slideEndTime = Date.now() + 700;
-                    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-                    velocity.x += forward.x * 15; velocity.z += forward.z * 15; canJump = false;
-                } else { isCrouching = true; }
+                if (isSliding) {
+                    endSlide();
+                } else if (beginSlide(isToggleSlide ? Number.POSITIVE_INFINITY : MOBILE_SLIDE_DURATION)) {
+                    isMobileSlideToggled = isToggleSlide;
+                } else {
+                    if (isToggleCrouch) {
+                        isMobileCrouchToggled = !isMobileCrouchToggled;
+                        isCrouching = isMobileCrouchToggled;
+                    } else {
+                        isCrouching = true;
+                    }
+                }
                 crouchBtn.style.background = "rgba(255,255,255,0.5)"; 
             });
             crouchBtn.addEventListener('touchend', (e) => { 
-                e.preventDefault(); isCrouching = false; crouchBtn.style.background = "rgba(0,255,255,0.2)"; 
+                e.preventDefault();
+                if (!isSliding && !isToggleCrouch) isCrouching = false;
+                crouchBtn.style.background = isCrouching ? 'rgba(255,255,255,0.5)' : 'rgba(0,255,255,0.2)';
             });
 
             const sprintBtn = document.getElementById('sprint-btn');
@@ -2430,6 +2755,7 @@
                     targetElement.closest('.joystick-area') || 
                     targetElement.closest('.fire-button') ||
                     targetElement.closest('#overlay') || 
+                    targetElement.closest('#leaderboard') ||
                     targetElement.closest('#main-menu') || 
                     targetElement.closest('#pause-menu') || 
                     targetElement.closest('#settings-menu') ||
@@ -2633,18 +2959,21 @@
 
         function applySavedMobileLayout() {
             if (!savedMobileLayout) return;
+            const viewport = window.visualViewport || window;
+            const width = viewport.width;
+            const height = viewport.height;
             document.body.classList.add('has-custom-layout');
             for (const id in savedMobileLayout) {
                 const el = document.getElementById(id);
                 const position = savedMobileLayout[id];
                 if (!el || !position) continue;
                 if (typeof position.width === 'number' && typeof position.height === 'number') {
-                    el.style.setProperty('width', Math.max(40, position.width * window.innerWidth) + 'px', 'important');
-                    el.style.setProperty('height', Math.max(40, position.height * window.innerHeight) + 'px', 'important');
+                    el.style.setProperty('width', Math.max(40, position.width * width) + 'px', 'important');
+                    el.style.setProperty('height', Math.max(40, position.height * height) + 'px', 'important');
                 }
                 if (typeof position.x === 'number' && typeof position.y === 'number') {
-                    const left = Math.max(0, Math.min(window.innerWidth - el.offsetWidth, position.x * window.innerWidth));
-                    const top = Math.max(0, Math.min(window.innerHeight - el.offsetHeight, position.y * window.innerHeight));
+                    const left = Math.max(0, Math.min(width - el.offsetWidth, position.x * width));
+                    const top = Math.max(0, Math.min(height - el.offsetHeight, position.y * height));
                     el.style.setProperty('left', left + 'px', 'important');
                     el.style.setProperty('top', top + 'px', 'important');
                 } else if (position.left && position.top) {
@@ -2915,26 +3244,13 @@
             }
 
             if (isButton('jump') && !wasButton('jump')) {
-                if (canJump && !isSliding) {
-                    velocity.y = JUMP_FORCE;
-                    canJump = false;
-                }
+                jumpPlayer();
             }
 
             if (isButton('crouch') && !wasButton('crouch')) {
-                if (isSprinting && canJump) {
-                    isSliding = true;
-                    isCrouching = true;
-                    slideEndTime = Date.now() + 700;
-                    const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-                    velocity.x += forward.x * 15;
-                    velocity.z += forward.z * 15;
-                    canJump = false;
-                } else {
-                    isCrouching = true;
-                }
+                if (!beginSlide(700)) isCrouching = true;
             } else if (!isButton('crouch') && wasButton('crouch')) {
-                isCrouching = false;
+                isCrouching = isMobile && isToggleCrouch && isMobileCrouchToggled;
             }
 
             if (isButton('reload') && !wasButton('reload')) reload();
@@ -3040,7 +3356,7 @@
         }
 
         function throwKnife() {
-            if (playerInventory[2].ammo <= 0) return;
+            if (!playerInventory[2] || playerInventory[2].ammo <= 0) return;
             playerInventory[2].ammo = 0;
             lastKnifeThrowTime = Date.now();
             updateAmmoDisplay();
@@ -3613,10 +3929,15 @@
                 if (playerHealth <= 0) return;
                 const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
                 const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
+
+                if (isSliding && !isMobile && (!isSprinting || !isCrouching)) endSlide();
+                if (isSliding && Date.now() > slideEndTime) endSlide();
                 
                 if (isSliding) {
-                    if (Date.now() > slideEndTime) {
-                        isSliding = false;
+                    if (!isMobile && isDesktopSlideHeld) slideDirection.copy(forward).normalize();
+                    if (!isMobile || isMobileSlideToggled) {
+                        velocity.x = slideDirection.x * MOVE_SPEED * 1.6;
+                        velocity.z = slideDirection.z * MOVE_SPEED * 1.6;
                     }
                 } else {
                     const moveVec = new THREE.Vector3(0, 0, 0);
@@ -3648,15 +3969,32 @@
                 }
             }
 
-            velocity.x *= (1.0 - 10.0 * delta);
-            velocity.z *= (1.0 - 10.0 * delta);
+            const horizontalFriction = isSliding && (!isMobile || isMobileSlideToggled) ? 0 : (isMobile && isSliding ? 2 : 10);
+            velocity.x *= (1.0 - horizontalFriction * delta);
+            velocity.z *= (1.0 - horizontalFriction * delta);
 
             // Update physics player reference position first
             const nextX = playerPosition.x + velocity.x * delta;
             const nextZ = playerPosition.z + velocity.z * delta;
 
-            if(!checkCollision(nextX, playerPosition.z)) playerPosition.x = nextX; else velocity.x = 0;
-            if(!checkCollision(playerPosition.x, nextZ)) playerPosition.z = nextZ; else velocity.z = 0;
+            if(!checkCollision(nextX, playerPosition.z)) {
+                playerPosition.x = nextX;
+            } else {
+                velocity.x = 0;
+                if (isSliding) {
+                    if (!(isMobile ? isMobileSlideToggled : isDesktopSlideHeld)) endSlide();
+                    velocity.z = 0;
+                }
+            }
+            if(!checkCollision(playerPosition.x, nextZ)) {
+                playerPosition.z = nextZ;
+            } else {
+                velocity.z = 0;
+                if (isSliding) {
+                    if (!(isMobile ? isMobileSlideToggled : isDesktopSlideHeld)) endSlide();
+                    velocity.x = 0;
+                }
+            }
 
             camera.position.x = playerPosition.x;
             camera.position.z = playerPosition.z;
@@ -3669,14 +4007,13 @@
             // Smooth crouching height transition system to eliminate motion spikes
             const targetHeight = isCrouching ? PLAYER_HEIGHT_CROUCHING : PLAYER_HEIGHT_STANDING;
             velocity.y -= GRAVITY * delta;
-            if (isSliding && velocity.y > 0) velocity.y = 0;
             
             playerPosition.y += velocity.y * delta;
             if(playerPosition.y <= targetHeight) {
                 playerPosition.y = targetHeight;
                 velocity.y = 0;
                 canJump = true;
-                if (isSliding) isSliding = false;
+                if (!isSliding) isSlideJumping = false;
             }
 
             // Interpolate camera height smoothly
