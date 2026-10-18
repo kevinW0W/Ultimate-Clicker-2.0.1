@@ -104,6 +104,19 @@
             opacity: 0;
             z-index: 30;
         }
+        #scope-overlay { display: none; position: absolute; inset: 0; z-index: 29; pointer-events: none; }
+        #scope-lens {
+            position: absolute; left: 50%; top: 50%; width: min(76vmin, 640px); height: min(76vmin, 640px);
+            transform: translate(-50%, -50%); border: 5px solid rgba(14, 20, 24, 0.98); border-radius: 50%;
+            background: radial-gradient(ellipse at 32% 22%, rgba(255,255,255,0.17), transparent 38%), rgba(0, 0, 0, 0.08);
+            box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.94), inset 0 0 18px rgba(0, 0, 0, 0.65);
+            overflow: hidden;
+        }
+        #scope-gloss { position: absolute; left: 13%; top: 12%; width: 42%; height: 24%; border-radius: 50%; transform: rotate(-35deg); background: linear-gradient(105deg, rgba(255,255,255,0.34), rgba(180,230,255,0.12) 42%, transparent 78%); filter: blur(5px); opacity: 0.72; }
+        #scope-lens::before, #scope-lens::after { content: ''; position: absolute; background: rgba(20, 20, 20, 0.86); }
+        #scope-lens::before { left: 50%; top: 0; width: 1px; height: 100%; }
+        #scope-lens::after { left: 0; top: 50%; height: 1px; width: 100%; }
+        #scope-reticle-center { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border: 1px solid #d9eee2; border-radius: 50%; transform: translate(-50%, -50%); }
         #overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: var(--app-height, 100vh);
@@ -472,6 +485,7 @@
         <div class="hm-line"></div>
     </div>
     <div id="aim-dot"></div>
+    <div id="scope-overlay" aria-hidden="true"><div id="scope-lens"><div id="scope-gloss"></div><div id="scope-reticle-center"></div></div></div>
     
     <div id="mobile-controls">
         <div id="look-zone" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:15; touch-action:none; pointer-events: auto;"></div>
@@ -522,6 +536,10 @@
         let tryhardWhirrGain = null;
         let tryhardWhirrFilter = null;
         let tryhardWhirrStopping = false;
+        let tryhardFireOsc = null;
+        let tryhardFireNoise = null;
+        let tryhardFireGain = null;
+        let tryhardFireStopping = false;
         let lastDamageTime = 0;
         let lastStepTime = 0;
         let recoil = 0;
@@ -1051,10 +1069,18 @@
 
         function createWeaponMesh(type, color) {
             const group = new THREE.Group();
-            const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.38, metalness: 0.58 });
-            const darkMat = new THREE.MeshStandardMaterial({ color: 0x242a30, roughness: 0.72, metalness: 0.24 });
-            const steelMat = new THREE.MeshStandardMaterial({ color: 0x9da8b2, roughness: 0.3, metalness: 0.82 });
-            const accentMat = new THREE.MeshStandardMaterial({ color: 0x111820, roughness: 0.45, metalness: 0.55 });
+            const glossyWeaponMaterial = options => {
+                const material = new THREE.MeshPhysicalMaterial({
+                    metalness: 0.72, roughness: 0.2, clearcoat: 0.85, clearcoatRoughness: 0.16,
+                    envMapIntensity: 1.5, ...options
+                });
+                material.userData.weaponGloss = true;
+                return material;
+            };
+            const mat = glossyWeaponMaterial({ color, roughness: 0.22, metalness: 0.7 });
+            const darkMat = glossyWeaponMaterial({ color: 0x242a30, roughness: 0.28, metalness: 0.62 });
+            const steelMat = glossyWeaponMaterial({ color: 0x9da8b2, roughness: 0.14, metalness: 0.88 });
+            const accentMat = glossyWeaponMaterial({ color: 0x111820, roughness: 0.22, metalness: 0.72 });
             const addBox = (w, h, d, material, x, y, z, rz = 0) => {
                 const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
                 part.position.set(x, y, z); part.rotation.z = rz; group.add(part); return part;
@@ -1132,6 +1158,9 @@
                 if (isSniper) {
                     const scopeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.33, 10), darkMat);
                     scopeBody.rotation.x = Math.PI / 2; scopeBody.position.set(0, 0.18, 0.02); group.add(scopeBody);
+                    const scopeGlassMat = glossyWeaponMaterial({ color: 0x78d8e8, emissive: 0x102b36, metalness: 0.78, roughness: 0.12, transparent: true, opacity: 0.72 });
+                    const scopeGlass = new THREE.Mesh(new THREE.CylinderGeometry(0.039, 0.039, 0.008, 12), scopeGlassMat);
+                    scopeGlass.rotation.x = Math.PI / 2; scopeGlass.position.set(0, 0.18, 0.19); group.add(scopeGlass);
                     addBox(0.12, 0.035, 0.14, accentMat, 0, 0.135, 0.02);
                     addBox(0.025, 0.14, 0.12, darkMat, 0, -0.16, 0.12);
                 } else if (isLmg) {
@@ -1140,7 +1169,7 @@
                     if (type === 'Minigun' || isTryhard) {
                         const spinGroup = new THREE.Group();
                         spinGroup.position.z = 0.2;
-                        const barrelMat = isTryhard ? new THREE.MeshStandardMaterial({ color: 0x18cde8, emissive: 0x075c78, metalness: 0.78, roughness: 0.24 }) : steelMat;
+                        const barrelMat = isTryhard ? glossyWeaponMaterial({ color: 0x18cde8, emissive: 0x075c78, metalness: 0.78, roughness: 0.18 }) : steelMat;
                         for (let i = 0; i < 6; i++) {
                             const angle = i * Math.PI / 3;
                             const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.66, 8), barrelMat);
@@ -1152,7 +1181,7 @@
                         ring.rotation.x = Math.PI / 2; ring.position.z = 0.61; spinGroup.add(ring);
                         group.add(spinGroup);
                         if (isTryhard) {
-                            addBox(0.19, 0.18, 0.26, new THREE.MeshStandardMaterial({ color: 0x102c3a, emissive: 0x063d50, metalness: 0.7 }), 0, 0.01, -0.12);
+                            addBox(0.19, 0.18, 0.26, glossyWeaponMaterial({ color: 0x102c3a, emissive: 0x063d50, metalness: 0.7 }), 0, 0.01, -0.12);
                             addBox(0.22, 0.035, 0.17, new THREE.MeshBasicMaterial({ color: 0x65faff }), 0, 0.115, 0.05);
                             for (let i = 0; i < 3; i++) addBox(0.02, 0.02, 0.14, new THREE.MeshBasicMaterial({ color: 0x27ddff }), -0.065 + i * 0.065, -0.01, 0.12);
                         }
@@ -1179,6 +1208,10 @@
             if (/submachine|mp5|p90|ump|mac-10|vector/i.test(name)) return 0.68;
             if (/machine gun|m249|negev|minigun/i.test(name)) return 1.2;
             return 0.92;
+        }
+
+        function weaponHasScope(weapon) {
+            return !!weapon && /sniper|awp|ssg|barrett|kar98|musket/i.test(weapon.name);
         }
 
         function applyWeaponCameraShake(weapon) {
@@ -1523,12 +1556,70 @@
             }
         }
 
+        function updateTryhardFireLoop(held) {
+            if (!audioCtx || audioCtx.state === 'suspended') return;
+            const t = audioCtx.currentTime;
+            if (held) {
+                if (tryhardFireOsc && tryhardFireStopping) {
+                    tryhardFireOsc.stop(t + 60);
+                    tryhardFireNoise.stop(t + 60);
+                    tryhardFireStopping = false;
+                }
+                if (!tryhardFireOsc) {
+                    const osc = audioCtx.createOscillator();
+                    const noise = audioCtx.createBufferSource();
+                    const noiseFilter = audioCtx.createBiquadFilter();
+                    const toneFilter = audioCtx.createBiquadFilter();
+                    const gain = audioCtx.createGain();
+                    const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+                    const samples = buffer.getChannelData(0);
+                    for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+                    noise.buffer = buffer;
+                    noise.loop = true;
+                    noiseFilter.type = 'bandpass';
+                    noiseFilter.frequency.setValueAtTime(1150, t);
+                    noiseFilter.Q.setValueAtTime(0.8, t);
+                    toneFilter.type = 'lowpass';
+                    toneFilter.frequency.setValueAtTime(380, t);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(82, t);
+                    gain.gain.setValueAtTime(0.001, t);
+                    noise.connect(noiseFilter);
+                    noiseFilter.connect(gain);
+                    osc.connect(toneFilter);
+                    toneFilter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    tryhardFireOsc = osc;
+                    tryhardFireNoise = noise;
+                    tryhardFireGain = gain;
+                    tryhardFireStopping = false;
+                    osc.onended = () => {
+                        if (tryhardFireOsc !== osc) return;
+                        tryhardFireOsc = null;
+                        tryhardFireNoise = null;
+                        tryhardFireGain = null;
+                        tryhardFireStopping = false;
+                    };
+                    noise.start(t);
+                    osc.start(t);
+                }
+                tryhardFireOsc.frequency.setTargetAtTime(82 + tryhardSpin * 34, t, 0.035);
+                tryhardFireGain.gain.setTargetAtTime(0.22, t, 0.025);
+            } else if (tryhardFireOsc && !tryhardFireStopping) {
+                tryhardFireStopping = true;
+                tryhardFireGain.gain.setTargetAtTime(0.001, t, 0.035);
+                tryhardFireNoise.stop(t + 0.2);
+                tryhardFireOsc.stop(t + 0.2);
+            }
+        }
+
         function updateTryhardSpin(delta, isPaused = false) {
             const held = !isPaused && currentWeapon && currentWeapon.isTryhard && (isFiring || ctrlIsFiring);
             if (held) tryhardSpin = Math.min(1, tryhardSpin + delta / 2.4);
             else tryhardSpin = Math.max(0, tryhardSpin - delta / 2.8);
             if (tryhardWasHeld && !held && tryhardSpin > 0.01) playTryhardSpinDownWhistle();
             tryhardWasHeld = held;
+            updateTryhardFireLoop(held);
             updateTryhardWhirr();
         }
 
@@ -2287,6 +2378,7 @@
                 const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
                 materials.forEach(material => {
                     if (!material) return;
+                    if (material.userData.weaponGloss) return;
                     if (disablePostProcessing) {
                         if (!material.userData.simpleLighting) {
                             material.userData.simpleLighting = {
@@ -4353,18 +4445,23 @@
 
             let targetFOV = baseFOV;
             if (isAiming || ctrlIsAiming) {
-                targetFOV = currentWeapon.name === "Sniper Rifle" ? 15 : 40;
+                targetFOV = weaponHasScope(currentWeapon) ? 15 : 40;
             }
             
-            const zoomSpeed = (isAiming || ctrlIsAiming) && currentWeapon.name === "Sniper Rifle" ? 3 : 10;
+            const zoomSpeed = (isAiming || ctrlIsAiming) && weaponHasScope(currentWeapon) ? 3 : 10;
             if (Math.abs(camera.fov - targetFOV) > 0.1) {
                 camera.fov += (targetFOV - camera.fov) * zoomSpeed * delta;
                 camera.updateProjectionMatrix();
             }
 
             const aimingDownSights = isAiming || ctrlIsAiming;
-            wand.visible = !aimingDownSights;
-            const basePos = aimingDownSights ? new THREE.Vector3(0, -0.18, -0.4) : new THREE.Vector3(0.3, -0.25, -0.5);
+            wand.visible = true;
+            const scopedAim = aimingDownSights && weaponHasScope(currentWeapon);
+            document.getElementById('scope-overlay').style.display = scopedAim ? 'block' : 'none';
+            document.getElementById('aim-dot').style.opacity = aimingDownSights && !scopedAim ? '1' : '0';
+            const basePos = aimingDownSights ? new THREE.Vector3(0.06, -0.62, -0.42) : new THREE.Vector3(0.3, -0.25, -0.5);
+            const viewModelScale = aimingDownSights ? 0.78 : 1;
+            wand.scale.set(viewModelScale, viewModelScale, viewModelScale);
             
             const t = Date.now() * 0.005;
             const moveSway = (moveForward || moveBackward || moveLeft || moveRight) ? 0.02 : 0.002;
