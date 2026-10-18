@@ -2479,7 +2479,7 @@
                     glossyTexture = new THREE.TextureLoader().load('https://static.pbslearningmedia.org/media/assets/buac18-vid-sunpattern-poster.png');
                     glossyTexture.mapping = THREE.EquirectangularReflectionMapping;
                 }
-                scene.background = glossyTexture;
+                scene.background = defaultEnvMap;
                 scene.environment = glossyTexture;
             } else {
                 scene.background = defaultEnvMap;
@@ -4523,10 +4523,10 @@
             const scopedAim = aimingDownSights && weaponHasScope(currentWeapon);
             document.getElementById('scope-overlay').style.display = scopedAim ? 'block' : 'none';
             document.getElementById('aim-dot').style.opacity = aimingDownSights && !scopedAim ? '1' : '0';
-            // Center the view model for ADS while keeping the barrel below the
-            // reticle. A small scale keeps scoped weapons inside the lens.
-            const basePos = aimingDownSights ? new THREE.Vector3(0, -0.12, -0.72) : new THREE.Vector3(0.3, -0.25, -0.5);
-            const viewModelScale = aimingDownSights ? (scopedAim ? 0.42 : 0.62) : 1;
+            // Keep the sight line centered, with the weapon body low and to
+            // the right so it does not block the target while aiming.
+            const basePos = aimingDownSights ? new THREE.Vector3(0.2, -0.38, -1.05) : new THREE.Vector3(0.3, -0.25, -0.5);
+            const viewModelScale = aimingDownSights ? (scopedAim ? 0.28 : 0.34) : 1;
             wand.scale.set(viewModelScale, viewModelScale, viewModelScale);
             
             const t = Date.now() * 0.005;
