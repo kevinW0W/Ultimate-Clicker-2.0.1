@@ -3539,6 +3539,7 @@
             if(isGameOver) return;
             
             let weapon, invItem;
+            let playerMuzzlePos = null;
             if (ownerData.id === "player") {
                 weapon = currentWeapon;
                 invItem = playerInventory[activeSlot];
@@ -3561,7 +3562,9 @@
                 if (weapon.name.includes("Pistol") || weapon.name.includes("Revolver")) muzzlePos.z = 0.4;
                 if (weapon.name.includes("Sniper")) muzzlePos.z = 1.0;
                 
+                wand.updateWorldMatrix(true, false);
                 muzzlePos.applyMatrix4(wand.matrixWorld);
+                playerMuzzlePos = muzzlePos;
                 playShootSound(weapon.name, muzzlePos);
             } else {
                 playShootSound(weapon.name, source.position);
@@ -3578,7 +3581,11 @@
                 dir.applyQuaternion(source.quaternion).normalize();
                 
                 p.quaternion.copy(source.quaternion);
-                p.position.copy(source.position).add(dir.clone().multiplyScalar(0.5));
+                if (playerMuzzlePos) {
+                    p.position.copy(playerMuzzlePos);
+                } else {
+                    p.position.copy(source.position).add(dir.clone().multiplyScalar(0.5));
+                }
                 
                 p.userData = { 
                     vel: dir.multiplyScalar(35), ownerId: ownerData.id, ownerName: ownerData.name, 
@@ -3719,7 +3726,11 @@
                 );
                 dir.applyQuaternion(source.quaternion).normalize();
                 
-                p.position.copy(source.position).add(dir.clone().multiplyScalar(0.5));
+                if (playerMuzzlePos) {
+                    p.position.copy(playerMuzzlePos);
+                } else {
+                    p.position.copy(source.position).add(dir.clone().multiplyScalar(0.5));
+                }
                 p.userData = { 
                     vel: dir.multiplyScalar(35), 
                     ownerId: ownerData.id, 
@@ -4115,12 +4126,13 @@
             // Interpolate camera height smoothly
             camera.position.y += (playerPosition.y - camera.position.y) * 15 * delta;
 
+            const isSniperWeapon = currentWeapon.name === "Sniper Rifle" || currentWeapon.base === "sniper";
             let targetFOV = baseFOV;
             if (isAiming || ctrlIsAiming) {
-                targetFOV = currentWeapon.name === "Sniper Rifle" ? 15 : 40;
+                targetFOV = isSniperWeapon ? 15 : 40;
             }
             
-            const zoomSpeed = (isAiming || ctrlIsAiming) && currentWeapon.name === "Sniper Rifle" ? 3 : 10;
+            const zoomSpeed = (isAiming || ctrlIsAiming) && isSniperWeapon ? 3 : 10;
             if (Math.abs(camera.fov - targetFOV) > 0.1) {
                 camera.fov += (targetFOV - camera.fov) * zoomSpeed * delta;
                 camera.updateProjectionMatrix();
