@@ -1,4 +1,4 @@
-const CACHE_NAME = 'orb-tosser-v9';
+const CACHE_NAME = 'orb-tosser-v18';
 const APP_URL = new URL('./', self.registration.scope).href;
 const IOS12_PAGE_URL = new URL('./Orb-Tosser%20iOS12.html', self.registration.scope).href;
 const IOS12_MANIFEST_URL = new URL('./manifest-older.webmanifest', self.registration.scope).href;
@@ -7,6 +7,7 @@ const APP_SHELL = [
     IOS12_PAGE_URL,
     IOS12_MANIFEST_URL,
     new URL('./Engine%20Ai%20Bots.js', self.registration.scope).href,
+    new URL('./Engine%20Ai%20Multiplayer.js', self.registration.scope).href,
     new URL('./manifest.webmanifest', self.registration.scope).href,
     new URL('./icon.ico', self.registration.scope).href,
     new URL('./icon.png', self.registration.scope).href,
