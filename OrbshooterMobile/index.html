@@ -487,6 +487,7 @@
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="Engine%20Ai%20Bots.js"></script>
     
     <script>
         let scene, camera, renderer, wand, clock;
@@ -518,8 +519,6 @@
         const WORLD_COLLISION_CELL_SIZE = 48;
         let worldCollisionGrid = new Map();
         let worldCollisionQueryId = 0;
-        const BOT_SPATIAL_CELL_SIZE = 24;
-        let botSpatialGrid = new Map();
         let cityRenderObjects = [];
         let isMobile = false;
         let isAiming = false;
@@ -1556,42 +1555,12 @@
             }
         }
 
-        function getBotSpatialCell(x, z) {
-            const cellX = Math.floor(x / BOT_SPATIAL_CELL_SIZE);
-            const cellZ = Math.floor(z / BOT_SPATIAL_CELL_SIZE);
-            return `${cellX},${cellZ}`;
-        }
-
         function rebuildBotSpatialGrid() {
-            botSpatialGrid.clear();
-            for (let i = 0; i < bots.length; i++) {
-                const bot = bots[i];
-                if (bot.userData.hp <= 0) continue;
-                const key = getBotSpatialCell(bot.position.x, bot.position.z);
-                let cell = botSpatialGrid.get(key);
-                if (!cell) botSpatialGrid.set(key, cell = []);
-                cell.push(bot);
-            }
+            BotEngine.rebuild(bots);
         }
 
         function forEachNearbyBot(x, z, radius, callback) {
-            const minCellX = Math.floor((x - radius) / BOT_SPATIAL_CELL_SIZE);
-            const maxCellX = Math.floor((x + radius) / BOT_SPATIAL_CELL_SIZE);
-            const minCellZ = Math.floor((z - radius) / BOT_SPATIAL_CELL_SIZE);
-            const maxCellZ = Math.floor((z + radius) / BOT_SPATIAL_CELL_SIZE);
-            const radiusSq = radius * radius;
-            for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
-                for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
-                    const cell = botSpatialGrid.get(`${cellX},${cellZ}`);
-                    if (!cell) continue;
-                    for (let i = 0; i < cell.length; i++) {
-                        const other = cell[i];
-                        const dx = other.position.x - x;
-                        const dz = other.position.z - z;
-                        if (dx * dx + dz * dz <= radiusSq) callback(other);
-                    }
-                }
-            }
+            BotEngine.forEachNearby(x, z, radius, callback);
         }
 
         function buildMaze() {
@@ -1826,15 +1795,7 @@
         }
 
         function setBotYawTowards(bot, tx, tz) {
-            let targetX, targetZ;
-            if (typeof tx === 'object' && tx !== null && 'x' in tx) {
-                targetX = tx.x; targetZ = tx.z;
-            } else {
-                targetX = tx; targetZ = tz;
-            }
-            const dx = targetX - bot.position.x;
-            const dz = targetZ - bot.position.z;
-            bot.rotation.y = Math.atan2(dx, dz);
+            BotEngine.setYaw(bot, tx, tz);
         }
 
         function getBotFlagObjective(bot, enemyFlag, myFlag) {
@@ -1877,41 +1838,7 @@
         }
 
         function moveBotTowardPosition(bot, targetPos, delta) {
-            const dx = targetPos.x - bot.position.x;
-            const dz = targetPos.z - bot.position.z;
-            if (Math.hypot(dx, dz) < 1.2) return true;
-
-            const desiredAngle = Math.atan2(dx, dz);
-            const stepDistance = bot.userData.speed * delta;
-            const turnOffsets = [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2,
-                Math.PI * 3 / 4, -Math.PI * 3 / 4, Math.PI];
-            let bestPosition = null;
-            let bestScore = Infinity;
-
-            for (const offset of turnOffsets) {
-                const angle = desiredAngle + offset;
-                const candidateX = bot.position.x + Math.sin(angle) * stepDistance;
-                const candidateZ = bot.position.z + Math.cos(angle) * stepDistance;
-                if (checkCollision(candidateX, candidateZ)) continue;
-                let occupied = false;
-                forEachNearbyBot(candidateX, candidateZ, 0.85, other => {
-                    if (other !== bot) occupied = true;
-                });
-                if (occupied) continue;
-                const remaining = Math.hypot(targetPos.x - candidateX, targetPos.z - candidateZ);
-                const score = remaining + Math.abs(offset) * 0.35;
-                if (score < bestScore) {
-                    bestScore = score;
-                    if (!bestPosition) bestPosition = new THREE.Vector3();
-                    bestPosition.set(candidateX, 0, candidateZ);
-                }
-            }
-
-            if (!bestPosition) return false;
-            bot.position.copy(bestPosition);
-            bot.position.y = 0.9;
-            setBotYawTowards(bot, targetPos);
-            return true;
+            return BotEngine.moveToward(bot, targetPos, delta, checkCollision);
         }
 
         function showLoadoutMenu() {
@@ -4813,14 +4740,16 @@
                     if (canSee(bot, camera) || bot.userData.aggroTarget === "player") { minDist = distToPlayer; target = camera; }
                 }
 
-                forEachNearbyBot(bot.position.x, bot.position.z, 60, other => {
-                    if (other === bot || (gameMode !== 'ffa' && other.userData.team === bot.userData.team)) return;
-                    const dx = other.position.x - bot.position.x;
-                    const dy = other.position.y - bot.position.y;
-                    const dz = other.position.z - bot.position.z;
-                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    if (distance < minDist && canSee(bot, other)) { minDist = distance; target = other; }
-                });
+                const nearestEnemy = BotEngine.findNearestEnemy(
+                    bot,
+                    60,
+                    target,
+                    minDist,
+                    other => gameMode === 'ffa' || other.userData.team !== bot.userData.team,
+                    canSee
+                );
+                target = nearestEnemy.target;
+                minDist = nearestEnemy.distance;
 
                 if (!target) {
                     if (flagObjective) {
