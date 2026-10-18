@@ -742,7 +742,6 @@
         gameBgm.loop = false;
         gameBgm.preload = 'auto';
         gameBgm.volume = 0.3;
-        let railgunDuckTimer = null;
         let customBgmUrl = null;
         const CUSTOM_BGM_DATABASE = 'orbTosserAudio';
         const COLLISION_RADIUS = 0.5; 
@@ -1100,6 +1099,10 @@
             if (type === 'RPG') {
                 const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.11, 0.9, 12), mat); tube.rotation.x = Math.PI / 2; tube.position.z = 0.22;
                 const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.12, 12), steelMat); muzzle.rotation.x = Math.PI / 2; muzzle.position.z = 0.73;
+                group.add(tube, muzzle);
+                const blastShield = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.018, 6, 12), steelMat);
+                blastShield.rotation.x = Math.PI / 2; blastShield.position.z = 0.69; group.add(blastShield);
+                addBox(0.13, 0.06, 0.18, accentMat, 0, 0.02, -0.3);
                 addBox(0.07, 0.2, 0.12, darkMat, 0, -0.16, 0.05, -0.12);
                 addBox(0.05, 0.13, 0.1, darkMat, 0, -0.14, 0.36, -0.1);
                 addBox(0.045, 0.12, 0.14, accentMat, 0, 0.13, 0.17);
@@ -1452,7 +1455,6 @@
                 gain.gain.setValueAtTime(0.32, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.65);
                 osc.connect(gain); osc.start(); osc.stop(t + 0.65);
             } else if (weaponName === "Railgun") {
-                duckMusicForRailgun();
                 const osc = audioCtx.createOscillator(); osc.type = 'sine';
                 osc.frequency.setValueAtTime(1400, t); osc.frequency.exponentialRampToValueAtTime(120, t + 0.28);
                 gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.42);
@@ -1621,17 +1623,6 @@
             tryhardWasHeld = held;
             updateTryhardFireLoop(held);
             updateTryhardWhirr();
-        }
-
-        function duckMusicForRailgun() {
-            const track = gameHasStarted ? gameBgm : menuBgm;
-            const restoreVolume = track.volume;
-            track.volume = restoreVolume * 0.18;
-            if (railgunDuckTimer) clearTimeout(railgunDuckTimer);
-            railgunDuckTimer = setTimeout(() => {
-                track.volume = restoreVolume;
-                railgunDuckTimer = null;
-            }, 850);
         }
 
         function playReloadSound() {
@@ -3828,6 +3819,77 @@
             }
         }
 
+        function detonateRocket(projectile, projectileIndex, position) {
+            const data = projectile.userData;
+            const radius = 6.5;
+            const blast = new THREE.Mesh(
+                new THREE.SphereGeometry(1, 12, 10),
+                new THREE.MeshBasicMaterial({ color: 0xff7a22, transparent: true, opacity: 0.78, depthWrite: false })
+            );
+            blast.position.copy(position);
+            blast.scale.setScalar(0.25);
+            blast.userData = { isExplosion: true, life: 0.32, maxLife: 0.32 };
+            scene.add(blast);
+            projectiles.push(blast);
+            scene.remove(projectile);
+            projectiles.splice(projectileIndex, 1);
+
+            bots.slice().forEach(bot => {
+                if (bot.userData.hp <= 0 || bot.userData.id === data.ownerId) return;
+                if (gameMode !== 'ffa' && bot.userData.team === data.team) return;
+                const center = bot.position.clone().add(new THREE.Vector3(0, 0.35, 0));
+                const distance = center.distanceTo(position);
+                if (distance >= radius) return;
+                const damage = Math.max(1, Math.round(data.damage * (1 - distance / radius)));
+                bot.userData.hp -= damage;
+                const hpPercent = Math.max(0, bot.userData.hp / 100);
+                bot.userData.healthBar.scale.x = hpPercent;
+                bot.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
+                bot.userData.healthBarBackground.visible = hpPercent < 1;
+                bot.userData.aggroTarget = data.ownerId === 'player' ? 'player' : bot.userData.aggroTarget;
+                if (bot.userData.hp <= 0) {
+                    if (data.ownerId === 'player') {
+                        playerKillstreak++;
+                        checkKillstreakRewards();
+                        if (gameMode === 'gungame') promotePlayer();
+                    }
+                    logFeed(`${data.ownerName} blasted ${bot.userData.name}`);
+                    const carriedFlag = flags.find(flag => flag.carrier === bot);
+                    if (carriedFlag) {
+                        carriedFlag.carrier = null; carriedFlag.dropped = true;
+                        carriedFlag.mesh.position.copy(bot.position); carriedFlag.mesh.position.y = 0;
+                    }
+                    const killer = scores.find(score => score.name === data.ownerName);
+                    if (killer) killer.score += 100;
+                    if (gameMode === 'tdm') {
+                        if (data.team === 'blue') teamScores.blue++;
+                        else if (data.team === 'red') teamScores.red++;
+                        updateTeamScores();
+                    }
+                    if (gameMode === 'gungame' && data.ownerId !== 'player') promoteBot(bots.find(other => other.userData.id === data.ownerId));
+                    respawnEntity(bot, false);
+                }
+            });
+
+            if (data.ownerId !== 'player' && !(gameMode !== 'ffa' && data.team === 'blue') && playerHealth > 0) {
+                const distance = camera.position.distanceTo(position);
+                if (distance < radius) {
+                    playerHealth -= Math.max(1, Math.round(data.damage * (1 - distance / radius)));
+                    lastKillerId = data.ownerId;
+                    lastDamageTime = Date.now();
+                    document.getElementById('health-display').innerText = "✚ " + Math.max(0, Math.ceil(playerHealth));
+                    document.getElementById('health-display').style.color = playerHealth < 30 ? '#f00' : '#0f0';
+                    if (playerHealth <= 0) {
+                        logFeed(`<span style="color:#f88">${data.ownerName} blasted YOU!</span>`);
+                        const killer = scores.find(score => score.name === data.ownerName);
+                        if (killer) killer.score += 100;
+                        if (gameMode === 'tdm') { if (data.team === 'red') teamScores.red++; updateTeamScores(); }
+                        handlePlayerDeath();
+                    }
+                }
+            }
+        }
+
         function fireProjectile(source, ownerData) {
             if(isGameOver) return;
             
@@ -4673,6 +4735,15 @@
             for(let i=projectiles.length-1; i>=0; i--) {
                 const p = projectiles[i];
 
+                if (p.userData.isExplosion) {
+                    p.userData.life -= delta;
+                    const progress = 1 - Math.max(0, p.userData.life) / p.userData.maxLife;
+                    p.scale.setScalar(0.25 + progress * 6.25);
+                    p.material.opacity = Math.max(0, 0.78 * (1 - progress));
+                    if (p.userData.life <= 0) { scene.remove(p); projectiles.splice(i, 1); }
+                    continue;
+                }
+
                 if (p.userData.isPickup) {
                     p.rotation.y += 2 * delta;
                     if (p.position.distanceTo(camera.position) < 1.5) {
@@ -4705,6 +4776,9 @@
                         p.userData.vel.set(0,0,0);
                         if (nextPos.y < 0.1) p.position.y = 0.1;
                         continue;
+                    } else if (p.userData.isRocket) {
+                        detonateRocket(p, i, p.position.clone().lerp(nextPos, 0.5));
+                        continue;
                     } else {
                         scene.remove(p); projectiles.splice(i, 1); continue;
                     }
@@ -4714,6 +4788,10 @@
                 p.userData.life -= delta;
 
                 if(p.userData.ownerId !== "player" && p.position.distanceTo(camera.position) < 0.8) {
+                    if (p.userData.isRocket) {
+                        detonateRocket(p, i, p.position.clone());
+                        continue;
+                    }
                     if (gameMode !== 'ffa' && p.userData.team === 'blue') {
                         // Friendly
                     } else {
@@ -4746,6 +4824,11 @@
                     if (gameMode !== 'ffa' && p.userData.team === bot.userData.team) continue;
 
                     if(p.userData.ownerId !== bot.userData.id && p.position.distanceTo(bot.position.clone().add(new THREE.Vector3(0,0.2,0))) < 1.0) {
+                        if (p.userData.isRocket) {
+                            detonateRocket(p, i, p.position.clone());
+                            hitBot = true;
+                            break;
+                        }
                         const isHeadshot = p.position.y > bot.position.y + 0.4;
                         const dmg = isHeadshot ? p.userData.damage * 2 : p.userData.damage;
                         bot.userData.hp -= dmg;
@@ -4806,7 +4889,10 @@
                 }
                 if (hitBot) continue;
 
-                if(p && p.userData.life <= 0) { scene.remove(p); projectiles.splice(i, 1); }
+                if(p && p.userData.life <= 0) {
+                    if (p.userData.isRocket) detonateRocket(p, i, p.position.clone());
+                    else { scene.remove(p); projectiles.splice(i, 1); }
+                }
             }
 
             if (playerHealth < 100 && playerHealth > 0 && Date.now() - lastDamageTime > 4000) {
