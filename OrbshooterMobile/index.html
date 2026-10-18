@@ -654,7 +654,7 @@
             { id: 'negev', name: "Negev", base: 'lmg', damage: 6, delay: 50, ammo: 150, color: 0x444444 },
             { id: 'minigun', name: "Minigun", base: 'lmg', damage: 5, delay: 30, ammo: 500, pierce: 1, color: 0x222222 },
             { id: 'tryhard', name: "Tryhard Gun", base: 'lmg', damage: 100, delay: 100, ammo: 8000, maxAmmo: 8000, reload: 20000, automatic: true, pierce: 1, isLaser: true, color: 0xff3300 },
-            { id: 'rpg', name: "RPG", base: 'sniper', damage: 150, delay: 1200, ammo: 1, maxAmmo: 1, reload: 40000, isExplosive: true, blastRadius: 8, color: 0x66aa33 },
+            { id: 'rpg', name: "RPG", base: 'sniper', damage: 150, delay: 1200, ammo: 1, maxAmmo: 1, reload: 10000, isExplosive: true, blastRadius: 8, color: 0x66aa33 },
             { id: 'nuke_launcher', name: "Nuke Launcher", base: 'sniper', damage: 500, delay: 1500, ammo: 1, maxAmmo: 1, reload: 60000, isNukeLauncher: true, blastRadius: 200, color: 0xff4400 },
             { id: 'one_kills_machine', name: "One Kills Machine", base: 'lmg', damage: 2, delay: 100, ammo: 99999, maxAmmo: 99999, reload: 3000, automatic: true, color: 0x00ccff },
             { id: 'onekillgun', name: "OneKillGun", base: 'shotgun', damage: 10, spread: 0.8, count: 20, delay: 100, ammo: 300, maxAmmo: 300, reload: 15000, automatic: true, color: 0xff66cc },
@@ -1466,6 +1466,59 @@
             gain.gain.linearRampToValueAtTime(0, t + 0.2);
             osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start(); osc.stop(t + 0.2);
+        }
+
+        function playRpgReloadSound() {
+            if (!audioCtx) return;
+
+            const start = audioCtx.currentTime;
+            const makeNoise = (when, duration, volume, centerStart, centerEnd = centerStart) => {
+                const frameCount = Math.max(1, Math.ceil(audioCtx.sampleRate * duration));
+                const buffer = audioCtx.createBuffer(1, frameCount, audioCtx.sampleRate);
+                const samples = buffer.getChannelData(0);
+                for (let i = 0; i < frameCount; i++) samples[i] = Math.random() * 2 - 1;
+
+                const source = audioCtx.createBufferSource();
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+                source.buffer = buffer;
+                filter.type = 'bandpass';
+                filter.Q.value = 0.8;
+                filter.frequency.setValueAtTime(centerStart, when);
+                filter.frequency.linearRampToValueAtTime(centerEnd, when + duration);
+                gain.gain.setValueAtTime(0.0001, when);
+                gain.gain.linearRampToValueAtTime(volume, when + Math.min(0.025, duration * 0.2));
+                gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+                source.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                source.start(when);
+                source.stop(when + duration);
+            };
+
+            const metalClack = (when, pitch, volume = 0.12) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(pitch, when);
+                osc.frequency.exponentialRampToValueAtTime(Math.max(45, pitch * 0.32), when + 0.12);
+                gain.gain.setValueAtTime(volume, when);
+                gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.14);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(when);
+                osc.stop(when + 0.15);
+                makeNoise(when, 0.09, volume * 0.45, pitch * 1.8, pitch * 0.7);
+            };
+
+            // Latch open, rocket sliding into the tube, then the breech and
+            // cocking mechanism locking back into place.
+            metalClack(start, 920, 0.1);
+            metalClack(start + 0.28, 510, 0.11);
+            makeNoise(start + 0.52, 0.62, 0.075, 420, 1450);
+            makeNoise(start + 1.16, 0.2, 0.16, 180, 90);
+            metalClack(start + 1.52, 360, 0.15);
+            metalClack(start + 2.12, 780, 0.12);
         }
 
         function playTryhardReloadSound() {
@@ -3685,7 +3738,8 @@
                 logFeed('<span style="color:#f44">ONE KILLS MACHINE OVERHEATED — RELOADING</span>');
             }
             document.getElementById('ammo-display').innerText = "RELOADING...";
-            if (weapon.id === 'tryhard') playTryhardReloadSound();
+            if (weapon.id === 'rpg') playRpgReloadSound();
+            else if (weapon.id === 'tryhard') playTryhardReloadSound();
             else playReloadSound();
             
             const reloadTime = hasFastReloadPerk ? weapon.reload * 0.5 : weapon.reload;
