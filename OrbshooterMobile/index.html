@@ -1483,7 +1483,7 @@
             filter.frequency.exponentialRampToValueAtTime(420, t + 1.8);
             osc.frequency.setValueAtTime(1250, t);
             osc.frequency.exponentialRampToValueAtTime(190, t + 1.8);
-            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.setValueAtTime(0.28, t);
             gain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
             osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
             osc.start(t); osc.stop(t + 1.85);
@@ -1514,7 +1514,7 @@
                     tryhardWhirrOsc.start(t);
                 }
                 tryhardWhirrOsc.frequency.setTargetAtTime(75 + tryhardSpin * 235, t, 0.045);
-                tryhardWhirrGain.gain.setTargetAtTime(0.025 + tryhardSpin * 0.055, t, 0.06);
+                tryhardWhirrGain.gain.setTargetAtTime(0.06 + tryhardSpin * 0.1, t, 0.06);
                 tryhardWhirrFilter.frequency.setTargetAtTime(500 + tryhardSpin * 1500, t, 0.06);
             } else if (tryhardWhirrOsc && !tryhardWhirrStopping) {
                 tryhardWhirrStopping = true;
@@ -3683,11 +3683,6 @@
                 hasSpeedPerk = true;
                 logFeed(`<span style="color:#ff8c00">PERK: Speed Boost!</span>`);
             }
-            if (playerKillstreak === 7) {
-                logFeed(`<span style="color:#ff8c00">REWARD: Golden Gun!</span>`);
-                playerInventory[1] = { def: WEAPONS.golden, ammo: WEAPONS.golden.maxAmmo };
-                switchWeapon(1);
-            }
         }
 
         function showHitMarker(isHeadshot) {
@@ -4367,7 +4362,9 @@
                 camera.updateProjectionMatrix();
             }
 
-            const basePos = (isAiming || ctrlIsAiming) ? new THREE.Vector3(0, -0.18, -0.4) : new THREE.Vector3(0.3, -0.25, -0.5);
+            const aimingDownSights = isAiming || ctrlIsAiming;
+            wand.visible = !aimingDownSights;
+            const basePos = aimingDownSights ? new THREE.Vector3(0, -0.18, -0.4) : new THREE.Vector3(0.3, -0.25, -0.5);
             
             const t = Date.now() * 0.005;
             const moveSway = (moveForward || moveBackward || moveLeft || moveRight) ? 0.02 : 0.002;
