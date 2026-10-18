@@ -514,6 +514,12 @@
         let cityCullFrame = 0;
         let botHealthBarGeo, botHealthBarBgMat, botHealthBarFgMat;
         let worldColliders = [];
+        let worldColliderMeshes = [];
+        const WORLD_COLLISION_CELL_SIZE = 48;
+        let worldCollisionGrid = new Map();
+        let worldCollisionQueryId = 0;
+        const BOT_SPATIAL_CELL_SIZE = 24;
+        let botSpatialGrid = new Map();
         let cityRenderObjects = [];
         let isMobile = false;
         let isAiming = false;
@@ -944,6 +950,7 @@
             
             if (checkCollision(0, 0)) {
                 worldColliders = worldColliders.filter(c => !(0 > c.minX-1 && 0 < c.maxX+1 && 0 > c.minZ-1 && 0 < c.maxZ+1));
+                rebuildWorldCollisionGrid();
             }
 
             const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.09, metalness: 0.2 }));
@@ -1499,7 +1506,92 @@
             wall.position.set(x, h / 2, z);
             scene.add(wall);
             worldColliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, mesh: wall });
+            worldColliderMeshes.push(wall);
+            indexWorldCollider(worldColliders[worldColliders.length - 1]);
             return wall;
+        }
+
+        function indexWorldCollider(collider) {
+            const minCellX = Math.floor(collider.minX / WORLD_COLLISION_CELL_SIZE);
+            const maxCellX = Math.floor(collider.maxX / WORLD_COLLISION_CELL_SIZE);
+            const minCellZ = Math.floor(collider.minZ / WORLD_COLLISION_CELL_SIZE);
+            const maxCellZ = Math.floor(collider.maxZ / WORLD_COLLISION_CELL_SIZE);
+            for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
+                for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
+                    const key = `${cellX},${cellZ}`;
+                    let cell = worldCollisionGrid.get(key);
+                    if (!cell) worldCollisionGrid.set(key, cell = []);
+                    cell.push(collider);
+                }
+            }
+        }
+
+        function rebuildWorldCollisionGrid() {
+            worldCollisionGrid.clear();
+            worldColliderMeshes = [];
+            for (let i = 0; i < worldColliders.length; i++) {
+                const collider = worldColliders[i];
+                worldColliderMeshes.push(collider.mesh);
+                indexWorldCollider(collider);
+            }
+        }
+
+        function forEachNearbyWorldCollider(x, z, radius, callback) {
+            const minCellX = Math.floor((x - radius) / WORLD_COLLISION_CELL_SIZE);
+            const maxCellX = Math.floor((x + radius) / WORLD_COLLISION_CELL_SIZE);
+            const minCellZ = Math.floor((z - radius) / WORLD_COLLISION_CELL_SIZE);
+            const maxCellZ = Math.floor((z + radius) / WORLD_COLLISION_CELL_SIZE);
+            const queryId = ++worldCollisionQueryId;
+            for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
+                for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
+                    const cell = worldCollisionGrid.get(`${cellX},${cellZ}`);
+                    if (!cell) continue;
+                    for (let i = 0; i < cell.length; i++) {
+                        const collider = cell[i];
+                        if (collider.lastQueryId === queryId) continue;
+                        collider.lastQueryId = queryId;
+                        callback(collider);
+                    }
+                }
+            }
+        }
+
+        function getBotSpatialCell(x, z) {
+            const cellX = Math.floor(x / BOT_SPATIAL_CELL_SIZE);
+            const cellZ = Math.floor(z / BOT_SPATIAL_CELL_SIZE);
+            return `${cellX},${cellZ}`;
+        }
+
+        function rebuildBotSpatialGrid() {
+            botSpatialGrid.clear();
+            for (let i = 0; i < bots.length; i++) {
+                const bot = bots[i];
+                if (bot.userData.hp <= 0) continue;
+                const key = getBotSpatialCell(bot.position.x, bot.position.z);
+                let cell = botSpatialGrid.get(key);
+                if (!cell) botSpatialGrid.set(key, cell = []);
+                cell.push(bot);
+            }
+        }
+
+        function forEachNearbyBot(x, z, radius, callback) {
+            const minCellX = Math.floor((x - radius) / BOT_SPATIAL_CELL_SIZE);
+            const maxCellX = Math.floor((x + radius) / BOT_SPATIAL_CELL_SIZE);
+            const minCellZ = Math.floor((z - radius) / BOT_SPATIAL_CELL_SIZE);
+            const maxCellZ = Math.floor((z + radius) / BOT_SPATIAL_CELL_SIZE);
+            const radiusSq = radius * radius;
+            for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
+                for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
+                    const cell = botSpatialGrid.get(`${cellX},${cellZ}`);
+                    if (!cell) continue;
+                    for (let i = 0; i < cell.length; i++) {
+                        const other = cell[i];
+                        const dx = other.position.x - x;
+                        const dz = other.position.z - z;
+                        if (dx * dx + dz * dz <= radiusSq) callback(other);
+                    }
+                }
+            }
         }
 
         function buildMaze() {
@@ -1798,12 +1890,21 @@
 
             for (const offset of turnOffsets) {
                 const angle = desiredAngle + offset;
-                const candidate = bot.position.clone().add(new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle)).multiplyScalar(stepDistance));
-                if (checkCollision(candidate.x, candidate.z)) continue;
-                if (bots.some(other => other !== bot && other.userData.hp > 0 && candidate.distanceTo(other.position) < 0.85)) continue;
-                const remaining = Math.hypot(targetPos.x - candidate.x, targetPos.z - candidate.z);
+                const candidateX = bot.position.x + Math.sin(angle) * stepDistance;
+                const candidateZ = bot.position.z + Math.cos(angle) * stepDistance;
+                if (checkCollision(candidateX, candidateZ)) continue;
+                let occupied = false;
+                forEachNearbyBot(candidateX, candidateZ, 0.85, other => {
+                    if (other !== bot) occupied = true;
+                });
+                if (occupied) continue;
+                const remaining = Math.hypot(targetPos.x - candidateX, targetPos.z - candidateZ);
                 const score = remaining + Math.abs(offset) * 0.35;
-                if (score < bestScore) { bestScore = score; bestPosition = candidate; }
+                if (score < bestScore) {
+                    bestScore = score;
+                    if (!bestPosition) bestPosition = new THREE.Vector3();
+                    bestPosition.set(candidateX, 0, candidateZ);
+                }
             }
 
             if (!bestPosition) return false;
@@ -2293,7 +2394,7 @@
             if (distance === 0) return false;
 
             const raycaster = new THREE.Raycaster(camera.position, direction.normalize(), 0, distance);
-            const wallHit = raycaster.intersectObjects(worldColliders.map(c => c.mesh), false)[0];
+            const wallHit = raycaster.intersectObjects(worldColliderMeshes, false)[0];
             return !wallHit || wallHit.distance >= distance - 0.05;
         }
 
@@ -3845,7 +3946,7 @@
 
             const raycaster = new THREE.Raycaster(start, direction, 0, 80);
             let beamLength = 80;
-            const wallHit = raycaster.intersectObjects(worldColliders.map(c => c.mesh), false)[0];
+            const wallHit = raycaster.intersectObjects(worldColliderMeshes, false)[0];
             if (wallHit) beamLength = wallHit.distance;
 
             const enemyBots = bots.filter(bot => bot.userData.hp > 0 &&
@@ -4201,23 +4302,25 @@
         }
 
         function checkCollision(x, z) {
-            for(let c of worldColliders) {
+            let collided = false;
+            forEachNearbyWorldCollider(x, z, COLLISION_RADIUS, c => {
                 if(x > c.minX - COLLISION_RADIUS && x < c.maxX + COLLISION_RADIUS && 
-                   z > c.minZ - COLLISION_RADIUS && z < c.maxZ + COLLISION_RADIUS) return true;
-            }
-            return false;
+                   z > c.minZ - COLLISION_RADIUS && z < c.maxZ + COLLISION_RADIUS) collided = true;
+            });
+            return collided;
         }
 
         function checkProjectileWallHit(x, z) {
-            for(let c of worldColliders) {
+            let collided = false;
+            forEachNearbyWorldCollider(x, z, 0.1, c => {
                 if(x > c.minX - 0.1 && x < c.maxX + 0.1 && 
-                   z > c.minZ - 0.1 && z < c.maxZ + 0.1) return true;
-            }
-            return false;
+                   z > c.minZ - 0.1 && z < c.maxZ + 0.1) collided = true;
+            });
+            return collided;
         }
 
         function resolveWallStick() {
-            for(let c of worldColliders) {
+            forEachNearbyWorldCollider(camera.position.x, camera.position.z, COLLISION_RADIUS, c => {
                 if(camera.position.x > c.minX - COLLISION_RADIUS && camera.position.x < c.maxX + COLLISION_RADIUS && 
                    camera.position.z > c.minZ - COLLISION_RADIUS && camera.position.z < c.maxZ + COLLISION_RADIUS) {
                     
@@ -4232,7 +4335,7 @@
                     else if (minDist === distTop) camera.position.z -= 0.1;
                     else if (minDist === distBottom) camera.position.z += 0.1;
                 }
-            }
+            });
         }
 
         function logFeed(msg) {
@@ -4665,10 +4768,12 @@
             recoil = Math.max(0, recoil - delta * 5);
 
             botAiFrame++;
-            const botDelta = Math.min(delta * 5, 0.25);
+            const botUpdateStride = bots.length > 300 ? 3 : bots.length > 80 ? 2 : 1;
+            const botDelta = Math.min(delta * botUpdateStride, 0.25);
+            rebuildBotSpatialGrid();
             bots.forEach((bot, botIndex) => {
-                // Spread bot thinking across frames so large matches avoid a 500-bot AI spike.
-                if (botIndex % 5 !== botAiFrame % 5) return;
+                // Keep small matches responsive; spread only large crowds across frames.
+                if (botIndex % botUpdateStride !== botAiFrame % botUpdateStride) return;
                 const botDistanceSq = bot.position.distanceToSquared(camera.position);
                 // Fog and distance culling prevent distant bots from using iOS draw calls.
                 const botRenderDistance = isMobile ? 105 : 180;
@@ -4708,10 +4813,13 @@
                     if (canSee(bot, camera) || bot.userData.aggroTarget === "player") { minDist = distToPlayer; target = camera; }
                 }
 
-                bots.forEach(other => {
+                forEachNearbyBot(bot.position.x, bot.position.z, 60, other => {
                     if (other === bot || (gameMode !== 'ffa' && other.userData.team === bot.userData.team)) return;
-                    const d = bot.position.distanceTo(other.position);
-                    if (d < minDist && canSee(bot, other)) { minDist = d; target = other; }
+                    const dx = other.position.x - bot.position.x;
+                    const dy = other.position.y - bot.position.y;
+                    const dz = other.position.z - bot.position.z;
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (distance < minDist && canSee(bot, other)) { minDist = distance; target = other; }
                 });
 
                 if (!target) {
@@ -4785,13 +4893,13 @@
                 setBotYawTowards(bot, target.position);
                 
                 let moveDir = new THREE.Vector3(0,0,1).applyQuaternion(bot.quaternion);
-                bots.forEach(other => {
+                forEachNearbyBot(bot.position.x, bot.position.z, 1.5, other => {
                     if (other !== bot) {
-                        const dist = bot.position.distanceTo(other.position);
-                        if (dist < 1.5) {
-                            const push = bot.position.clone().sub(other.position).normalize();
-                            moveDir.add(push.multiplyScalar(1.5));
-                        }
+                        const pushX = bot.position.x - other.position.x;
+                        const pushZ = bot.position.z - other.position.z;
+                        const pushLength = Math.sqrt(pushX * pushX + pushZ * pushZ) || 1;
+                        moveDir.x += (pushX / pushLength) * 1.5;
+                        moveDir.z += (pushZ / pushLength) * 1.5;
                     }
                 });
 
@@ -4827,9 +4935,9 @@
                     moveBotTowardPosition(bot, flagObjective, botDelta);
                 } else if(!checkCollision(nextPos.x, nextPos.z)) {
                     let botHit = false;
-                    for(let other of bots) {
-                        if(other !== bot && nextPos.distanceTo(other.position) < 0.8) { botHit = true; break; }
-                    }
+                    forEachNearbyBot(nextPos.x, nextPos.z, 0.8, other => {
+                        if (other !== bot) botHit = true;
+                    });
                     if(!botHit) bot.position.copy(nextPos);
                 }
                 }
@@ -4839,8 +4947,7 @@
                     const targetPos = target.position.clone().add(new THREE.Vector3(0, 0.5, 0));
                     const dirToTarget = targetPos.sub(eyePos).normalize();
                     botRaycaster.set(eyePos, dirToTarget);
-                    const wallMeshes = worldColliders.map(c => c.mesh);
-                    const intersects = botRaycaster.intersectObjects(wallMeshes, false);
+                    const intersects = botRaycaster.intersectObjects(worldColliderMeshes, false);
 
                     let canShoot = true;
                     if (intersects.length > 0) {
