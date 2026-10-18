@@ -377,8 +377,13 @@
     <div id="main-menu">
         <div class="menu-panel">
             <h1 style="font-size: 48px; color: #0ff; margin-bottom: 10px; text-shadow: 0 0 20px #0ff;">ORB TOSSER 2</h1>
-            <button class="btn" onclick="showLoadoutMenu()" style="font-size: 24px; padding: 15px 50px; width: 100%;">PLAY</button>
+            <button class="btn" onclick="showLoadoutMenu(false)" style="font-size: 24px; padding: 15px 50px; width: 100%;">PLAY</button>
+            <button class="btn" onclick="showLoadoutMenu(true)" style="font-size: 18px; padding: 12px 24px; width: 100%; background:#008888;">PLAY WITH BOTS</button>
             <button class="btn" onclick="openSettings()" style="background: #555; width: 100%;">SETTINGS</button>
+            <div style="margin-top:18px; width:min(90vw,360px); color:#0ff; text-align:center;">
+                <div style="font-weight:bold; margin-bottom:8px;">PUBLIC MAIN SERVER</div>
+                <div id="mp-status" role="status" style="font-size:12px; color:#fff; min-height:16px;">Connects automatically when you press PLAY.</div>
+            </div>
         </div>
     </div>
 
@@ -400,6 +405,7 @@
 
     <div id="settings-menu" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); padding:40px; border:2px solid #0ff; border-radius:10px; flex-direction:column; gap:20px; z-index:300; color:#0ff; width:400px; touch-action: pan-y; -webkit-overflow-scrolling: touch; max-height: 90vh; overflow-y: auto;">
         <h2 style="text-align:center; margin-top:0;">SETTINGS</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;"><span>Player Name</span> <input id="player-name-input" aria-label="Player name" maxlength="18" value="Player" oninput="updateSettings()" style="box-sizing:border-box; width:180px; padding:8px; background:#222; color:#fff; border:1px solid #0ff; border-radius:4px;"></div>
         <div style="display:flex; justify-content:space-between;"><span>Sensitivity</span> <input type="range" id="sens-slider" min="0.1" max="5.0" step="0.1" value="1.2" oninput="updateSettings()"> <span id="sens-val">1.2</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Controller Sens</span> <input type="range" id="cont-sens-slider" min="1.0" max="50.0" step="1.0" value="23.0" oninput="updateSettings()"> <span id="cont-sens-val">23.0</span></div>
         <div style="display:flex; justify-content:space-between;"><span>FOV</span> <input type="range" id="fov-slider" min="60" max="120" step="1" value="75" oninput="updateSettings()"> <span id="fov-val">75</span></div>
@@ -487,7 +493,9 @@
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.2.0/dist/peerjs.min.js"></script>
     <script src="Engine%20Ai%20Bots.js"></script>
+    <script src="Engine%20Ai%20Multiplayer.js"></script>
     
     <script>
         let scene, camera, renderer, wand, clock;
@@ -509,6 +517,11 @@
         let playerPosition = new THREE.Vector3(); // Isolated physics reference position
         let projectiles = [];
         let bots = [];
+        let remotePlayers = new Map();
+        let multiplayerLastSend = 0;
+        let multiplayerName = 'Player';
+        let multiplayerConnected = false;
+        let isSoloMode = false;
         let botAiFrame = 0;
         const textSpriteTextureCache = new Map();
         const textSpriteMaterialCache = new Map();
@@ -841,6 +854,7 @@
             const desktopDebugActive = !isMobile && sessionStorage.getItem('orbTosserDesktopDebug') === 'true';
             if (isIOS || desktopDebugActive) document.getElementById('install-ios-btn').style.display = 'flex';
             configureCustomBgmPicker();
+            document.getElementById('mp-status').innerText = 'Connects automatically to the public main server when you press PLAY.';
             if (!isMobile) {
                 document.getElementById('desktop-only-screen').style.display = desktopDebugActive ? 'none' : 'flex';
                 if (desktopDebugActive) updateDesktopDebugMenu();
@@ -1048,6 +1062,7 @@
                 btn.style.padding = '10px';
                 btn.style.width = '180px';
                 btn.innerText = w.name.toUpperCase();
+                btn.dataset.weapon = key;
                 btn.onclick = () => chooseLoadout(key);
                 const c = w.color.toString(16).padStart(6, '0');
                 btn.style.borderLeft = `5px solid #${c}`;
@@ -1841,14 +1856,24 @@
             return BotEngine.moveToward(bot, targetPos, delta, checkCollision);
         }
 
-        function showLoadoutMenu() {
+        function showLoadoutMenu(solo = false) {
             isSelectingRespawnLoadout = false;
+            isSoloMode = solo;
             document.getElementById('main-menu').style.display = 'none';
             const overlay = document.getElementById('overlay');
             overlay.style.display = 'flex';
             overlay.scrollTop = 0;
             document.getElementById('gamemode-select').style.display = 'block';
+            updateLoadoutAvailability();
             playMenuMusic();
+        }
+
+        function updateLoadoutAvailability() {
+            document.querySelectorAll('#loadout-grid [data-weapon="nuke_launcher"]').forEach(button => {
+                button.disabled = !isSoloMode;
+                button.title = isSoloMode ? 'Available in solo play' : 'Nuke Launcher is available in solo play only';
+                button.style.opacity = isSoloMode ? '1' : '0.45';
+            });
         }
 
         function chooseLoadout(weaponType) {
@@ -1857,6 +1882,7 @@
 
                 const selectedWeapon = WEAPONS[weaponType];
                 if (!selectedWeapon) return;
+                if (!isSoloMode && selectedWeapon.isNukeLauncher) return;
 
                 if (!playerInventory || playerInventory.length < 3) {
                     playerInventory = [
@@ -1894,15 +1920,24 @@
                 return;
             }
 
-            startGame(weaponType);
+            startGame(weaponType, isSoloMode);
         }
 
-        function startGame(weaponType) {
+        function startGame(weaponType, solo = false) {
+            isSoloMode = !!solo;
             gameMode = document.getElementById('gamemode-select').value;
             teamScores = { red: 0, blue: 0 };
             availableBotNames = [...BASE_BOT_NAMES];
 
             gameHasStarted = true;
+            if (isSoloMode) {
+                if (multiplayerConnected) MultiplayerTransport.disconnect();
+                multiplayerConnected = false;
+                clearRemotePlayers();
+                document.getElementById('mp-status').innerText = 'Solo game with bots. Multiplayer is not connected.';
+            } else {
+                connectToMainServer();
+            }
             updateGameTheme();
             onWindowResize();
             updateDesktopDebugMenu();
@@ -1961,7 +1996,8 @@
             
             bots.forEach(b => scene.remove(b));
             bots = [];
-            scores = [{name: "Player", score: 0, isBot: false, team: 'blue'}];
+            scores = [{name: multiplayerName, score: 0, isBot: false, isHuman: true, isLocal: true, team: 'blue'}];
+            remotePlayers.forEach(remote => scores.push({ id: remote.id, name: remote.name, score: remote.score || 0, isBot: false, isHuman: true, team: 'blue' }));
             for(let i=0; i<botCount; i++) spawnBot();
             if (disablePostProcessing) applyPostProcessingSetting();
         }
@@ -2251,6 +2287,12 @@
 
             bots.forEach(b => scene.remove(b));
             bots = [];
+            clearRemotePlayers();
+            if (multiplayerConnected) {
+                MultiplayerTransport.disconnect();
+                multiplayerConnected = false;
+                document.getElementById('mp-status').innerText = 'Disconnected';
+            }
             projectiles.forEach(p => scene.remove(p));
             projectiles = [];
             flags.forEach(f => scene.remove(f.mesh));
@@ -2382,6 +2424,14 @@
         }
 
         function updateSettings() {
+            const nameInput = document.getElementById('player-name-input');
+            multiplayerName = nameInput.value.trim().replace(/[<>]/g, '').slice(0, 18) || 'Player';
+            const localScoreRow = scores.find(entry => entry.isLocal);
+            if (localScoreRow) {
+                localScoreRow.name = multiplayerName;
+                updateLeaderboard();
+            }
+            if (multiplayerConnected) MultiplayerTransport.rename(multiplayerName);
             const wasAutoGraphics = autoGraphics;
             autoGraphics = document.getElementById('auto-graphics-check').checked;
             const lowPowerCheck = document.getElementById('low-power-check');
@@ -2477,6 +2527,7 @@
         function saveSettings() {
             const settings = {
                 sens: document.getElementById('sens-slider').value,
+                playerName: multiplayerName,
                 contSens: document.getElementById('cont-sens-slider').value,
                 fov: document.getElementById('fov-slider').value,
                 botCount: document.getElementById('bot-slider').value,
@@ -2510,6 +2561,7 @@
             if (saved) {
                 try {
                     const settings = JSON.parse(saved);
+                    if (typeof settings.playerName === 'string') document.getElementById('player-name-input').value = settings.playerName.replace(/[<>]/g, '').slice(0, 18) || 'Player';
                     if (settings.sens) document.getElementById('sens-slider').value = settings.sens;
                     if (settings.contSens) document.getElementById('cont-sens-slider').value = settings.contSens;
                     if (settings.fov) document.getElementById('fov-slider').value = settings.fov;
@@ -3944,6 +3996,7 @@
             } else {
                 weapon = ownerData.weapon;
             }
+            if (!isSoloMode && weapon && weapon.isNukeLauncher) return;
 
             let shotDelay = weapon.delay;
             if (weapon.id === 'tryhard') {
@@ -3999,6 +4052,13 @@
                 
                 muzzlePos.applyMatrix4(wand.matrixWorld);
                 playShootSound(weapon.name, muzzlePos);
+                if (multiplayerConnected) {
+                    const weaponKey = Object.keys(WEAPONS).find(key => WEAPONS[key] === weapon) || 'rifle';
+                    MultiplayerTransport.send({ type: 'shot', shot: {
+                        x: camera.position.x, y: camera.position.y, z: camera.position.z,
+                        yaw, pitch, weapon: weaponKey
+                    } });
+                }
             } else {
                 playShootSound(weapon.name, source.position);
             }
@@ -4274,9 +4334,132 @@
         function updateLeaderboard() {
             scores.sort((a, b) => b.score - a.score);
             const lb = document.getElementById('leaderboard');
-            lb.innerHTML = scores.map(s => 
-                `<div class="lb-row" style="color:${s.name === 'Player' ? '#0f0' : '#fff'}"><span>${s.name}</span><span>${s.score}</span></div>`
-            ).join('');
+            lb.innerHTML = scores.map(s => {
+                const color = s.isHuman ? '#36a9ff' : '#fff';
+                const safeName = String(s.name).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+                return `<div class="lb-row" style="color:${color}"><span>${safeName}</span><span>${s.score}</span></div>`;
+            }).join('');
+        }
+
+        function syncMultiplayerState(timestamp) {
+            if (!multiplayerConnected || !gameHasStarted || timestamp - multiplayerLastSend < 50) return;
+            multiplayerLastSend = timestamp;
+            const localScore = scores.find(entry => entry.isLocal);
+            MultiplayerTransport.send({ type: 'state', player: {
+                x: camera.position.x, y: camera.position.y, z: camera.position.z,
+                yaw, pitch, health: playerHealth, score: localScore ? localScore.score : 0
+            } });
+        }
+
+        function connectToMainServer() {
+            if (multiplayerConnected || !window.MultiplayerTransport) return;
+            const nameInput = document.getElementById('player-name-input');
+            multiplayerName = (nameInput.value || 'Player').trim().replace(/[<>]/g, '').slice(0, 18) || 'Player';
+            nameInput.value = multiplayerName;
+            const started = MultiplayerTransport.connect('main', multiplayerName, handleMultiplayerMessage, status => {
+                document.getElementById('mp-status').innerText = status;
+                if (status === 'Disconnected') {
+                    multiplayerConnected = false;
+                    clearRemotePlayers();
+                }
+            });
+            multiplayerConnected = started;
+        }
+
+        function clearRemotePlayers() {
+            remotePlayers.forEach(remote => { scene.remove(remote.mesh); scores = scores.filter(s => s.id !== remote.id); });
+            remotePlayers.clear();
+            updateLeaderboard();
+        }
+
+        function addRemotePlayer(id, name) {
+            if (!id || id === MultiplayerTransport.playerId || remotePlayers.has(id)) return;
+            const cleanName = String(name || 'Player').replace(/[<>]/g, '').slice(0, 18) || 'Player';
+            const mesh = new THREE.Group();
+            const material = new THREE.MeshLambertMaterial({ color: 0x3388ff });
+            const body = new THREE.Mesh(botBodyGeo, material);
+            const head = new THREE.Mesh(botHeadGeo, material);
+            head.position.y = 0.5;
+            mesh.add(body, head);
+            const label = createTextSprite(cleanName);
+            label.position.y = 1.55;
+            mesh.add(label);
+            body.position.y = -0.7;
+            head.position.y = -0.2;
+            label.position.y = 0.8;
+            mesh.position.set(0, 1.6, 0);
+            mesh.userData = { id, name: cleanName, nameLabel: label, hp: 100, weapon: WEAPONS.rifle, team: 'red' };
+            scene.add(mesh);
+            remotePlayers.set(id, { id, name: cleanName, mesh, score: 0 });
+            scores.push({ id, name: cleanName, score: 0, isBot: false, isHuman: true, team: 'blue' });
+            updateLeaderboard();
+        }
+
+        function handleMultiplayerMessage(message) {
+            if (message.type === 'welcome') {
+                (message.players || []).forEach(player => addRemotePlayer(player.id, player.name));
+                document.getElementById('mp-status').innerText = `Connected to room (${(message.players || []).length + 1} player${message.players && message.players.length === 0 ? '' : 's'}).`;
+            } else if (message.type === 'playerJoined') {
+                addRemotePlayer(message.id, message.name);
+            } else if (message.type === 'playerLeft') {
+                const remote = remotePlayers.get(message.id);
+                if (remote) scene.remove(remote.mesh);
+                remotePlayers.delete(message.id);
+                scores = scores.filter(s => s.id !== message.id);
+                updateLeaderboard();
+            } else if (message.type === 'playerRenamed') {
+                const remote = remotePlayers.get(message.id);
+                if (!remote) return;
+                const cleanName = String(message.name || 'Player').replace(/[<>]/g, '').slice(0, 18) || 'Player';
+                remote.name = cleanName;
+                remote.mesh.userData.name = cleanName;
+                if (remote.mesh.userData.nameLabel) remote.mesh.remove(remote.mesh.userData.nameLabel);
+                remote.mesh.userData.nameLabel = createTextSprite(cleanName);
+                remote.mesh.userData.nameLabel.position.y = 0.8;
+                remote.mesh.add(remote.mesh.userData.nameLabel);
+                const row = scores.find(entry => entry.id === message.id);
+                if (row) row.name = cleanName;
+                updateLeaderboard();
+            } else if (message.type === 'state') {
+                addRemotePlayer(message.id, message.name);
+                const remote = remotePlayers.get(message.id);
+                if (!remote) return;
+                remote.mesh.position.set(message.x, message.y, message.z);
+                remote.mesh.rotation.set(-message.pitch, message.yaw + Math.PI, 0, 'YXZ');
+                remote.mesh.visible = message.health > 0;
+                remote.score = message.score || 0;
+                const row = scores.find(s => s.id === message.id);
+                if (row) row.score = remote.score;
+                updateLeaderboard();
+            } else if (message.type === 'shot') {
+                const remote = remotePlayers.get(message.id);
+                const weapon = WEAPONS[message.weapon] || WEAPONS.rifle;
+                if (!remote || !weapon || !gameHasStarted) return;
+                remote.mesh.position.set(message.x, message.y, message.z);
+                remote.mesh.rotation.set(-message.pitch, message.yaw + Math.PI, 0, 'YXZ');
+                remote.mesh.userData.weapon = weapon;
+                fireProjectile(remote.mesh, remote.mesh.userData);
+            } else if (message.type === 'hit') {
+                if (message.targetId !== MultiplayerTransport.playerId || playerHealth <= 0) return;
+                playerHealth = Math.max(0, playerHealth - Math.max(0, Math.min(200, Number(message.damage) || 0)));
+                lastDamageTime = Date.now();
+                document.getElementById('health-display').innerText = playerHealth > 0 ? `✚ ${Math.ceil(playerHealth)}` : 'DEAD';
+                document.getElementById('health-display').style.color = playerHealth < 30 ? '#f00' : '#0f0';
+                if (playerHealth <= 0) MultiplayerTransport.send({ type: 'state', player: {
+                    x: camera.position.x, y: camera.position.y, z: camera.position.z,
+                    yaw, pitch, health: 0, score: 0
+                } });
+                if (playerHealth <= 0) handlePlayerDeath();
+            } else if (message.type === 'hitConfirm') {
+                const localRow = scores.find(entry => entry.isLocal);
+                if (localRow) localRow.score += 100;
+                updateLeaderboard();
+            } else if (message.type === 'error') {
+                document.getElementById('mp-status').innerText = message.message || 'Multiplayer error';
+            } else if (message.type === 'disconnected') {
+                multiplayerConnected = false;
+                clearRemotePlayers();
+            }
         }
 
         function respawnEntity(entity, isPlayer) {
@@ -4349,7 +4532,7 @@
             gameTime = 180;
             playerHealth = 100;
             ammo = currentWeapon.maxAmmo;
-            scores = [{name: "Player", score: 0, isBot: false, team: 'blue'}];
+            scores = [{name: multiplayerName, score: 0, isBot: false, isHuman: true, isLocal: true, team: 'blue'}];
             document.getElementById('game-over-screen').style.display = 'none';
             document.getElementById('health-display').innerText = "✚ 100";
             document.getElementById('health-display').style.color = "#0f0";
@@ -4424,6 +4607,8 @@
                 clock.getDelta(); // Reset the clock so no paused time reaches the match timer.
                 return;
             }
+
+            syncMultiplayerState(timestamp || performance.now());
 
             if (playerInventory[2] && playerInventory[2].ammo === 0 && Date.now() - lastKnifeThrowTime > 1500) {
                 playerInventory[2].ammo = 1;
@@ -4553,7 +4738,7 @@
                 } else {
                     scores.sort((a, b) => b.score - a.score);
                     const winner = scores[0];
-                    winMsg = (winner.name === 'Player') ? 
+                    winMsg = (winner.isLocal) ? 
                         `<h1 style="color:#0f0">YOU WON!</h1>` : 
                         `<h1 style="color:#f00">${winner.name} WON!</h1>`;
                 }
@@ -4979,6 +5164,22 @@
                 }
 
                 let hitBot = false;
+                if (p.userData.ownerId === 'player' && !p.userData.isNuke) {
+                    for (const remote of remotePlayers.values()) {
+                        const targetPos = remote.mesh.position;
+                        const dx = p.position.x - targetPos.x;
+                        const dy = p.position.y - (targetPos.y - 0.55);
+                        const dz = p.position.z - targetPos.z;
+                        if (dx * dx + dy * dy + dz * dz < 1.0) {
+                            MultiplayerTransport.send({ type: 'hit', targetId: remote.id, damage: p.userData.damage });
+                            scene.remove(p);
+                            projectiles.splice(i, 1);
+                            hitBot = true;
+                            break;
+                        }
+                    }
+                }
+                if (hitBot) continue;
                 for(let bIdx = 0; bIdx < bots.length; bIdx++) {
                     const bot = bots[bIdx];
                     if (gameMode !== 'ffa' && p.userData.team === bot.userData.team) continue;
