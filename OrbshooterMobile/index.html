@@ -2274,6 +2274,10 @@
         }
 
         function resumeGame() {
+            if (playerHealth <= 0) {
+                handlePlayerDeath();
+                return;
+            }
             document.getElementById('pause-menu').style.display = 'none';
             updateChatButtonVisibility();
             setControllerCursorVisibility(false);
