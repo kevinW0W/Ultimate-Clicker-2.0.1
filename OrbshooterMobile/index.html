@@ -172,18 +172,6 @@
             color: #0f0; font-size: 11px; font-weight: 600; opacity: 0.8; pointer-events: none;
             text-shadow: 1px 1px 0 #000;
         }
-        #chat-toggle-btn { display:none; position:fixed; top:100px; left:20px; z-index:120; padding:9px 14px; border:1px solid #0ff; border-radius:6px; background:rgba(0,0,0,.82); color:#0ff; font-weight:bold; touch-action:manipulation; }
-        #chat-unread-badge { display:none; position:absolute; top:-9px; right:-9px; min-width:20px; height:20px; padding:0 4px; box-sizing:border-box; align-items:center; justify-content:center; border:2px solid #000; border-radius:999px; background:#f33; color:#fff; font: bold 11px/1 sans-serif; text-shadow:none; }
-        #chat-panel { display:none; position:fixed; top:144px; left:20px; z-index:115; width:min(320px, calc(100vw - 40px)); max-height:38vh; box-sizing:border-box; padding:10px; border:1px solid #0ff; border-radius:8px; background:rgba(0,0,0,.9); color:#fff; pointer-events:auto; touch-action:pan-y; }
-        #chat-panel h2 { margin:0 0 8px; color:#0ff; font-size:16px; }
-        #chat-connection-status { margin:-3px 0 7px; color:#aaa; font-size:11px; }
-        #chat-log { height:min(220px, 24vh); min-height:80px; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; overflow-wrap:anywhere; font-size:13px; line-height:1.4; }
-        #chat-form { display:flex; gap:6px; margin-top:8px; }
-        #chat-input { min-width:0; flex:1; padding:9px; border:1px solid #777; border-radius:4px; background:#fff; color:#111; font:16px sans-serif; -webkit-user-select:text; user-select:text; touch-action:auto; }
-        #chat-form button { padding:8px 11px; border:0; border-radius:4px; background:#0ff; color:#000; font-weight:bold; }
-        .chat-open #mobile-controls { pointer-events:none !important; }
-        .chat-open .joystick-area, .chat-open .fire-button { pointer-events:none !important; }
-        @media screen and (max-width:600px) { #chat-toggle-btn { top:max(82px, env(safe-area-inset-top)); left:12px; } #chat-panel { top:calc(max(82px, env(safe-area-inset-top)) + 42px); left:12px; width:min(320px, calc(100vw - 24px)); max-height:42vh; } }
         #layout-editor-ui .btn { margin: 0; padding: 10px 16px; font-size: 15px; }
         #layout-editor-tip { font-size: 12px; }
         #control-edit-menu { display: none; position: absolute; z-index: 700; gap: 6px; padding: 7px; background: rgba(0,0,0,0.9); border: 1px solid #0ff; border-radius: 8px; }
@@ -390,12 +378,10 @@
     <div id="main-menu">
         <div class="menu-panel">
             <h1 style="font-size: 48px; color: #0ff; margin-bottom: 10px; text-shadow: 0 0 20px #0ff;">ORB TOSSER 2</h1>
-            <button class="btn" onclick="showLoadoutMenu(false)" style="font-size: 24px; padding: 15px 50px; width: 100%;">PLAY</button>
-            <button class="btn" onclick="showLoadoutMenu(true)" style="font-size: 18px; padding: 12px 24px; width: 100%; background:#008888;">PLAY WITH BOTS</button>
+            <button class="btn" onclick="showLoadoutMenu()" style="font-size: 24px; padding: 15px 50px; width: 100%;">PLAY</button>
             <button class="btn" onclick="openSettings()" style="background: #555; width: 100%;">SETTINGS</button>
         </div>
     </div>
-    <div id="mp-status" role="status" style="display:none;"></div>
 
     <div id="game-over-screen">
         <h1 style="font-size: 60px; color: #0ff;">MATCH OVER</h1>
@@ -473,16 +459,6 @@
         <div id="killstreak-display" style="font-size: 20px; font-weight: bold; color: #ff8c00; display: none; text-shadow: 1px 1px 2px #000;"></div>
         <div id="feed" style="font-size: 12px; height: 60px; overflow: hidden; opacity: 0.8;"></div>
     </div>
-    <button id="chat-toggle-btn" type="button" aria-label="Open chat" onclick="toggleChat()"><span id="chat-toggle-label">CHAT (T)</span><span id="chat-unread-badge" aria-live="polite"></span></button>
-    <section id="chat-panel" aria-label="Game chat" aria-hidden="true">
-        <h2>CHAT</h2>
-        <div id="chat-connection-status" role="status">Not connected</div>
-        <div id="chat-log" aria-live="polite"></div>
-        <form id="chat-form" autocomplete="off">
-            <input id="chat-input" type="text" maxlength="160" placeholder="Type a message…" aria-label="Chat message">
-            <button type="submit">SEND</button>
-        </form>
-    </section>
     <div id="fps-display">FPS: --</div>
     <div id="hud-top-right">
         <div id="timer">03:00</div>
@@ -513,9 +489,7 @@
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.2.0/dist/peerjs.min.js"></script>
     <script src="Engine%20Ai%20Bots.js"></script>
-    <script src="Engine%20Ai%20Multiplayer.js"></script>
     
     <script>
         let scene, camera, renderer, wand, clock;
@@ -537,15 +511,7 @@
         let playerPosition = new THREE.Vector3(); // Isolated physics reference position
         let projectiles = [];
         let bots = [];
-        let remotePlayers = new Map();
-        let multiplayerLastSend = 0;
-        let multiplayerName = 'Player';
-        let multiplayerConnected = false;
-        let isSoloMode = false;
-        let isChatOpen = false;
-        let unreadChatCount = 0;
-        let suppressChatUnlock = false;
-        let chatUnlockTimer = null;
+        let playerName = 'Player';
         let botAiFrame = 0;
         const textSpriteTextureCache = new Map();
         const textSpriteMaterialCache = new Map();
@@ -891,7 +857,7 @@
                 document.getElementById('health-display').style.bottom = '120px';
                 
                 document.addEventListener('touchmove', (e) => {
-                    if (e.target.closest('#overlay') || e.target.closest('#settings-menu') || e.target.closest('#leaderboard') || e.target.closest('#final-scores') || e.target.closest('#game-over-screen') || e.target.closest('#chat-panel') || e.target.closest('#chat-toggle-btn')) return;
+                    if (e.target.closest('#overlay') || e.target.closest('#settings-menu') || e.target.closest('#leaderboard') || e.target.closest('#final-scores') || e.target.closest('#game-over-screen')) return;
                     e.preventDefault();
                 }, { passive: false });
                 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -1645,7 +1611,10 @@
             const buildingMats = facadeTextures.map((map, i) => new THREE.MeshStandardMaterial({ map, color: [0xffffff, 0xd8d1c4, 0xd2e0e0, 0xe0cece][i], roughness: 0.82 }));
             const addGroundSlab = (x, z, w, d, y, mat) => {
                 const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), mat);
-                mesh.position.set(x, y, z); scene.add(mesh); cityRenderObjects.push(mesh); return mesh;
+                // Keep the long roads, sidewalks, and lane markings out of
+                // the center-point distance culler. Their centers can be far
+                // from the player even while the road itself is nearby.
+                mesh.position.set(x, y, z); scene.add(mesh); return mesh;
             };
             // Long asphalt avenues and sidewalks keep the grid to a small, steady number of draw calls.
             for (let lane = -5; lane <= 5; lane++) {
@@ -1886,30 +1855,16 @@
             return BotEngine.moveToward(bot, targetPos, delta, checkCollision);
         }
 
-        function showLoadoutMenu(solo = false) {
+        function showLoadoutMenu() {
             isSelectingRespawnLoadout = false;
-            isSoloMode = solo;
             const botSlider = document.getElementById('bot-slider');
-            botSlider.max = solo ? '500' : '10';
-            if (!solo && Number(botSlider.value) > 10) {
-                botSlider.value = '10';
-                updateSettings();
-            }
+            botSlider.max = '500';
             document.getElementById('main-menu').style.display = 'none';
             const overlay = document.getElementById('overlay');
             overlay.style.display = 'flex';
             overlay.scrollTop = 0;
             document.getElementById('gamemode-select').style.display = 'block';
-            updateLoadoutAvailability();
             playMenuMusic();
-        }
-
-        function updateLoadoutAvailability() {
-            document.querySelectorAll('#loadout-grid [data-weapon="nuke_launcher"]').forEach(button => {
-                button.disabled = !isSoloMode;
-                button.title = isSoloMode ? 'Available in solo play' : 'Nuke Launcher is available in solo play only';
-                button.style.opacity = isSoloMode ? '1' : '0.45';
-            });
         }
 
         function chooseLoadout(weaponType) {
@@ -1918,7 +1873,6 @@
 
                 const selectedWeapon = WEAPONS[weaponType];
                 if (!selectedWeapon) return;
-                if (!isSoloMode && selectedWeapon.isNukeLauncher) return;
 
                 if (!playerInventory || playerInventory.length < 3) {
                     playerInventory = [
@@ -1956,35 +1910,14 @@
                 return;
             }
 
-            startGame(weaponType, isSoloMode);
+            startGame(weaponType);
         }
 
-        function startGame(weaponType, solo = false) {
-            isSoloMode = !!solo;
-            if (!isSoloMode) {
-                const botSlider = document.getElementById('bot-slider');
-                botSlider.max = '10';
-                botCount = Math.min(botCount, 10);
-                botSlider.value = String(botCount);
-                document.getElementById('bot-count-val').innerText = botSlider.value;
-            }
+        function startGame(weaponType) {
             gameMode = document.getElementById('gamemode-select').value;
             teamScores = { red: 0, blue: 0 };
             availableBotNames = [...BASE_BOT_NAMES];
-            document.getElementById('chat-log').innerHTML = '';
-            unreadChatCount = 0;
-            updateUnreadChatBadge();
-
             gameHasStarted = true;
-            if (isSoloMode) {
-                if (multiplayerConnected) MultiplayerTransport.disconnect();
-                multiplayerConnected = false;
-                clearRemotePlayers();
-                document.getElementById('mp-status').innerText = 'Solo game with bots. Multiplayer is not connected.';
-                document.getElementById('chat-connection-status').innerText = 'Solo game · messages are local only';
-            } else {
-                connectToMainServer();
-            }
             updateGameTheme();
             onWindowResize();
             updateDesktopDebugMenu();
@@ -2020,7 +1953,6 @@
             respawnEntity(null, true);
             
             document.getElementById('overlay').style.display = 'none';
-            updateChatButtonVisibility();
             setControllerCursorVisibility(false);
             activeMenu = null;
             suppressGamepadWeaponSwitchUntil = performance.now() + 300;
@@ -2044,8 +1976,7 @@
             
             bots.forEach(b => scene.remove(b));
             bots = [];
-            scores = [{name: multiplayerName, score: 0, isBot: false, isHuman: true, isLocal: true, team: 'blue'}];
-            remotePlayers.forEach(remote => scores.push({ id: remote.id, name: remote.name, score: remote.score || 0, isBot: false, isHuman: true, team: 'blue' }));
+            scores = [{name: playerName, score: 0, isBot: false, isHuman: true, isLocal: true, team: 'blue'}];
             for(let i=0; i<botCount; i++) spawnBot();
             if (disablePostProcessing) applyPostProcessingSetting();
         }
@@ -2279,7 +2210,6 @@
                 return;
             }
             document.getElementById('pause-menu').style.display = 'none';
-            updateChatButtonVisibility();
             setControllerCursorVisibility(false);
             activeMenu = null;
             playGameMusic();
@@ -2290,7 +2220,6 @@
 
         function respawnToLoadout() {
             if (!gameHasStarted || isGameOver) return;
-            closeChat(false);
             isSelectingRespawnLoadout = true;
             document.getElementById('pause-menu').style.display = 'none';
             const overlay = document.getElementById('overlay');
@@ -2298,7 +2227,6 @@
             overlay.scrollTop = 0;
             document.getElementById('respawn-btn').style.display = 'none';
             document.getElementById('gamemode-select').style.display = 'none';
-            updateChatButtonVisibility();
             setControllerCursorVisibility(true);
             activeMenu = overlay;
             playGameMusic();
@@ -2311,9 +2239,7 @@
 
         function quitGame() {
             cancelReload();
-            closeChat(false);
             gameHasStarted = false;
-            document.getElementById('bot-slider').max = '500';
             updateGameTheme();
             onWindowResize();
             updateDesktopDebugMenu();
@@ -2335,7 +2261,6 @@
                 document.getElementById('mobile-controls').style.display = 'none';
                 document.getElementById('mobile-pause-btn').style.display = 'none';
             }
-            updateChatButtonVisibility();
             
             gameBgm.pause();
             gameBgm.currentTime = 0;
@@ -2345,12 +2270,6 @@
 
             bots.forEach(b => scene.remove(b));
             bots = [];
-            clearRemotePlayers();
-            if (multiplayerConnected) {
-                MultiplayerTransport.disconnect();
-                multiplayerConnected = false;
-                document.getElementById('mp-status').innerText = 'Disconnected';
-            }
             projectiles.forEach(p => scene.remove(p));
             projectiles = [];
             flags.forEach(f => scene.remove(f.mesh));
@@ -2358,7 +2277,6 @@
         }
 
         function openSettings() {
-            closeChat(false);
             const overlay = document.getElementById('overlay');
             const pauseMenu = document.getElementById('pause-menu');
             const mainMenu = document.getElementById('main-menu');
@@ -2369,7 +2287,6 @@
             overlay.style.display = 'none';
             pauseMenu.style.display = 'none';
             mainMenu.style.display = 'none';
-            updateChatButtonVisibility();
             setControllerCursorVisibility(true);
         }
 
@@ -2385,7 +2302,6 @@
                 document.getElementById('main-menu').style.display = 'flex';
                 setControllerCursorVisibility(true);
             }
-            updateChatButtonVisibility();
             settingsReturnScreen = 'main';
         }
 
@@ -2486,13 +2402,12 @@
 
         function updateSettings() {
             const nameInput = document.getElementById('player-name-input');
-            multiplayerName = nameInput.value.trim().replace(/[<>]/g, '').slice(0, 18) || 'Player';
+            playerName = nameInput.value.trim().replace(/[<>]/g, '').slice(0, 18) || 'Player';
             const localScoreRow = scores.find(entry => entry.isLocal);
             if (localScoreRow) {
-                localScoreRow.name = multiplayerName;
+                localScoreRow.name = playerName;
                 updateLeaderboard();
             }
-            if (multiplayerConnected) MultiplayerTransport.rename(multiplayerName);
             const wasAutoGraphics = autoGraphics;
             autoGraphics = document.getElementById('auto-graphics-check').checked;
             const lowPowerCheck = document.getElementById('low-power-check');
@@ -2588,7 +2503,7 @@
         function saveSettings() {
             const settings = {
                 sens: document.getElementById('sens-slider').value,
-                playerName: multiplayerName,
+                playerName: playerName,
                 contSens: document.getElementById('cont-sens-slider').value,
                 fov: document.getElementById('fov-slider').value,
                 botCount: document.getElementById('bot-slider').value,
@@ -2767,15 +2682,6 @@
             yaw = camera.rotation.y;
             pitch = camera.rotation.x;
 
-            document.getElementById('chat-form').addEventListener('submit', event => {
-                event.preventDefault();
-                sendChatMessage();
-            });
-            document.addEventListener('click', event => {
-                if (!isChatOpen || (event.target.closest && event.target.closest('#chat-panel, #chat-toggle-btn'))) return;
-                closeChat(true);
-            });
-
             window.addEventListener("gamepadconnected", (e) => {
                 console.log("Gamepad connected:", e.gamepad.id);
                 gamepadConnected = true;
@@ -2829,27 +2735,6 @@
             });
 
             document.addEventListener('pointerlockchange', () => {
-                if (isChatOpen) {
-                    if (!document.pointerLockElement && suppressChatUnlock) {
-                        suppressChatUnlock = false;
-                        if (chatUnlockTimer) clearTimeout(chatUnlockTimer);
-                        chatUnlockTimer = null;
-                        return;
-                    }
-                    if (document.pointerLockElement && document.exitPointerLock) {
-                        suppressChatUnlock = true;
-                        if (chatUnlockTimer) clearTimeout(chatUnlockTimer);
-                        chatUnlockTimer = setTimeout(() => { suppressChatUnlock = false; chatUnlockTimer = null; }, 1500);
-                        document.exitPointerLock();
-                    }
-                    return;
-                }
-                if (!document.pointerLockElement && suppressChatUnlock) {
-                    suppressChatUnlock = false;
-                    if (chatUnlockTimer) clearTimeout(chatUnlockTimer);
-                    chatUnlockTimer = null;
-                    return;
-                }
                 if (document.pointerLockElement) {
                     overlay.style.display = 'none';
                     pauseMenu.style.display = 'none';
@@ -2864,14 +2749,12 @@
                         overlay.style.display = 'flex';
                         pauseMenu.style.display = 'none';
                         document.getElementById('gamemode-select').style.display = 'none';
-                        updateChatButtonVisibility();
                         return;
                     }
 
                     if (gameHasStarted) {
                         document.getElementById('respawn-btn').style.display = 'none';
                         pauseMenu.style.display = 'flex';
-                        updateChatButtonVisibility();
                     } else {
                         pauseMenu.style.display = 'none';
                         
@@ -2889,7 +2772,6 @@
             });
 
             document.addEventListener('mousedown', (e) => {
-                if (e.target.closest && e.target.closest('#chat-panel, #chat-toggle-btn')) return;
                 if (!isMobile && !isGameOver && overlay.style.display === 'none' && settingsMenu.style.display === 'none' && pauseMenu.style.display === 'none' && !document.pointerLockElement) {
                     if (gameHasStarted) {
                         renderer.domElement.requestPointerLock();
@@ -2912,22 +2794,6 @@
             });
 
             window.addEventListener('keydown', (e) => {
-                if (isChatOpen) {
-                    // Leave ordinary keys alone so T and other characters can
-                    // be typed into the focused chat field. Escape closes chat.
-                    if (e.code === 'Escape') {
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-                        closeChat(true);
-                    }
-                    return;
-                }
-                if (e.code === 'KeyT' && !e.repeat && gameHasStarted && !isGameOver) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    toggleChat(true);
-                    return;
-                }
                 if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
                 if (awaitingRemap && awaitingRemap.type === 'keyboard') {
                     e.preventDefault();
@@ -2999,7 +2865,7 @@
             });
 
             window.addEventListener('keyup', (e) => {
-                if (isChatOpen || (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+                if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
                 switch(e.code) {
                     case keyBindings.moveForward: moveForward = false; break;
                     case keyBindings.moveBackward: moveBackward = false; break;
@@ -3192,7 +3058,6 @@
                 if (isEditingLayout) return;
                 e.preventDefault(); 
                 document.getElementById('pause-menu').style.display = 'flex';
-                updateChatButtonVisibility();
             });
 
             // Joystick Logic
@@ -3237,7 +3102,7 @@
             let lastLookX = 0, lastLookY = 0, lookTouchId = null;
 
             document.addEventListener('touchstart', (e) => {
-                if (isEditingLayout || isChatOpen || lookTouchId !== null) return;
+                if (isEditingLayout || lookTouchId !== null) return;
 
                 const t = e.changedTouches[0];
                 const targetElement = document.elementFromPoint(t.clientX, t.clientY);
@@ -3246,8 +3111,6 @@
                 if (targetElement && (
                     targetElement.closest('.joystick-area') || 
                     targetElement.closest('.fire-button') ||
-                    targetElement.closest('#chat-panel') ||
-                    targetElement.closest('#chat-toggle-btn') ||
                     targetElement.closest('#overlay') || 
                     targetElement.closest('#leaderboard') ||
                     targetElement.closest('#main-menu') || 
@@ -3264,7 +3127,7 @@
             }, { passive: false });
 
             document.addEventListener('touchmove', (e) => {
-                if (isEditingLayout || isChatOpen || lookTouchId === null) return;
+                if (isEditingLayout || lookTouchId === null) return;
 
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     if (e.changedTouches[i].identifier === lookTouchId) {
@@ -3773,7 +3636,6 @@
                     resumeGame();
                 } else if (gameHasStarted && !isGameOver && overlay.style.display === 'none' && gameOverScreen.style.display === 'none' && document.getElementById('main-menu').style.display === 'none') {
                     pauseMenu.style.display = 'flex';
-                    updateChatButtonVisibility();
                     setControllerCursorVisibility(true);
                     activeMenu = pauseMenu;
                 } else if (currentMenuItems.length > 0) {
@@ -4112,7 +3974,6 @@
             } else {
                 weapon = ownerData.weapon;
             }
-            if (!isSoloMode && weapon && weapon.isNukeLauncher) return;
 
             let shotDelay = weapon.delay;
             if (weapon.id === 'tryhard') {
@@ -4168,13 +4029,6 @@
                 
                 muzzlePos.applyMatrix4(wand.matrixWorld);
                 playShootSound(weapon.name, muzzlePos);
-                if (multiplayerConnected) {
-                    const weaponKey = Object.keys(WEAPONS).find(key => WEAPONS[key] === weapon) || 'rifle';
-                    MultiplayerTransport.send({ type: 'shot', shot: {
-                        x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                        yaw, pitch, weapon: weaponKey
-                    } });
-                }
             } else {
                 playShootSound(weapon.name, source.position);
             }
@@ -4447,138 +4301,6 @@
             if(f.children.length > 5) f.removeChild(f.lastChild);
         }
 
-        let chatWasPointerLocked = false;
-
-        function updateChatButtonVisibility() {
-            const pauseVisible = document.getElementById('pause-menu').style.display === 'flex';
-            const gameplayVisible = gameHasStarted && !isGameOver &&
-                document.getElementById('overlay').style.display !== 'flex' &&
-                document.getElementById('settings-menu').style.display !== 'flex' &&
-                document.getElementById('game-over-screen').style.display !== 'flex' &&
-                document.getElementById('main-menu').style.display !== 'flex';
-            const display = pauseVisible || gameplayVisible ? 'block' : 'none';
-            const button = document.getElementById('chat-toggle-btn');
-            if (button.style.display !== display) button.style.display = display;
-            if (isChatOpen && !pauseVisible && !gameplayVisible) closeChat(false);
-        }
-
-        function toggleChat(focusInput = true) {
-            if (isChatOpen) {
-                closeChat(true);
-                return;
-            }
-            const pauseVisible = document.getElementById('pause-menu').style.display === 'flex';
-            const gameplayVisible = gameHasStarted && !isGameOver &&
-                document.getElementById('overlay').style.display !== 'flex' &&
-                document.getElementById('settings-menu').style.display !== 'flex' &&
-                document.getElementById('game-over-screen').style.display !== 'flex' &&
-                document.getElementById('main-menu').style.display !== 'flex';
-            if (!pauseVisible && !gameplayVisible) return;
-            isChatOpen = true;
-            chatWasPointerLocked = document.pointerLockElement === renderer.domElement;
-            if (chatWasPointerLocked) {
-                suppressChatUnlock = true;
-                if (chatUnlockTimer) clearTimeout(chatUnlockTimer);
-                chatUnlockTimer = setTimeout(() => { suppressChatUnlock = false; chatUnlockTimer = null; }, 1500);
-            }
-            document.body.classList.add('chat-open');
-            const panel = document.getElementById('chat-panel');
-            panel.style.display = 'block';
-            panel.setAttribute('aria-hidden', 'false');
-            document.getElementById('chat-toggle-label').textContent = 'CLOSE CHAT';
-            document.getElementById('chat-toggle-btn').setAttribute('aria-label', 'Close chat');
-            unreadChatCount = 0;
-            updateUnreadChatBadge();
-            moveForward = moveBackward = moveLeft = moveRight = false;
-            ctrlMoveForward = ctrlMoveBackward = ctrlMoveLeft = ctrlMoveRight = false;
-            joystickVector = { x: 0, y: 0 };
-            isFiring = ctrlIsFiring = false;
-            if (chatWasPointerLocked && document.exitPointerLock) document.exitPointerLock();
-            if (focusInput) document.getElementById('chat-input').focus();
-        }
-
-        function closeChat(resumeGameInput) {
-            if (!isChatOpen) return;
-            isChatOpen = false;
-            document.body.classList.remove('chat-open');
-            const panel = document.getElementById('chat-panel');
-            panel.style.display = 'none';
-            panel.setAttribute('aria-hidden', 'true');
-            document.getElementById('chat-toggle-label').textContent = 'CHAT (T)';
-            const toggleButton = document.getElementById('chat-toggle-btn');
-            toggleButton.setAttribute('aria-label', 'Open chat');
-            // A focused button treats Space as a native click. Blur it on close
-            // so Space resumes gameplay instead of reopening the chat.
-            if (document.activeElement === toggleButton) toggleButton.blur();
-            document.getElementById('chat-input').blur();
-            const shouldRestorePointerLock = chatWasPointerLocked && resumeGameInput && !isMobile && gameHasStarted &&
-                !isGameOver && document.getElementById('pause-menu').style.display !== 'flex';
-            chatWasPointerLocked = false;
-            if (shouldRestorePointerLock && renderer.domElement.requestPointerLock) {
-                const request = renderer.domElement.requestPointerLock();
-                if (request && request.catch) request.catch(() => {});
-            }
-        }
-
-        function appendChatMessage(name, text, isLocal = false, isHistory = false) {
-            const log = document.getElementById('chat-log');
-            const row = document.createElement('div');
-            const sender = document.createElement('strong');
-            sender.style.color = isLocal ? '#0ff' : '#7dbbff';
-            sender.textContent = `${filterChatContent(name || 'Player').slice(0, 18)}: `;
-            row.appendChild(sender);
-            row.appendChild(document.createTextNode(filterChatContent(text || '').slice(0, 160)));
-            log.appendChild(row);
-            while (log.children.length > 40) log.removeChild(log.firstChild);
-            log.scrollTop = log.scrollHeight;
-            if (!isLocal && !isHistory && !isChatOpen) {
-                unreadChatCount++;
-                updateUnreadChatBadge();
-            }
-        }
-
-        function updateUnreadChatBadge() {
-            const badge = document.getElementById('chat-unread-badge');
-            if (!badge) return;
-            badge.textContent = unreadChatCount >= 100 ? '99+' : String(unreadChatCount);
-            badge.style.display = unreadChatCount > 0 ? 'inline-flex' : 'none';
-            badge.setAttribute('aria-label', unreadChatCount >= 100
-                ? '99 or more unread messages'
-                : `${unreadChatCount} unread messages`);
-        }
-
-        function sendChatMessage() {
-            const input = document.getElementById('chat-input');
-            const text = filterChatContent(input.value).trim().slice(0, 160);
-            if (!text) return;
-            input.value = '';
-            appendChatMessage(multiplayerName, text, true);
-            if (!isSoloMode && gameHasStarted && window.MultiplayerTransport) {
-                const queued = MultiplayerTransport.send({ type: 'chat', text });
-                if (!queued) document.getElementById('chat-connection-status').innerText = 'Offline · message could not be queued';
-                else if (!multiplayerConnected) document.getElementById('chat-connection-status').innerText = 'Reconnecting · message queued';
-            }
-            input.focus();
-        }
-
-        function filterChatContent(value) {
-            let text = String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\ufeff]/g, ' ').slice(0, 240);
-            // Replace links and email addresses with Roblox-style hash masking.
-            text = text.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '####');
-            text = text.replace(/\b(?:https?:\/\/|www\.)[^\s]+/gi, '####');
-            text = text.replace(/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|gg|io|co|app|dev|me|info|biz|xyz|tv|ly|ru|uk|ca|us|de|fr|jp|cn)(?:\/[^\s]*)?/gi, '####');
-
-            const blockedWords = ['fuck', 'shit', 'bitch', 'bastard', 'asshole', 'ass', 'dick', 'pussy', 'cunt', 'slut', 'whore', 'damn', 'hell', 'crap', 'nigger', 'nigga', 'faggot', 'retard'];
-            const leet = { a: '[a4@]', e: '[e3]', i: '[i1!|]', o: '[o0]', s: '[s5$]', t: '[t7]', g: '[g69]' };
-            blockedWords.push('discord');
-            blockedWords.forEach(word => {
-                const pattern = word.split('').map(letter => leet[letter] || letter).join('[^a-z0-9]*');
-                const matcher = new RegExp(`(^|[^a-z0-9])(${pattern})(?=$|[^a-z0-9])`, 'gi');
-                text = text.replace(matcher, '$1####');
-            });
-            return text;
-        }
-
         function updateLeaderboard() {
             scores.sort((a, b) => b.score - a.score);
             const lb = document.getElementById('leaderboard');
@@ -4587,164 +4309,6 @@
                 const safeName = String(s.name).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
                 return `<div class="lb-row" style="color:${color}"><span>${safeName}</span><span>${s.score}</span></div>`;
             }).join('');
-        }
-
-        function syncMultiplayerState(timestamp) {
-            if (!multiplayerConnected || !gameHasStarted || timestamp - multiplayerLastSend < 50) return;
-            multiplayerLastSend = timestamp;
-            const localScore = scores.find(entry => entry.isLocal);
-            const weaponKey = Object.keys(WEAPONS).find(key => WEAPONS[key] === currentWeapon) || 'rifle';
-            MultiplayerTransport.send({ type: 'state',
-                x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                yaw, pitch, health: playerHealth, score: localScore ? localScore.score : 0, weapon: weaponKey
-            });
-        }
-
-        function connectToMainServer() {
-            if (multiplayerConnected || !window.MultiplayerTransport) return;
-            const nameInput = document.getElementById('player-name-input');
-            multiplayerName = (nameInput.value || 'Player').trim().replace(/[<>]/g, '').slice(0, 18) || 'Player';
-            nameInput.value = multiplayerName;
-            const started = MultiplayerTransport.connect('main', multiplayerName, handleMultiplayerMessage, status => {
-                document.getElementById('mp-status').innerText = status;
-                document.getElementById('chat-connection-status').innerText = status;
-                if (/^(Connected as main room host|Connected ·|Room open)/.test(status)) {
-                    multiplayerConnected = true;
-                } else if (/^(Disconnected|Lost connection|Peer connection error)/.test(status)) {
-                    multiplayerConnected = false;
-                    if (status === 'Disconnected' || status.startsWith('Lost connection')) clearRemotePlayers();
-                }
-            });
-            multiplayerConnected = false;
-            if (!started) document.getElementById('mp-status').innerText = 'Could not start multiplayer.';
-        }
-
-        function clearRemotePlayers() {
-            remotePlayers.forEach(remote => { scene.remove(remote.mesh); scores = scores.filter(s => s.id !== remote.id); });
-            remotePlayers.clear();
-            updateLeaderboard();
-        }
-
-        function setRemotePlayerWeapon(remote, weaponKey) {
-            if (!remote || !remote.mesh) return;
-            const weapon = WEAPONS[weaponKey] || WEAPONS.rifle;
-            if (remote.weaponKey === weaponKey && remote.weaponMesh) return;
-            if (remote.weaponMesh) remote.mesh.remove(remote.weaponMesh);
-            const weaponMesh = createWeaponMesh(weapon.name, weapon.color);
-            // Match the bot's fixed weapon mount so opponent weapons stay
-            // attached to the avatar as it moves and turns.
-            weaponMesh.position.set(0, 0.1, 0.5);
-            weaponMesh.scale.setScalar(0.55);
-            remote.mesh.add(weaponMesh);
-            remote.weaponKey = weaponKey;
-            remote.weaponMesh = weaponMesh;
-            remote.mesh.userData.weapon = weapon;
-        }
-
-        function addRemotePlayer(id, name) {
-            if (!id || id === MultiplayerTransport.playerId || remotePlayers.has(id)) return;
-            const cleanName = String(name || 'Player').replace(/[<>]/g, '').slice(0, 18) || 'Player';
-            const mesh = new THREE.Group();
-            const material = new THREE.MeshLambertMaterial({ color: 0x3388ff });
-            const body = new THREE.Mesh(botBodyGeo, material);
-            const head = new THREE.Mesh(botHeadGeo, material);
-            head.position.y = 0.5;
-            mesh.add(body, head);
-            const label = createTextSprite(cleanName);
-            label.position.y = 1.55;
-            mesh.add(label);
-            body.position.y = -0.7;
-            head.position.y = -0.2;
-            label.position.y = 0.8;
-            mesh.position.set(0, 1.6, 0);
-            mesh.userData = { id, name: cleanName, nameLabel: label, hp: 100, weapon: WEAPONS.rifle, team: 'red' };
-            scene.add(mesh);
-            const remote = { id, name: cleanName, mesh, score: 0 };
-            remotePlayers.set(id, remote);
-            setRemotePlayerWeapon(remote, 'rifle');
-            scores.push({ id, name: cleanName, score: 0, isBot: false, isHuman: true, team: 'blue' });
-            updateLeaderboard();
-        }
-
-        function handleMultiplayerMessage(message) {
-            if (message.type === 'chat') {
-                appendChatMessage(message.name, message.text, false);
-            } else if (message.type === 'welcome') {
-                multiplayerConnected = true;
-                (message.players || []).forEach(player => addRemotePlayer(player.id, player.name));
-                document.getElementById('chat-log').innerHTML = '';
-                unreadChatCount = 0;
-                updateUnreadChatBadge();
-                (message.chatHistory || []).forEach(chat => appendChatMessage(chat.name, chat.text, false, true));
-                const roomStatus = `Connected to room (${(message.players || []).length + 1} player${message.players && message.players.length === 0 ? '' : 's'}).`;
-                document.getElementById('mp-status').innerText = roomStatus;
-                document.getElementById('chat-connection-status').innerText = roomStatus;
-            } else if (message.type === 'playerJoined') {
-                addRemotePlayer(message.id, message.name);
-            } else if (message.type === 'playerLeft') {
-                const remote = remotePlayers.get(message.id);
-                if (remote) scene.remove(remote.mesh);
-                remotePlayers.delete(message.id);
-                scores = scores.filter(s => s.id !== message.id);
-                updateLeaderboard();
-            } else if (message.type === 'playerRenamed') {
-                const remote = remotePlayers.get(message.id);
-                if (!remote) return;
-                const cleanName = String(message.name || 'Player').replace(/[<>]/g, '').slice(0, 18) || 'Player';
-                remote.name = cleanName;
-                remote.mesh.userData.name = cleanName;
-                if (remote.mesh.userData.nameLabel) remote.mesh.remove(remote.mesh.userData.nameLabel);
-                remote.mesh.userData.nameLabel = createTextSprite(cleanName);
-                remote.mesh.userData.nameLabel.position.y = 0.8;
-                remote.mesh.add(remote.mesh.userData.nameLabel);
-                const row = scores.find(entry => entry.id === message.id);
-                if (row) row.name = cleanName;
-                updateLeaderboard();
-            } else if (message.type === 'state') {
-                addRemotePlayer(message.id, message.name);
-                const remote = remotePlayers.get(message.id);
-                if (!remote) return;
-                // Accept the nested payload used by earlier builds as well as the flat protocol.
-                const state = message.player || message;
-                const x = Number(state.x), y = Number(state.y), z = Number(state.z);
-                if (![x, y, z].every(Number.isFinite)) return;
-                remote.mesh.position.set(x, y, z);
-                remote.mesh.rotation.set(-Number(state.pitch || 0), Number(state.yaw || 0) + Math.PI, 0, 'YXZ');
-                remote.mesh.visible = Number(state.health) > 0;
-                setRemotePlayerWeapon(remote, WEAPONS[state.weapon] ? state.weapon : 'rifle');
-                remote.score = Number(state.score) || 0;
-                const row = scores.find(s => s.id === message.id);
-                if (row) row.score = remote.score;
-                updateLeaderboard();
-            } else if (message.type === 'shot') {
-                const remote = remotePlayers.get(message.id);
-                const weapon = WEAPONS[message.weapon] || WEAPONS.rifle;
-                if (!remote || !weapon || !gameHasStarted) return;
-                remote.mesh.position.set(message.x, message.y, message.z);
-                remote.mesh.rotation.set(-message.pitch, message.yaw + Math.PI, 0, 'YXZ');
-                setRemotePlayerWeapon(remote, WEAPONS[message.weapon] ? message.weapon : 'rifle');
-                fireProjectile(remote.mesh, remote.mesh.userData);
-            } else if (message.type === 'hit') {
-                if (message.targetId !== MultiplayerTransport.playerId || playerHealth <= 0) return;
-                playerHealth = Math.max(0, playerHealth - Math.max(0, Math.min(200, Number(message.damage) || 0)));
-                lastDamageTime = Date.now();
-                document.getElementById('health-display').innerText = playerHealth > 0 ? `✚ ${Math.ceil(playerHealth)}` : 'DEAD';
-                document.getElementById('health-display').style.color = playerHealth < 30 ? '#f00' : '#0f0';
-                if (playerHealth <= 0) MultiplayerTransport.send({ type: 'state', player: {
-                    x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                    yaw, pitch, health: 0, score: 0
-                } });
-                if (playerHealth <= 0) handlePlayerDeath();
-            } else if (message.type === 'hitConfirm') {
-                const localRow = scores.find(entry => entry.isLocal);
-                if (localRow) localRow.score += 100;
-                updateLeaderboard();
-            } else if (message.type === 'error') {
-                document.getElementById('mp-status').innerText = message.message || 'Multiplayer error';
-            } else if (message.type === 'disconnected') {
-                multiplayerConnected = false;
-                clearRemotePlayers();
-            }
         }
 
         function respawnEntity(entity, isPlayer) {
@@ -4817,7 +4381,7 @@
             gameTime = 180;
             playerHealth = 100;
             ammo = currentWeapon.maxAmmo;
-            scores = [{name: multiplayerName, score: 0, isBot: false, isHuman: true, isLocal: true, team: 'blue'}];
+            scores = [{name: playerName, score: 0, isBot: false, isHuman: true, isLocal: true, team: 'blue'}];
             document.getElementById('game-over-screen').style.display = 'none';
             document.getElementById('health-display').innerText = "✚ 100";
             document.getElementById('health-display').style.color = "#0f0";
@@ -4856,7 +4420,6 @@
 
             if (lastFrameTime && timestamp - lastFrameTime < (1000 / frameRateLimit)) return;
             lastFrameTime = timestamp;
-            updateChatButtonVisibility();
             updatePerformanceStats(timestamp);
             
             updateMenuNavigation();
@@ -4877,10 +4440,7 @@
             }
 
             const loadoutOpen = window.getComputedStyle(document.getElementById('overlay')).display !== 'none';
-            // Chat releases desktop pointer lock so the text field can receive
-            // input. Keep the simulation running while that intentional unlock
-            // is active; real pause/menu states are still handled below.
-            const isPaused = (!document.pointerLockElement && !isMobile && !isChatOpen) ||
+            const isPaused = (!document.pointerLockElement && !isMobile) ||
                 document.getElementById('pause-menu').style.display === 'flex' ||
                 document.getElementById('settings-menu').style.display === 'flex' ||
                 loadoutOpen || playerHealth <= 0;
@@ -4897,7 +4457,6 @@
                 return;
             }
 
-            syncMultiplayerState(timestamp || performance.now());
 
             if (playerInventory[2] && playerInventory[2].ammo === 0 && Date.now() - lastKnifeThrowTime > 1500) {
                 playerInventory[2].ammo = 1;
@@ -5453,21 +5012,6 @@
                 }
 
                 let hitBot = false;
-                if (p.userData.ownerId === 'player' && !p.userData.isNuke) {
-                    for (const remote of remotePlayers.values()) {
-                        const targetPos = remote.mesh.position;
-                        const dx = p.position.x - targetPos.x;
-                        const dy = p.position.y - (targetPos.y - 0.55);
-                        const dz = p.position.z - targetPos.z;
-                        if (dx * dx + dy * dy + dz * dz < 1.0) {
-                            MultiplayerTransport.send({ type: 'hit', targetId: remote.id, damage: p.userData.damage });
-                            scene.remove(p);
-                            projectiles.splice(i, 1);
-                            hitBot = true;
-                            break;
-                        }
-                    }
-                }
                 if (hitBot) continue;
                 for(let bIdx = 0; bIdx < bots.length; bIdx++) {
                     const bot = bots[bIdx];
