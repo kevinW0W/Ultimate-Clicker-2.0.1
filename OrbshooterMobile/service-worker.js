@@ -1,7 +1,7 @@
 const CACHE_NAME = 'orb-tosser-v19';
 const APP_URL = new URL('./', self.registration.scope).href;
-const IOS12_PAGE_URL = new URL('./Orb-Tosser%20iOS12.html', self.registration.scope).href;
-const IOS12_MANIFEST_URL = new URL('./manifest-older.webmanifest', self.registration.scope).href;
+const IOS12_PAGE_URL = new URL('./index.html', self.registration.scope).href;
+const IOS12_MANIFEST_URL = new URL('./manifest.webmanifest', self.registration.scope).href;
 const APP_SHELL = [
     APP_URL,
     IOS12_PAGE_URL,
