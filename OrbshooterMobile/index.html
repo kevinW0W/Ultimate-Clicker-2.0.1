@@ -517,6 +517,7 @@
         let scores = [{name: "Player", score: 0, isBot: false}];
         let lastShotTime = 0;
         let tryhardHoldStartTime = 0;
+        let tryhardOverheatedUntil = 0;
         let lastDamageTime = 0;
         let lastStepTime = 0;
         let recoil = 0;
@@ -3650,7 +3651,16 @@
                     if (!held) tryhardHoldStartTime = 0;
                     else if (!tryhardHoldStartTime) tryhardHoldStartTime = Date.now();
                     const holdSteps = held ? Math.floor((Date.now() - tryhardHoldStartTime) / 500) : 0;
-                    shotDelay = Math.max(20, 100 - holdSteps * 30);
+                    const fireSpeed = 100 + holdSteps * 30;
+                    const now = Date.now();
+                    if (tryhardOverheatedUntil > now) return;
+                    if (fireSpeed >= 30000) {
+                        tryhardOverheatedUntil = now + 5000;
+                        tryhardHoldStartTime = 0;
+                        logFeed('<span style="color:#f44">TRYHARD GUN OVERHEATED — COOLING DOWN</span>');
+                        return;
+                    }
+                    shotDelay = 10000 / fireSpeed;
                 }
             }
 
