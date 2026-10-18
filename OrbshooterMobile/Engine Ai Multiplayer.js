@@ -16,6 +16,10 @@
     let lastShotSentAt = 0;
     let retryTimer = null;
     let destroyed = false;
+    let peerReady = false;
+    const pendingChatMessages = [];
+    const chatHistory = [];
+    const MAX_CHAT_HISTORY = 40;
 
     function hashText(value) {
         let hash = 2166136261;
@@ -47,6 +51,27 @@
     function status(text) { if (statusCallback) statusCallback(text); }
     function receive(message) { if (messageCallback) messageCallback(message); }
 
+    function rememberChat(chat) {
+        chatHistory.push(chat);
+        if (chatHistory.length > MAX_CHAT_HISTORY) chatHistory.shift();
+    }
+
+    function flushPendingChat() {
+        if (!pendingChatMessages.length) return;
+        if (hostMode && peerReady) {
+            while (pendingChatMessages.length) {
+                const text = pendingChatMessages.shift();
+                const chat = { type: 'chat', id: localId, name: localName, text };
+                rememberChat(chat);
+                broadcast(chat);
+            }
+        } else if (!hostMode && hostConnection && hostConnection.open) {
+            while (pendingChatMessages.length) {
+                hostConnection.send({ type: 'chat', text: pendingChatMessages.shift() });
+            }
+        }
+    }
+
     function connect(room, name, onMessage, onStatus) {
         disconnect();
         if (!root.Peer) {
@@ -59,6 +84,9 @@
         roomId = makeRoomId(room);
         destroyed = false;
         hostMode = true;
+        peerReady = false;
+        pendingChatMessages.length = 0;
+        chatHistory.length = 0;
         status('Looking for the room host…');
         createHostPeer();
         return true;
@@ -70,8 +98,10 @@
         peer.on('open', id => {
             localId = id;
             hostMode = true;
+            peerReady = true;
             members.set(id, { id, name: localName });
             status('Connected as main room host. Waiting for players…');
+            flushPendingChat();
         });
         peer.on('connection', conn => attachConnection(conn, true));
         peer.on('error', error => {
@@ -79,6 +109,7 @@
                 peer.destroy();
                 peer = null;
                 hostMode = false;
+                peerReady = false;
                 createGuestPeer();
             } else {
                 status(error.type === 'peer-unavailable'
@@ -86,7 +117,12 @@
                     : `Peer connection error: ${error.type || 'unknown'}`);
             }
         });
-        peer.on('disconnected', () => status('Signaling disconnected. Check your internet connection.'));
+        peer.on('disconnected', () => {
+            // Signaling may drop while already-open WebRTC data channels keep
+            // working, so keep the room relay available for current members.
+            status('Signaling disconnected. Check your internet connection.');
+            if (peer && !peer.destroyed && peer.reconnect) peer.reconnect();
+        });
     }
 
     function createGuestPeer() {
@@ -94,6 +130,10 @@
         peer = new root.Peer(undefined, { secure: true });
         peer.on('open', id => {
             localId = id;
+            if (hostConnection && hostConnection.open) {
+                flushPendingChat();
+                return;
+            }
             status('Connecting to room host…');
             const conn = peer.connect(roomId, { reliable: true, metadata: { name: localName } });
             attachConnection(conn, false);
@@ -107,7 +147,10 @@
                 status(`Peer connection error: ${error.type || 'unknown'}`);
             }
         });
-        peer.on('disconnected', () => status('Signaling disconnected. Check your internet connection.'));
+        peer.on('disconnected', () => {
+            status('Signaling disconnected. Check your internet connection.');
+            if (peer && !peer.destroyed && peer.reconnect) peer.reconnect();
+        });
     }
 
     function scheduleHostRetry() {
@@ -123,7 +166,14 @@
     function attachConnection(conn, incoming) {
         if (!incoming && !hostMode) hostConnection = conn;
         conn.on('open', () => {
-            if (!incoming && !hostMode) conn.send({ type: 'join', name: localName });
+            if (!incoming && !hostMode) {
+                if (hostConnection === conn) {
+                    if (retryTimer) clearTimeout(retryTimer);
+                    retryTimer = null;
+                }
+                conn.send({ type: 'join', name: localName });
+                flushPendingChat();
+            }
         });
         conn.on('data', data => {
             if (!data || typeof data !== 'object') return;
@@ -134,7 +184,7 @@
                 connections.set(id, conn);
                 members.set(id, { id, name });
                 const players = Array.from(members.values());
-                conn.send({ type: 'welcome', id: localId, players });
+                conn.send({ type: 'welcome', id: localId, players, chatHistory: chatHistory.slice() });
                 receive({ type: 'playerJoined', id, name });
                 broadcast({ type: 'playerJoined', id, name }, conn);
                 status(`Room open · ${members.size}/8 players`);
@@ -154,6 +204,11 @@
             }
         });
         conn.on('close', () => {
+            const wasCurrentHostConnection = hostConnection === conn;
+            if (wasCurrentHostConnection) {
+                if (retryTimer) clearTimeout(retryTimer);
+                retryTimer = null;
+            }
             const id = conn.peer;
             if (hostMode && incoming && members.has(id)) {
                 members.delete(id);
@@ -162,14 +217,15 @@
                 broadcast({ type: 'playerLeft', id });
                 status(`Room open · ${members.size}/8 players`);
             }
-            if (!hostMode && !destroyed) {
+            if (!hostMode && !destroyed && wasCurrentHostConnection) {
                 hostConnection = null;
                 status('Lost connection to room host. The host must reconnect to create a new room.');
                 receive({ type: 'disconnected' });
+                scheduleHostRetry();
             }
         });
         conn.on('error', () => {
-            if (!hostMode && !destroyed) scheduleHostRetry();
+            if (!hostMode && !destroyed && hostConnection === conn) scheduleHostRetry();
         });
         if (incoming && hostMode) connections.set(conn.peer, conn);
     }
@@ -188,6 +244,7 @@
             const text = filterChatText(message.text).trim();
             if (!text) return;
             const chat = { type: 'chat', id: member.id, name: member.name, text };
+            rememberChat(chat);
             receive(chat);
             broadcast(chat, conn);
             return;
@@ -216,7 +273,25 @@
     }
 
     function send(message) {
-        if (!peer || destroyed) return false;
+        if (destroyed) return false;
+        if (message.type === 'chat') {
+            const text = filterChatText(message.text).trim();
+            if (!text) return false;
+            if (hostMode && peerReady) {
+                const chat = { type: 'chat', id: localId, name: localName, text };
+                rememberChat(chat);
+                broadcast(chat);
+                return true;
+            }
+            if (!hostMode && hostConnection && hostConnection.open) {
+                hostConnection.send({ type: 'chat', text });
+                return true;
+            }
+            if (pendingChatMessages.length >= 20) pendingChatMessages.shift();
+            pendingChatMessages.push(text);
+            return true;
+        }
+        if (!peer) return false;
         if (message.type === 'shot') {
             const now = performance.now();
             if (now - lastShotSentAt < 35) return false;
@@ -232,11 +307,6 @@
                     if (target && target.open) target.send(hit);
                 }
                 receive({ type: 'hitConfirm', targetId });
-            } else if (message.type === 'chat') {
-                const text = filterChatText(message.text).trim();
-                if (!text) return false;
-                const chat = { type: 'chat', id: localId, name: localName, text };
-                broadcast(chat);
             } else {
                 broadcast(Object.assign({}, message, { id: localId, name: localName }));
             }
@@ -277,6 +347,9 @@
         localId = null;
         roomId = null;
         hostMode = false;
+        peerReady = false;
+        pendingChatMessages.length = 0;
+        chatHistory.length = 0;
     }
 
     root.MultiplayerTransport = { connect, send, rename, disconnect, get playerId() { return localId; } };
