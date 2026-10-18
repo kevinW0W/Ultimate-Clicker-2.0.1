@@ -4479,9 +4479,9 @@
             const row = document.createElement('div');
             const sender = document.createElement('strong');
             sender.style.color = isLocal ? '#0ff' : '#7dbbff';
-            sender.textContent = `${String(name || 'Player').slice(0, 18)}: `;
+            sender.textContent = `${filterChatContent(name || 'Player').slice(0, 18)}: `;
             row.appendChild(sender);
-            row.appendChild(document.createTextNode(String(text || '').slice(0, 160)));
+            row.appendChild(document.createTextNode(filterChatContent(text || '').slice(0, 160)));
             log.appendChild(row);
             while (log.children.length > 40) log.removeChild(log.firstChild);
             log.scrollTop = log.scrollHeight;
@@ -4489,12 +4489,30 @@
 
         function sendChatMessage() {
             const input = document.getElementById('chat-input');
-            const text = input.value.trim().slice(0, 160);
+            const text = filterChatContent(input.value).trim().slice(0, 160);
             if (!text) return;
             input.value = '';
             appendChatMessage(multiplayerName, text, true);
             if (multiplayerConnected) MultiplayerTransport.send({ type: 'chat', text });
             input.focus();
+        }
+
+        function filterChatContent(value) {
+            let text = String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\ufeff]/g, ' ').slice(0, 240);
+            // Replace links and email addresses with Roblox-style hash masking.
+            text = text.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '####');
+            text = text.replace(/\b(?:https?:\/\/|www\.)[^\s]+/gi, '####');
+            text = text.replace(/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|gg|io|co|app|dev|me|info|biz|xyz|tv|ly|ru|uk|ca|us|de|fr|jp|cn)(?:\/[^\s]*)?/gi, '####');
+
+            const blockedWords = ['fuck', 'shit', 'bitch', 'bastard', 'asshole', 'ass', 'dick', 'pussy', 'cunt', 'slut', 'whore', 'damn', 'hell', 'crap', 'nigger', 'nigga', 'faggot', 'retard'];
+            const leet = { a: '[a4@]', e: '[e3]', i: '[i1!|]', o: '[o0]', s: '[s5$]', t: '[t7]', g: '[g69]' };
+            blockedWords.push('discord');
+            blockedWords.forEach(word => {
+                const pattern = word.split('').map(letter => leet[letter] || letter).join('[^a-z0-9]*');
+                const matcher = new RegExp(`(^|[^a-z0-9])(${pattern})(?=$|[^a-z0-9])`, 'gi');
+                text = text.replace(matcher, '$1####');
+            });
+            return text;
         }
 
         function updateLeaderboard() {
