@@ -4593,9 +4593,10 @@
             if (!multiplayerConnected || !gameHasStarted || timestamp - multiplayerLastSend < 50) return;
             multiplayerLastSend = timestamp;
             const localScore = scores.find(entry => entry.isLocal);
+            const weaponKey = Object.keys(WEAPONS).find(key => WEAPONS[key] === currentWeapon) || 'rifle';
             MultiplayerTransport.send({ type: 'state',
                 x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                yaw, pitch, health: playerHealth, score: localScore ? localScore.score : 0
+                yaw, pitch, health: playerHealth, score: localScore ? localScore.score : 0, weapon: weaponKey
             });
         }
 
@@ -4624,6 +4625,22 @@
             updateLeaderboard();
         }
 
+        function setRemotePlayerWeapon(remote, weaponKey) {
+            if (!remote || !remote.mesh) return;
+            const weapon = WEAPONS[weaponKey] || WEAPONS.rifle;
+            if (remote.weaponKey === weaponKey && remote.weaponMesh) return;
+            if (remote.weaponMesh) remote.mesh.remove(remote.weaponMesh);
+            const weaponMesh = createWeaponMesh(weapon.name, weapon.color);
+            // Match the bot's fixed weapon mount so opponent weapons stay
+            // attached to the avatar as it moves and turns.
+            weaponMesh.position.set(0, 0.1, 0.5);
+            weaponMesh.scale.setScalar(0.55);
+            remote.mesh.add(weaponMesh);
+            remote.weaponKey = weaponKey;
+            remote.weaponMesh = weaponMesh;
+            remote.mesh.userData.weapon = weapon;
+        }
+
         function addRemotePlayer(id, name) {
             if (!id || id === MultiplayerTransport.playerId || remotePlayers.has(id)) return;
             const cleanName = String(name || 'Player').replace(/[<>]/g, '').slice(0, 18) || 'Player';
@@ -4642,7 +4659,9 @@
             mesh.position.set(0, 1.6, 0);
             mesh.userData = { id, name: cleanName, nameLabel: label, hp: 100, weapon: WEAPONS.rifle, team: 'red' };
             scene.add(mesh);
-            remotePlayers.set(id, { id, name: cleanName, mesh, score: 0 });
+            const remote = { id, name: cleanName, mesh, score: 0 };
+            remotePlayers.set(id, remote);
+            setRemotePlayerWeapon(remote, 'rifle');
             scores.push({ id, name: cleanName, score: 0, isBot: false, isHuman: true, team: 'blue' });
             updateLeaderboard();
         }
@@ -4692,6 +4711,7 @@
                 remote.mesh.position.set(x, y, z);
                 remote.mesh.rotation.set(-Number(state.pitch || 0), Number(state.yaw || 0) + Math.PI, 0, 'YXZ');
                 remote.mesh.visible = Number(state.health) > 0;
+                setRemotePlayerWeapon(remote, WEAPONS[state.weapon] ? state.weapon : 'rifle');
                 remote.score = Number(state.score) || 0;
                 const row = scores.find(s => s.id === message.id);
                 if (row) row.score = remote.score;
@@ -4702,7 +4722,7 @@
                 if (!remote || !weapon || !gameHasStarted) return;
                 remote.mesh.position.set(message.x, message.y, message.z);
                 remote.mesh.rotation.set(-message.pitch, message.yaw + Math.PI, 0, 'YXZ');
-                remote.mesh.userData.weapon = weapon;
+                setRemotePlayerWeapon(remote, WEAPONS[message.weapon] ? message.weapon : 'rifle');
                 fireProjectile(remote.mesh, remote.mesh.userData);
             } else if (message.type === 'hit') {
                 if (message.targetId !== MultiplayerTransport.playerId || playerHealth <= 0) return;
