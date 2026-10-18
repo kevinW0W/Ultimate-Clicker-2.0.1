@@ -1,5 +1,5 @@
-const CACHE_NAME = 'orb-tosser-v5';
-const APP_URL = new URL('./Orb-Tosser%20iOS12.html', self.registration.scope).href;
+const CACHE_NAME = 'orb-tosser-v6';
+const APP_URL = new URL('./', self.registration.scope).href;
 const APP_SHELL = [
     APP_URL,
     new URL('./manifest.webmanifest', self.registration.scope).href,
