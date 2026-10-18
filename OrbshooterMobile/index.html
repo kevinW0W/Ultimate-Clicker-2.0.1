@@ -139,6 +139,30 @@
         #overlay::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
         @media screen and (max-width: 600px) {
             #overlay { padding: 16px 12px; }
+            #hud-top-right {
+                top: 8px;
+                top: max(8px, env(safe-area-inset-top, 0px));
+                right: 8px;
+                right: max(8px, env(safe-area-inset-right, 0px));
+                width: min(42vw, 180px);
+                max-height: 44vh;
+                box-sizing: border-box;
+            }
+            #timer { font-size: 5vw; font-size: clamp(18px, 5vw, 28px); }
+            #leaderboard {
+                box-sizing: border-box;
+                width: 100%;
+                max-height: 32vh;
+                max-height: min(32vh, calc(var(--app-height, 100vh) * 0.32));
+                margin-top: 6px;
+                padding: 1.5vw;
+                padding: clamp(5px, 1.5vw, 8px);
+                font-size: 2.7vw;
+                font-size: clamp(9px, 2.7vw, 12px);
+            }
+            .lb-row { width: 100%; min-width: 0; gap: 6px; }
+            .lb-row > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+            .lb-row > :last-child { flex: 0 0 auto; }
             #weapon-name { bottom: calc(40px + 1em + 8px); right: 40px; font-size: 14px; }
             #overlay > h1 { font-size: 32px !important; margin: 0 0 8px !important; }
             #overlay > p:not(#loadout-instructions) { margin-bottom: 12px !important; font-size: 12px; }
@@ -194,9 +218,11 @@
             padding: 0 40px;
             box-sizing: border-box;
             pointer-events: none;
-            z-index: 20;
+            z-index: 40;
+            isolation: isolate;
             touch-action: none;
         }
+        #mobile-pause-btn { z-index: 41 !important; }
         .joystick-area {
             width: 100px;
             height: 100px;
