@@ -1,8 +1,9 @@
-const CACHE_NAME = 'orb-tosser-v1';
+const CACHE_NAME = 'orb-tosser-v5';
 const APP_URL = new URL('./Orb-Tosser%20iOS12.html', self.registration.scope).href;
 const APP_SHELL = [
     APP_URL,
     new URL('./manifest.webmanifest', self.registration.scope).href,
+    new URL('./icon.ico', self.registration.scope).href,
     new URL('./icon.png', self.registration.scope).href,
     new URL('./touchicon.png', self.registration.scope).href
 ];
@@ -33,6 +34,15 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(request);
+
+        // iOS 12 standalone apps can reopen the saved launch URL after the
+        // network is unavailable or GitHub Pages briefly returns an error.
+        // Prefer the pre-cached game shell for navigations so the installed
+        // app opens the game instead of showing a GitHub error page.
+        if (request.mode === 'navigate') {
+            const appShell = await cache.match(APP_URL);
+            if (appShell) return appShell;
+        }
 
         if (isSameOrigin && cachedResponse && request.mode !== 'navigate') return cachedResponse;
 
