@@ -170,6 +170,14 @@
             broadcast(renamed, conn);
             return;
         }
+        if (message.type === 'chat') {
+            const text = String(message.text || '').trim().slice(0, 160);
+            if (!text) return;
+            const chat = { type: 'chat', id: member.id, name: member.name, text };
+            receive(chat);
+            broadcast(chat, conn);
+            return;
+        }
         if (message.type === 'hit') {
             const targetId = String(message.targetId || '');
             const hit = { type: 'hit', targetId, damage: Math.max(0, Math.min(200, Number(message.damage) || 0)) };
@@ -210,6 +218,11 @@
                     if (target && target.open) target.send(hit);
                 }
                 receive({ type: 'hitConfirm', targetId });
+            } else if (message.type === 'chat') {
+                const text = String(message.text || '').trim().slice(0, 160);
+                if (!text) return false;
+                const chat = { type: 'chat', id: localId, name: localName, text };
+                broadcast(chat);
             } else {
                 broadcast(Object.assign({}, message, { id: localId, name: localName }));
             }
