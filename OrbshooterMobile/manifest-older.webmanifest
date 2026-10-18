@@ -1,0 +1,19 @@
+{
+  "id": "./Orb-Tosser%20iOS12.html",
+  "name": "Orb Tosser Older",
+  "short_name": "Orb Tosser Older",
+  "description": "Play Orb Tosser, a fast-paced mobile orb-throwing game.",
+  "start_url": "./Orb-Tosser%20iOS12.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0033aa",
+  "theme_color": "#0033aa",
+  "icons": [
+    {
+      "src": "touchicon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
