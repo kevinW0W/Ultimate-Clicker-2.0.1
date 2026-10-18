@@ -518,7 +518,9 @@
         let lastShotTime = 0;
         let tryhardHoldStartTime = 0;
         let tryhardOverheatedUntil = 0;
-        let oneKillsMachineSpeed = 99999;
+        const ONE_KILLS_MACHINE_BASE_SPEED = 99999;
+        const ONE_KILLS_MACHINE_MAX_SPEED = ONE_KILLS_MACHINE_BASE_SPEED * 300;
+        let oneKillsMachineSpeed = ONE_KILLS_MACHINE_BASE_SPEED;
         let oneKillsMachineSpeedUpdatedAt = 0;
         let reloadTimeout = null;
         let reloadGeneration = 0;
@@ -3836,8 +3838,8 @@
                     const steps = Math.floor((now - oneKillsMachineSpeedUpdatedAt) / 100);
                     if (steps > 0) {
                         oneKillsMachineSpeed = held
-                            ? oneKillsMachineSpeed + steps * 2990
-                            : Math.max(100, oneKillsMachineSpeed - steps * 20);
+                            ? Math.min(ONE_KILLS_MACHINE_MAX_SPEED, oneKillsMachineSpeed + steps * ONE_KILLS_MACHINE_BASE_SPEED * 10)
+                            : Math.max(ONE_KILLS_MACHINE_BASE_SPEED, oneKillsMachineSpeed - steps * ONE_KILLS_MACHINE_BASE_SPEED);
                         oneKillsMachineSpeedUpdatedAt += steps * 100;
                     }
                 } else {
@@ -4151,7 +4153,7 @@
                 ctrlIsFiring = false;
                 lastShotTime = 0;
                 tryhardHoldStartTime = 0;
-                oneKillsMachineSpeed = 99999;
+                oneKillsMachineSpeed = ONE_KILLS_MACHINE_BASE_SPEED;
                 oneKillsMachineSpeedUpdatedAt = 0;
                 playerInventory.forEach(item => {
                     if (item && item.def) item.ammo = item.def.maxAmmo;
