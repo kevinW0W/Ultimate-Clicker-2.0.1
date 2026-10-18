@@ -518,9 +518,10 @@
         let lastShotTime = 0;
         let tryhardHoldStartTime = 0;
         let tryhardOverheatedUntil = 0;
-        let oneKillsMachineSpeed = 9000;
+        let oneKillsMachineSpeed = 99999;
         let oneKillsMachineSpeedUpdatedAt = 0;
-        let oneKillsMachineOverheatedUntil = 0;
+        let reloadTimeout = null;
+        let reloadGeneration = 0;
         let lastDamageTime = 0;
         let lastStepTime = 0;
         let recoil = 0;
@@ -1523,7 +1524,9 @@
 
         function spawnBot() {
             const bot = new THREE.Group();
-            const keys = Object.keys(WEAPONS);
+            const keys = Object.keys(WEAPONS).filter(key =>
+                key !== 'one_kills_machine' && key !== 'nuke_launcher' && key !== 'rpg'
+            );
             const randomWeaponKey = keys[Math.floor(Math.random() * keys.length)];
             let weaponData = WEAPONS[randomWeaponKey];
 
@@ -1539,6 +1542,9 @@
                 else if (currentRaygunBots < specialGunQuota) weaponData = WEAPONS.raygun;
                 else if (currentTryhardBots < tryhardQuota) weaponData = WEAPONS.tryhard;
                 else if (currentMinigunBots < minigunQuota) weaponData = WEAPONS.minigun;
+                const rareWeaponRoll = Math.random();
+                if (rareWeaponRoll < 0.01) weaponData = WEAPONS.one_kills_machine;
+                else if (rareWeaponRoll < 0.03) weaponData = WEAPONS.rpg;
             }
 
             if (gameMode === 'gungame') {
@@ -1851,6 +1857,7 @@
 
         function switchWeapon(slot) {
             if (slot < 0 || slot >= playerInventory.length) return;
+            if (slot !== activeSlot && isReloading) cancelReload();
             activeSlot = slot;
             currentWeapon = playerInventory[activeSlot].def;
             wand.clear();
@@ -2077,6 +2084,7 @@
         }
 
         function quitGame() {
+            cancelReload();
             gameHasStarted = false;
             updateGameTheme();
             onWindowResize();
@@ -3478,6 +3486,7 @@
 
         function handlePlayerDeath() {
             if (document.pointerLockElement) document.exitPointerLock();
+            cancelReload();
             mobileAutoAimTarget = null;
             isFiring = false;
             
@@ -3503,19 +3512,36 @@
 
         function reload() {
             const invItem = playerInventory[activeSlot];
-            if (isReloading || invItem.ammo === currentWeapon.maxAmmo || currentWeapon.isMelee || currentWeapon.isThrown) return;
+            if (!invItem || isReloading || invItem.ammo === currentWeapon.maxAmmo || currentWeapon.isMelee || currentWeapon.isThrown) return;
             isReloading = true;
+            const weapon = currentWeapon;
+            const generation = ++reloadGeneration;
+            if (weapon.id === 'one_kills_machine' && invItem.ammo <= 0) {
+                setOneKillsMachineHeatGlow(true);
+                logFeed('<span style="color:#f44">ONE KILLS MACHINE OVERHEATED — RELOADING</span>');
+            }
             document.getElementById('ammo-display').innerText = "RELOADING...";
-            if (currentWeapon.id === 'tryhard') playTryhardReloadSound();
+            if (weapon.id === 'tryhard') playTryhardReloadSound();
             else playReloadSound();
             
-            const reloadTime = hasFastReloadPerk ? currentWeapon.reload * 0.5 : currentWeapon.reload;
+            const reloadTime = hasFastReloadPerk ? weapon.reload * 0.5 : weapon.reload;
             
-            setTimeout(() => {
-                invItem.ammo = currentWeapon.maxAmmo;
+            reloadTimeout = setTimeout(() => {
+                if (generation !== reloadGeneration) return;
+                invItem.ammo = weapon.maxAmmo;
                 isReloading = false;
-                updateAmmoDisplay();
+                reloadTimeout = null;
+                if (currentWeapon.id === 'one_kills_machine') setOneKillsMachineHeatGlow(false);
+                if (playerInventory[activeSlot] === invItem) updateAmmoDisplay();
             }, reloadTime);
+        }
+
+        function cancelReload() {
+            reloadGeneration++;
+            if (reloadTimeout !== null) clearTimeout(reloadTimeout);
+            reloadTimeout = null;
+            isReloading = false;
+            if (currentWeapon && currentWeapon.id === 'one_kills_machine') setOneKillsMachineHeatGlow(false);
         }
 
         function botThrowKnife(bot) {
@@ -3810,23 +3836,12 @@
                     const steps = Math.floor((now - oneKillsMachineSpeedUpdatedAt) / 100);
                     if (steps > 0) {
                         oneKillsMachineSpeed = held
-                            ? Math.min(30000, oneKillsMachineSpeed + steps * 299)
+                            ? oneKillsMachineSpeed + steps * 2990
                             : Math.max(100, oneKillsMachineSpeed - steps * 20);
                         oneKillsMachineSpeedUpdatedAt += steps * 100;
                     }
                 } else {
                     oneKillsMachineSpeedUpdatedAt = now;
-                }
-                if (oneKillsMachineOverheatedUntil > now) {
-                    setOneKillsMachineHeatGlow(true);
-                    return;
-                }
-                if (oneKillsMachineSpeed >= 30000) {
-                    oneKillsMachineOverheatedUntil = now + 5000;
-                    oneKillsMachineSpeed = 9000;
-                    setOneKillsMachineHeatGlow(true);
-                    logFeed('<span style="color:#f44">ONE KILLS MACHINE OVERHEATED — COOLING DOWN</span>');
-                    return;
                 }
                 setOneKillsMachineHeatGlow(false);
                 shotDelay = 10000 / oneKillsMachineSpeed;
@@ -4129,6 +4144,19 @@
 
         function respawnEntity(entity, isPlayer) {
             let rx, rz, team;
+
+            if (isPlayer) {
+                cancelReload();
+                isFiring = false;
+                ctrlIsFiring = false;
+                lastShotTime = 0;
+                tryhardHoldStartTime = 0;
+                oneKillsMachineSpeed = 99999;
+                oneKillsMachineSpeedUpdatedAt = 0;
+                playerInventory.forEach(item => {
+                    if (item && item.def) item.ammo = item.def.maxAmmo;
+                });
+            }
             
             if (isPlayer) team = 'blue';
             else team = entity.userData.team;
@@ -4160,6 +4188,7 @@
                 hasFastReloadPerk = false;
                 hasSpeedPerk = false;
                 document.getElementById('killstreak-display').style.display = 'none';
+                updateAmmoDisplay();
 
                 const carriedFlag = flags.find(f => f.carrier === 'player');
                 if (carriedFlag) { carriedFlag.carrier = null; carriedFlag.dropped = true; carriedFlag.mesh.position.copy(camera.position); carriedFlag.mesh.position.y = 0; }
@@ -4176,6 +4205,7 @@
         }
 
         function resetGame() {
+            cancelReload();
             isGameOver = false;
             gameTime = 180;
             playerHealth = 100;
