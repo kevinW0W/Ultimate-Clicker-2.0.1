@@ -1,6 +1,6 @@
 const CACHE_NAME = 'orb-tosser-v22';
 const APP_URL = new URL('./', self.registration.scope).href;
-const APP_PAGE_URL = new URL('./index.html', self.registration.scope).href;
+const APP_PAGE_URL = new URL('./Orb-TosserMobile.html', self.registration.scope).href;
 const APP_MANIFEST_URL = new URL('./manifest.webmanifest', self.registration.scope).href;
 const APP_SHELL = [
     APP_URL,
