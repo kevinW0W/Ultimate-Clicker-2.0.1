@@ -51,6 +51,7 @@ The weapon selection screen offers the available loadouts. The game also include
 - **RELOAD:** Reload the current weapon.
 - **SWAP:** Change weapon.
 - **PAUSE:** Open the pause menu.
+- **CHAT:** During gameplay or from the pause menu, tap the chat button to type with the on-screen keyboard. Chat is unavailable on the loadout screen.
 
 The **Edit Mobile Layout** setting lets you move and resize the touch controls. Positions are saved on the device. Choose **RESET** in the layout editor to restore the default positions.
 
@@ -69,6 +70,7 @@ Keyboard and mouse controls are available in the desktop debug mode:
 - **1 / 2 / 3:** Select weapon slot.
 - **Q:** Cycle weapon.
 - **Escape:** Pause or release pointer lock.
+- **T:** Open chat; press **Escape** to close it.
 
 Control bindings can be changed in **Settings → Control Map**.
 
@@ -107,7 +109,7 @@ The **Nuke Launcher** is solo-only. It is disabled in multiplayer, and the game 
 
 ## Multiplayer
 
-The game automatically joins the shared room named `main` when you choose **PLAY**. There is no room code or manual connection button. Set your name in **Settings**; it is saved locally and can be changed during play. Multiplayer is peer-to-peer: PeerJS Cloud provides signaling, while gameplay data is sent over WebRTC data channels. Human player names appear blue on the leaderboard; bot names appear white.
+The game automatically joins the shared room named `main` when you choose **PLAY**. There is no room code or manual connection button. Set your name in **Settings**; it is saved locally and can be changed during play. Open chat with **T** on keyboard or tap the chat button on mobile; messages are shared with connected players. The chat filter masks links, email addresses, common profanity, and the word “discord.” Multiplayer is peer-to-peer: PeerJS Cloud provides signaling, while gameplay data is sent over WebRTC data channels. Human player names appear blue on the leaderboard; bot names appear white.
 
 GitHub Pages can host the static game files, but it does not provide a multiplayer game server. In the current peer hosted setup, the first player in the room relays game updates and is the temporary host. The room supports up to eight players. If the host leaves, connected players are disconnected and someone must start a new room session. Some restrictive networks may also prevent WebRTC connections because this setup does not configure a TURN relay.
 
