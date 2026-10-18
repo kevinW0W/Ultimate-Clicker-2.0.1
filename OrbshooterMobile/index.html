@@ -485,6 +485,7 @@
         <div id="weapon-switch-btn" class="fire-button" style="position:absolute; bottom:150px; right:240px; width:70px; height:70px; z-index:20;">SWAP</div>
     </div>
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
+    <button id="nuke-detonate-btn" class="fire-button" type="button" style="display:none; position:absolute; left:50%; bottom:190px; transform:translateX(-50%); width:120px; height:64px; background:rgba(180,0,0,0.85); border-color:#f44; z-index:35;">DETONATE NUKE</button>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
@@ -518,6 +519,10 @@
         let lastShotTime = 0;
         let tryhardHoldStartTime = 0;
         let tryhardOverheatedUntil = 0;
+        let oneKillsMachineSpeed = 9000;
+        let oneKillsMachineSpeedUpdatedAt = 0;
+        let oneKillsMachineOverheatedUntil = 0;
+        let activeNukeProjectile = null;
         let lastDamageTime = 0;
         let lastStepTime = 0;
         let recoil = 0;
@@ -632,6 +637,10 @@
             { id: 'negev', name: "Negev", base: 'lmg', damage: 6, delay: 50, ammo: 150, color: 0x444444 },
             { id: 'minigun', name: "Minigun", base: 'lmg', damage: 5, delay: 30, ammo: 500, pierce: 1, color: 0x222222 },
             { id: 'tryhard', name: "Tryhard Gun", base: 'lmg', damage: 100, delay: 100, ammo: 8000, maxAmmo: 8000, reload: 20000, automatic: true, pierce: 1, isLaser: true, color: 0xff3300 },
+            { id: 'rpg', name: "RPG", base: 'sniper', damage: 150, delay: 1200, ammo: 1, maxAmmo: 1, reload: 40000, isExplosive: true, blastRadius: 8, color: 0x66aa33 },
+            { id: 'nuke_launcher', name: "Nuke Launcher", base: 'sniper', damage: 500, delay: 1500, ammo: 1, maxAmmo: 1, reload: 60000, isNukeLauncher: true, blastRadius: 200, color: 0xff4400 },
+            { id: 'one_kills_machine', name: "One Kills Machine", base: 'lmg', damage: 2, delay: 100, ammo: 99999, maxAmmo: 99999, reload: 3000, automatic: true, color: 0x00ccff },
+            { id: 'onekillgun', name: "OneKillGun", base: 'shotgun', damage: 10, spread: 0.8, count: 20, delay: 100, ammo: 300, maxAmmo: 300, reload: 15000, automatic: true, color: 0xff66cc },
             { id: 'railgun', name: "Railgun", base: 'sniper', damage: 75, delay: 1300, ammo: 6, pierce: 5, color: 0x00ffff },
             { id: 'penetrator', name: "Penetrator Rifle", base: 'rifle', damage: 11, delay: 170, ammo: 24, pierce: 2, color: 0xff44ff },
             { id: 'piercer_smg', name: "Piercer SMG", base: 'smg', damage: 5, delay: 75, ammo: 40, pierce: 1, color: 0xff8800 },
@@ -655,7 +664,6 @@
             { id: 'huntsman', name: "Huntsman Knife", base: 'knife', damage: 55, delay: 600, color: 0x333333 },
             { id: 'bowie', name: "Bowie Knife", base: 'knife', damage: 60, delay: 700, color: 0x444444 },
             { id: 'daggers', name: "Shadow Daggers", base: 'knife', damage: 35, delay: 250, color: 0x111111 },
-            { id: 'golden', name: "Golden Gun", base: 'revolver', damage: 100, delay: 1000, ammo: 1, maxAmmo: 1, color: 0xffd700 },
             { id: 'raygun', name: "Ray Gun", base: 'pistol', damage: 80, delay: 400, ammo: 20, pierce: 3, color: 0x00ff00 },
             { id: 'blaster', name: "Blaster", base: 'rifle', damage: 25, delay: 200, ammo: 50, color: 0xff00ff },
             { id: 'musket', name: "Musket", base: 'sniper', damage: 120, delay: 3000, ammo: 1, color: 0x8b4513 },
@@ -1049,7 +1057,27 @@
             const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.09, metalness: 0.8 });
             const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.09, metalness: 0.5 });
             
-            if (type.includes('Sniper') || type === 'AWP' || type === 'SSG 08' || type === 'Barrett .50' || type === 'Kar98k' || type === 'Musket') {
+            if (type === 'RPG' || type === 'Nuke Launcher') {
+                const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.9, 10), mat);
+                tube.rotation.x = Math.PI / 2;
+                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.12, 10), darkMat);
+                muzzle.rotation.x = Math.PI / 2;
+                muzzle.position.z = 0.48;
+                const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.22, 0.12), darkMat);
+                grip.position.set(0, -0.15, -0.08);
+                const sight = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.12), darkMat);
+                sight.position.set(0, 0.11, -0.12);
+                group.add(tube, muzzle, grip, sight);
+                if (type === 'RPG') {
+                    const finMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.45 });
+                    for (let i = 0; i < 4; i++) {
+                        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.12), finMat);
+                        fin.position.z = -0.38;
+                        fin.rotation.z = i * Math.PI / 2;
+                        group.add(fin);
+                    }
+                }
+            } else if (type.includes('Sniper') || type === 'AWP' || type === 'SSG 08' || type === 'Barrett .50' || type === 'Kar98k' || type === 'Musket') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.6), mat);
                 const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8), darkMat);
                 barrel.rotation.x = Math.PI / 2;
@@ -1058,7 +1086,7 @@
                 scope.rotation.x = Math.PI / 2;
                 scope.position.y = 0.12;
                 group.add(body, barrel, scope);
-            } else if (type.includes('Shotgun') || type === 'SPAS-12' || type === 'Sawed-Off' || type === 'Nova' || type === 'XM1014') {
+            } else if (type.includes('Shotgun') || type === 'OneKillGun' || type === 'SPAS-12' || type === 'Sawed-Off' || type === 'Nova' || type === 'XM1014') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.5), mat);
                 const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5), darkMat);
                 barrel.rotation.x = Math.PI / 2;
@@ -1070,7 +1098,7 @@
                 barrel.rotation.x = Math.PI / 2;
                 barrel.position.z = 0.3;
                 group.add(body, barrel);
-            } else if (type.includes('Machine Gun') || type === 'M249' || type === 'Negev' || type === 'Minigun' || type === 'Tryhard Gun') {
+            } else if (type.includes('Machine Gun') || type === 'One Kills Machine' || type === 'M249' || type === 'Negev' || type === 'Minigun' || type === 'Tryhard Gun') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.7), mat);
                 const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7), darkMat);
                 barrel.rotation.x = Math.PI / 2;
@@ -1083,7 +1111,7 @@
                 const blade = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.03, 0.25), new THREE.MeshLambertMaterial({color: 0xcccccc}));
                 blade.position.z = 0.2;
                 group.add(handle, blade);
-            } else if (type.includes('Pistol') || type.includes('Revolver') || type === 'Desert Eagle' || type === 'R8 Revolver' || type === 'Python' || type === 'Glock-18' || type === 'USP-S' || type === 'P250' || type === 'Five-SeveN' || type === 'Tec-9' || type === 'CZ75-Auto' || type === 'Dual Berettas' || type === 'Golden Gun' || type === 'Ray Gun') {
+            } else if (type.includes('Pistol') || type.includes('Revolver') || type === 'Desert Eagle' || type === 'R8 Revolver' || type === 'Python' || type === 'Glock-18' || type === 'USP-S' || type === 'P250' || type === 'Five-SeveN' || type === 'Tec-9' || type === 'CZ75-Auto' || type === 'Dual Berettas' || type === 'Ray Gun') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.2), mat);
                 const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.2), darkMat);
                 barrel.rotation.x = Math.PI / 2;
@@ -1337,6 +1365,20 @@
                 gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
                 osc.connect(gain);
                 osc.start(); osc.stop(t + 0.1);
+            } else if (weaponName === "One Kills Machine") {
+                const motor = audioCtx.createOscillator();
+                const crack = audioCtx.createOscillator();
+                motor.type = 'sawtooth';
+                motor.frequency.setValueAtTime(80, t);
+                motor.frequency.exponentialRampToValueAtTime(38, t + 0.12);
+                crack.type = 'square';
+                crack.frequency.setValueAtTime(900, t);
+                crack.frequency.exponentialRampToValueAtTime(240, t + 0.04);
+                gain.gain.setValueAtTime(0.42, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.13);
+                motor.connect(gain); crack.connect(gain);
+                motor.start(); motor.stop(t + 0.13);
+                crack.start(); crack.stop(t + 0.05);
             } else if (weaponName === "Tryhard Gun") {
                 const motor = audioCtx.createOscillator();
                 const click = audioCtx.createOscillator();
@@ -1710,6 +1752,8 @@
         }
 
         function startGame(weaponType) {
+            activeNukeProjectile = null;
+            updateNukeRemoteButton();
             gameMode = document.getElementById('gamemode-select').value;
             teamScores = { red: 0, blue: 0 };
             availableBotNames = [...BASE_BOT_NAMES];
@@ -1815,6 +1859,7 @@
                 wand.add(gunMesh);
             }
             updateAmmoDisplay();
+            updateNukeRemoteButton();
             if (disablePostProcessing) applyPostProcessingSetting();
         }
 
@@ -1842,6 +1887,7 @@
             document.getElementById('ammo-display').innerText = currentAmmo === Infinity ? "∞" : `${currentAmmo} / ${max}`;
             document.getElementById('weapon-name').innerText = currentWeapon.name;
             updateMobileAimButtonState();
+            updateNukeRemoteButton();
         }
 
         function setControllerCursorVisibility(visible) {
@@ -2840,6 +2886,13 @@
                 document.getElementById('pause-menu').style.display = 'flex';
             });
 
+            const nukeDetonateBtn = document.getElementById('nuke-detonate-btn');
+            nukeDetonateBtn.addEventListener('click', detonateNuke);
+            nukeDetonateBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                detonateNuke();
+            }, { passive: false });
+
             // Joystick Logic
             const joystick = document.getElementById('move-stick');
             const knob = document.createElement('div');
@@ -3543,11 +3596,18 @@
                 hasSpeedPerk = true;
                 logFeed(`<span style="color:#ff8c00">PERK: Speed Boost!</span>`);
             }
-            if (playerKillstreak === 7) {
-                logFeed(`<span style="color:#ff8c00">REWARD: Golden Gun!</span>`);
-                playerInventory[1] = { def: WEAPONS.golden, ammo: WEAPONS.golden.maxAmmo };
-                switchWeapon(1);
-            }
+        }
+
+        function setOneKillsMachineHeatGlow(isHot) {
+            if (!wand) return;
+            wand.traverse(object => {
+                const materials = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+                materials.forEach(material => {
+                    if (!material || !material.emissive) return;
+                    material.emissive.setHex(isHot ? 0xff0000 : 0x000000);
+                    material.emissiveIntensity = isHot ? 1.8 : 0;
+                });
+            });
         }
 
         function showHitMarker(isHeadshot) {
@@ -3560,6 +3620,109 @@
                 hm.style.opacity = '0';
                 hm.style.transform = 'translate(-50%, -50%) scale(1)';
             }, 100);
+        }
+
+        function updateNukeRemoteButton() {
+            const button = document.getElementById('nuke-detonate-btn');
+            if (!button) return;
+            button.style.display = activeNukeProjectile ? 'flex' : 'none';
+        }
+
+        function playExplosionSound(isNuke) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const duration = isNuke ? 3.2 : 1.4;
+            const gain = audioCtx.createGain();
+            const bass = audioCtx.createOscillator();
+            const rumble = audioCtx.createOscillator();
+            bass.type = 'sine';
+            bass.frequency.setValueAtTime(isNuke ? 48 : 72, now);
+            bass.frequency.exponentialRampToValueAtTime(18, now + duration);
+            rumble.type = 'triangle';
+            rumble.frequency.setValueAtTime(isNuke ? 34 : 48, now);
+            rumble.frequency.exponentialRampToValueAtTime(16, now + duration * 0.8);
+            gain.gain.setValueAtTime(isNuke ? 0.95 : 0.65, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+            bass.connect(gain); rumble.connect(gain); gain.connect(audioCtx.destination);
+            bass.start(now); bass.stop(now + duration);
+            rumble.start(now); rumble.stop(now + duration * 0.8);
+        }
+
+        function explodeProjectile(projectile) {
+            const data = projectile.userData;
+            const center = projectile.position.clone();
+            const radius = data.blastRadius || 8;
+            const isNuke = !!data.isNuke;
+            const color = isNuke ? 0xffaa22 : (data.color || 0xff6622);
+            const flash = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12),
+                new THREE.MeshBasicMaterial({ color, transparent: true, opacity: isNuke ? 0.28 : 0.4, depthWrite: false, side: THREE.DoubleSide }));
+            flash.position.copy(center);
+            flash.scale.setScalar(radius);
+            flash.renderOrder = 6;
+            scene.add(flash);
+            setTimeout(() => {
+                scene.remove(flash);
+                flash.geometry.dispose();
+                flash.material.dispose();
+            }, isNuke ? 1000 : 350);
+            playExplosionSound(isNuke);
+
+            const damageAt = distance => Math.max(0, data.damage * (1 - 0.45 * distance / radius));
+            bots.forEach(bot => {
+                if (bot.userData.hp <= 0 || (gameMode !== 'ffa' && bot.userData.team === data.team)) return;
+                const distance = bot.position.distanceTo(center);
+                if (distance > radius) return;
+                const damage = damageAt(distance);
+                bot.userData.hp -= damage;
+                const hpPercent = Math.max(0, bot.userData.hp / 100);
+                bot.userData.healthBar.scale.x = hpPercent;
+                bot.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
+                bot.userData.healthBarBackground.visible = hpPercent < 1;
+                if (data.ownerId === 'player' && bot.userData.hp <= 0) {
+                    playerKillstreak++;
+                    checkKillstreakRewards();
+                    if (gameMode === 'gungame') promotePlayer();
+                }
+                if (bot.userData.hp <= 0) {
+                    logFeed(`${data.ownerName} blasted ${bot.userData.name}`);
+                    const killer = scores.find(score => score.name === data.ownerName);
+                    if (killer) killer.score += 100;
+                    if (gameMode === 'tdm') {
+                        if (data.team === 'blue') teamScores.blue++;
+                        else if (data.team === 'red') teamScores.red++;
+                        updateTeamScores();
+                    }
+                    respawnEntity(bot, false);
+                }
+            });
+
+            if (data.ownerId !== 'player' && (gameMode === 'ffa' || data.team !== 'blue') && playerHealth > 0) {
+                const distance = camera.position.distanceTo(center);
+                if (distance <= radius) {
+                    playerHealth -= damageAt(distance);
+                    lastKillerId = data.ownerId;
+                    lastDamageTime = Date.now();
+                    document.getElementById('health-display').innerText = '✚ ' + Math.max(0, Math.ceil(playerHealth));
+                    document.getElementById('health-display').style.color = playerHealth < 30 ? '#f00' : '#0f0';
+                    if (playerHealth <= 0) {
+                        const killer = scores.find(score => score.name === data.ownerName);
+                        if (killer) killer.score += 100;
+                        logFeed(`<span style="color:#f88">${data.ownerName} blasted YOU!</span>`);
+                        handlePlayerDeath();
+                    }
+                }
+            }
+        }
+
+        function detonateNuke() {
+            const projectile = activeNukeProjectile;
+            if (!projectile) return;
+            const index = projectiles.indexOf(projectile);
+            if (index !== -1) projectiles.splice(index, 1);
+            activeNukeProjectile = null;
+            scene.remove(projectile);
+            explodeProjectile(projectile);
+            updateNukeRemoteButton();
         }
 
         function showRailgunBeam(source, ownerData, beamColor = 0x00ffff) {
@@ -3644,6 +3807,8 @@
                 weapon = ownerData.weapon;
             }
 
+            if (ownerData.id === 'player' && weapon.isNukeLauncher && activeNukeProjectile) return;
+
             let shotDelay = weapon.delay;
             if (weapon.id === 'tryhard') {
                 if (ownerData.id === 'player') {
@@ -3662,6 +3827,34 @@
                     }
                     shotDelay = 10000 / fireSpeed;
                 }
+            }
+            if (weapon.id === 'one_kills_machine' && ownerData.id === 'player') {
+                const now = Date.now();
+                const held = isFiring || ctrlIsFiring;
+                if (oneKillsMachineSpeedUpdatedAt) {
+                    const steps = Math.floor((now - oneKillsMachineSpeedUpdatedAt) / 100);
+                    if (steps > 0) {
+                        oneKillsMachineSpeed = held
+                            ? Math.min(30000, oneKillsMachineSpeed + steps * 299)
+                            : Math.max(100, oneKillsMachineSpeed - steps * 20);
+                        oneKillsMachineSpeedUpdatedAt += steps * 100;
+                    }
+                } else {
+                    oneKillsMachineSpeedUpdatedAt = now;
+                }
+                if (oneKillsMachineOverheatedUntil > now) {
+                    setOneKillsMachineHeatGlow(true);
+                    return;
+                }
+                if (oneKillsMachineSpeed >= 30000) {
+                    oneKillsMachineOverheatedUntil = now + 5000;
+                    oneKillsMachineSpeed = 9000;
+                    setOneKillsMachineHeatGlow(true);
+                    logFeed('<span style="color:#f44">ONE KILLS MACHINE OVERHEATED — COOLING DOWN</span>');
+                    return;
+                }
+                setOneKillsMachineHeatGlow(false);
+                shotDelay = 1000000 / oneKillsMachineSpeed;
             }
 
             if (ownerData.id === "player") {
@@ -3686,6 +3879,41 @@
             }
 
             if (weapon.id === 'railgun' || weapon.isLaser) showRailgunBeam(source, ownerData, weapon.color);
+
+            if (weapon.isExplosive || weapon.isNukeLauncher) {
+                const direction = source === camera
+                    ? camera.getWorldDirection(new THREE.Vector3()).normalize()
+                    : new THREE.Vector3(0, 0, 1).applyQuaternion(source.quaternion).normalize();
+                const rocket = new THREE.Group();
+                const rocketMaterial = new THREE.MeshStandardMaterial({ color: weapon.color, emissive: weapon.color, emissiveIntensity: 0.25, metalness: 0.4, roughness: 0.35 });
+                const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.5, roughness: 0.5 });
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.8, 8), rocketMaterial);
+                body.rotation.x = Math.PI / 2;
+                const nose = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 8), rocketMaterial);
+                nose.rotation.x = -Math.PI / 2;
+                nose.position.z = -0.52;
+                const fins = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.22), darkMaterial);
+                fins.position.z = 0.32;
+                rocket.add(body, nose, fins);
+                rocket.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction);
+                rocket.position.copy(source.position).add(direction.clone().multiplyScalar(1));
+                rocket.userData = {
+                    vel: direction.multiplyScalar(weapon.isNukeLauncher ? 18 : 28),
+                    ownerId: ownerData.id, ownerName: ownerData.name,
+                    team: ownerData.team || (ownerData.id === 'player' ? 'blue' : 'red'),
+                    life: weapon.isNukeLauncher ? 60 : 20,
+                    damage: weapon.damage, blastRadius: weapon.blastRadius || 8,
+                    color: weapon.color, isExplosive: true, isNuke: !!weapon.isNukeLauncher,
+                    isArmed: false
+                };
+                scene.add(rocket);
+                projectiles.push(rocket);
+                if (weapon.isNukeLauncher && ownerData.id === 'player') {
+                    activeNukeProjectile = rocket;
+                    updateNukeRemoteButton();
+                }
+                return;
+            }
 
             if (weapon.isThrown) {
                 const p = thrownKnifeMesh.clone();
@@ -3981,6 +4209,10 @@
 
             bots.forEach(b => scene.remove(b));
             bots = [];
+            projectiles.forEach(p => scene.remove(p));
+            projectiles = [];
+            activeNukeProjectile = null;
+            updateNukeRemoteButton();
             flags.forEach(f => scene.remove(f.mesh));
             flags = [];
             if (gameMode === 'ctf') {
@@ -4469,6 +4701,17 @@
             for(let i=projectiles.length-1; i>=0; i--) {
                 const p = projectiles[i];
 
+                if (p.userData.isNuke && p.userData.isArmed) {
+                    p.userData.life -= delta;
+                    if (p.userData.life <= 0) {
+                        if (activeNukeProjectile === p) activeNukeProjectile = null;
+                        scene.remove(p);
+                        projectiles.splice(i, 1);
+                        updateNukeRemoteButton();
+                    }
+                    continue;
+                }
+
                 if (p.userData.isPickup) {
                     p.rotation.y += 2 * delta;
                     if (p.position.distanceTo(camera.position) < 1.5) {
@@ -4501,6 +4744,18 @@
                         p.userData.vel.set(0,0,0);
                         if (nextPos.y < 0.1) p.position.y = 0.1;
                         continue;
+                    } else if (p.userData.isNuke) {
+                        p.position.copy(nextPos);
+                        p.userData.isArmed = true;
+                        p.userData.vel.set(0, 0, 0);
+                        updateNukeRemoteButton();
+                        continue;
+                    } else if (p.userData.isExplosive) {
+                        p.position.copy(nextPos);
+                        explodeProjectile(p);
+                        scene.remove(p);
+                        projectiles.splice(i, 1);
+                        continue;
                     } else {
                         scene.remove(p); projectiles.splice(i, 1); continue;
                     }
@@ -4513,6 +4768,16 @@
                     if (gameMode !== 'ffa' && p.userData.team === 'blue') {
                         // Friendly
                     } else {
+                        if (p.userData.isNuke) {
+                            p.userData.isArmed = true;
+                            p.userData.vel.set(0, 0, 0);
+                            updateNukeRemoteButton();
+                            continue;
+                        }
+                        if (p.userData.isExplosive) {
+                            explodeProjectile(p);
+                            scene.remove(p); projectiles.splice(i, 1); continue;
+                        }
                         if (playerHealth > 0) {
                             playerHealth -= p.userData.damage;
                             lastKillerId = p.userData.ownerId;
@@ -4543,6 +4808,19 @@
                     if (p.userData.hitBotIds && p.userData.hitBotIds.includes(bot.userData.id)) continue;
 
                     if(p.userData.ownerId !== bot.userData.id && p.position.distanceTo(bot.position.clone().add(new THREE.Vector3(0,0.2,0))) < 1.0) {
+                        if (p.userData.isExplosive) {
+                            if (p.userData.isNuke) {
+                                p.userData.isArmed = true;
+                                p.userData.vel.set(0, 0, 0);
+                                updateNukeRemoteButton();
+                            } else {
+                                explodeProjectile(p);
+                                scene.remove(p);
+                                projectiles.splice(i, 1);
+                            }
+                            hitBot = true;
+                            break;
+                        }
                         const isHeadshot = p.position.y > bot.position.y + 0.4;
                         const dmg = isHeadshot ? p.userData.damage * 2 : p.userData.damage;
                         bot.userData.hp -= dmg;
