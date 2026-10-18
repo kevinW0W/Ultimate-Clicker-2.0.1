@@ -172,6 +172,7 @@
             text-shadow: 1px 1px 0 #000;
         }
         #chat-toggle-btn { display:none; position:fixed; top:100px; left:20px; z-index:120; padding:9px 14px; border:1px solid #0ff; border-radius:6px; background:rgba(0,0,0,.82); color:#0ff; font-weight:bold; touch-action:manipulation; }
+        #chat-unread-badge { display:none; position:absolute; top:-9px; right:-9px; min-width:20px; height:20px; padding:0 4px; box-sizing:border-box; align-items:center; justify-content:center; border:2px solid #000; border-radius:999px; background:#f33; color:#fff; font: bold 11px/1 sans-serif; text-shadow:none; }
         #chat-panel { display:none; position:fixed; top:144px; left:20px; z-index:115; width:min(320px, calc(100vw - 40px)); max-height:38vh; box-sizing:border-box; padding:10px; border:1px solid #0ff; border-radius:8px; background:rgba(0,0,0,.9); color:#fff; pointer-events:auto; touch-action:pan-y; }
         #chat-panel h2 { margin:0 0 8px; color:#0ff; font-size:16px; }
         #chat-log { height:min(220px, 24vh); min-height:80px; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; overflow-wrap:anywhere; font-size:13px; line-height:1.4; }
@@ -473,7 +474,7 @@
         <div id="killstreak-display" style="font-size: 20px; font-weight: bold; color: #ff8c00; display: none; text-shadow: 1px 1px 2px #000;"></div>
         <div id="feed" style="font-size: 12px; height: 60px; overflow: hidden; opacity: 0.8;"></div>
     </div>
-    <button id="chat-toggle-btn" type="button" aria-label="Open chat" onclick="toggleChat()">CHAT (T)</button>
+    <button id="chat-toggle-btn" type="button" aria-label="Open chat" onclick="toggleChat()"><span id="chat-toggle-label">CHAT (T)</span><span id="chat-unread-badge" aria-live="polite"></span></button>
     <section id="chat-panel" aria-label="Game chat" aria-hidden="true">
         <h2>CHAT</h2>
         <div id="chat-log" aria-live="polite"></div>
@@ -542,6 +543,7 @@
         let multiplayerConnected = false;
         let isSoloMode = false;
         let isChatOpen = false;
+        let unreadChatCount = 0;
         let suppressChatUnlock = false;
         let chatUnlockTimer = null;
         let botAiFrame = 0;
@@ -2741,6 +2743,10 @@
                 event.preventDefault();
                 sendChatMessage();
             });
+            document.addEventListener('click', event => {
+                if (!isChatOpen || (event.target.closest && event.target.closest('#chat-panel, #chat-toggle-btn'))) return;
+                closeChat(true);
+            });
 
             window.addEventListener("gamepadconnected", (e) => {
                 console.log("Gamepad connected:", e.gamepad.id);
@@ -2879,14 +2885,16 @@
 
             window.addEventListener('keydown', (e) => {
                 if (isChatOpen) {
-                    if (e.code === 'Escape') {
+                    if (e.code === 'Escape' || (e.code === 'KeyT' && !e.repeat)) {
                         e.preventDefault();
+                        e.stopImmediatePropagation();
                         closeChat(true);
                     }
                     return;
                 }
-                if (e.code === 'KeyT' && gameHasStarted && !isGameOver) {
+                if (e.code === 'KeyT' && !e.repeat && gameHasStarted && !isGameOver) {
                     e.preventDefault();
+                    e.stopImmediatePropagation();
                     toggleChat(true);
                     return;
                 }
@@ -4447,7 +4455,10 @@
             const panel = document.getElementById('chat-panel');
             panel.style.display = 'block';
             panel.setAttribute('aria-hidden', 'false');
-            document.getElementById('chat-toggle-btn').innerText = 'CLOSE CHAT';
+            document.getElementById('chat-toggle-label').textContent = 'CLOSE CHAT';
+            document.getElementById('chat-toggle-btn').setAttribute('aria-label', 'Close chat');
+            unreadChatCount = 0;
+            updateUnreadChatBadge();
             moveForward = moveBackward = moveLeft = moveRight = false;
             ctrlMoveForward = ctrlMoveBackward = ctrlMoveLeft = ctrlMoveRight = false;
             joystickVector = { x: 0, y: 0 };
@@ -4463,7 +4474,12 @@
             const panel = document.getElementById('chat-panel');
             panel.style.display = 'none';
             panel.setAttribute('aria-hidden', 'true');
-            document.getElementById('chat-toggle-btn').innerText = 'CHAT (T)';
+            document.getElementById('chat-toggle-label').textContent = 'CHAT (T)';
+            const toggleButton = document.getElementById('chat-toggle-btn');
+            toggleButton.setAttribute('aria-label', 'Open chat');
+            // A focused button treats Space as a native click. Blur it on close
+            // so Space resumes gameplay instead of reopening the chat.
+            if (document.activeElement === toggleButton) toggleButton.blur();
             document.getElementById('chat-input').blur();
             const shouldRestorePointerLock = chatWasPointerLocked && resumeGameInput && !isMobile && gameHasStarted &&
                 !isGameOver && document.getElementById('pause-menu').style.display !== 'flex';
@@ -4485,6 +4501,20 @@
             log.appendChild(row);
             while (log.children.length > 40) log.removeChild(log.firstChild);
             log.scrollTop = log.scrollHeight;
+            if (!isLocal && !isChatOpen) {
+                unreadChatCount++;
+                updateUnreadChatBadge();
+            }
+        }
+
+        function updateUnreadChatBadge() {
+            const badge = document.getElementById('chat-unread-badge');
+            if (!badge) return;
+            badge.textContent = unreadChatCount >= 100 ? '99+' : String(unreadChatCount);
+            badge.style.display = unreadChatCount > 0 ? 'inline-flex' : 'none';
+            badge.setAttribute('aria-label', unreadChatCount >= 100
+                ? '99 or more unread messages'
+                : `${unreadChatCount} unread messages`);
         }
 
         function sendChatMessage() {
