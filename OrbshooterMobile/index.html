@@ -1336,6 +1336,21 @@
                 gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
                 osc.connect(gain);
                 osc.start(); osc.stop(t + 0.1);
+            } else if (weaponName === "Tryhard Gun") {
+                const motor = audioCtx.createOscillator();
+                const click = audioCtx.createOscillator();
+                motor.type = 'sawtooth';
+                motor.frequency.setValueAtTime(115, t);
+                motor.frequency.exponentialRampToValueAtTime(65, t + 0.09);
+                click.type = 'square';
+                click.frequency.setValueAtTime(520, t);
+                click.frequency.exponentialRampToValueAtTime(180, t + 0.035);
+                gain.gain.setValueAtTime(0.22, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+                motor.connect(gain);
+                click.connect(gain);
+                motor.start(); motor.stop(t + 0.1);
+                click.start(); click.stop(t + 0.04);
             } else if (weaponName.includes("Submachine") || weaponName.includes("Pistol") || weaponName === "Minigun") {
                 const osc = audioCtx.createOscillator();
                 osc.type = 'square';
@@ -1369,6 +1384,27 @@
             gain.gain.linearRampToValueAtTime(0, t + 0.2);
             osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start(); osc.stop(t + 0.2);
+        }
+
+        function playTryhardReloadSound() {
+            if (!audioCtx) return;
+            const t = audioCtx.currentTime;
+            const motor = audioCtx.createOscillator();
+            const clunk = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            motor.type = 'sawtooth';
+            motor.frequency.setValueAtTime(420, t);
+            motor.frequency.exponentialRampToValueAtTime(55, t + 1.1);
+            clunk.type = 'square';
+            clunk.frequency.setValueAtTime(90, t + 0.12);
+            clunk.frequency.exponentialRampToValueAtTime(28, t + 0.28);
+            gain.gain.setValueAtTime(0.18, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 1.15);
+            motor.connect(gain);
+            clunk.connect(gain);
+            gain.connect(audioCtx.destination);
+            motor.start(t); motor.stop(t + 1.15);
+            clunk.start(t + 0.12); clunk.stop(t + 0.3);
         }
 
         function playStepSound() {
@@ -3422,7 +3458,8 @@
             if (isReloading || invItem.ammo === currentWeapon.maxAmmo || currentWeapon.isMelee || currentWeapon.isThrown) return;
             isReloading = true;
             document.getElementById('ammo-display').innerText = "RELOADING...";
-            playReloadSound();
+            if (currentWeapon.id === 'tryhard') playTryhardReloadSound();
+            else playReloadSound();
             
             const reloadTime = hasFastReloadPerk ? currentWeapon.reload * 0.5 : currentWeapon.reload;
             
@@ -3613,7 +3650,7 @@
                     if (!held) tryhardHoldStartTime = 0;
                     else if (!tryhardHoldStartTime) tryhardHoldStartTime = Date.now();
                     const holdSteps = held ? Math.floor((Date.now() - tryhardHoldStartTime) / 500) : 0;
-                    shotDelay = Math.max(20, 100 - holdSteps * 10);
+                    shotDelay = Math.max(20, 100 - holdSteps * 30);
                 }
             }
 
@@ -3791,6 +3828,7 @@
                         )
                 );
                 if (weapon.id === 'raygun') p.scale.setScalar(1.8);
+                else if (weapon.id === 'tryhard') p.scale.setScalar(2.5);
                 
                 const forwardZ = ownerData.id === "player" ? -1 : 1;
                 const dir = new THREE.Vector3(
