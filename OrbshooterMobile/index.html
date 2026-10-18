@@ -844,7 +844,6 @@
             const desktopDebugActive = !isMobile && sessionStorage.getItem('orbTosserDesktopDebug') === 'true';
             if (isIOS || desktopDebugActive) document.getElementById('install-ios-btn').style.display = 'flex';
             configureCustomBgmPicker();
-            document.getElementById('mp-status').innerText = 'Connects automatically to the public main server when you press PLAY.';
             if (!isMobile) {
                 document.getElementById('desktop-only-screen').style.display = desktopDebugActive ? 'none' : 'flex';
                 if (desktopDebugActive) updateDesktopDebugMenu();
