@@ -403,7 +403,7 @@
         <div style="display:flex; justify-content:space-between;"><span>Sensitivity</span> <input type="range" id="sens-slider" min="0.1" max="5.0" step="0.1" value="1.2" oninput="updateSettings()"> <span id="sens-val">1.2</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Controller Sens</span> <input type="range" id="cont-sens-slider" min="1.0" max="50.0" step="1.0" value="23.0" oninput="updateSettings()"> <span id="cont-sens-val">23.0</span></div>
         <div style="display:flex; justify-content:space-between;"><span>FOV</span> <input type="range" id="fov-slider" min="60" max="120" step="1" value="75" oninput="updateSettings()"> <span id="fov-val">75</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="100" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="200" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Aim Snap</span> <input type="range" id="snap-slider" min="0" max="10" step="1" value="0" oninput="updateSettings()"> <span id="snap-val">0</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Absolute Aim</span> <input type="checkbox" id="abs-aim-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Control Map</span> <button class="btn" style="font-size:14px; padding:8px 12px; margin-left:10px;" onclick="openControlMap()">EDIT</button></div>
@@ -605,8 +605,8 @@
             shotgun: { name: "Shotgun", damage: 5, spread: 0.15, count: 8, delay: 800, ammo: 8, maxAmmo: 8, reload: 2000, color: 0xff0000 },
             revolver: { name: "Revolver", damage: 35, spread: 0.01, count: 1, delay: 400, ammo: 6, maxAmmo: 6, reload: 1800, color: 0xcccccc },
             pistol: { name: "M9 Pistol", damage: 12, spread: 0.02, count: 1, delay: 200, ammo: 12, maxAmmo: 12, reload: 1000, color: 0x999999 },
-            knife: { name: "Combat Knife", damage: 40, spread: 0, count: 0, delay: 400, ammo: 1, maxAmmo: 1, reload: 0, color: 0x555555, isMelee: true },
-            throwing_knife: { name: "Throwing Knife", damage: 55, spread: 0.02, count: 1, delay: 500, ammo: 1, maxAmmo: 1, reload: 1500, color: 0x444444, isThrown: true }
+            knife: { name: "Combat Knife", damage: 40, spread: 0, count: 0, delay: 400, ammo: 1, maxAmmo: 1, reload: 0, color: 0x555555, isMelee: true, pierce: 3 },
+            throwing_knife: { name: "Throwing Knife", damage: 55, spread: 0.02, count: 1, delay: 500, ammo: 1, maxAmmo: 1, reload: 1500, color: 0x444444, isThrown: true, pierce: 3 }
         };
         
         // Add extra guns
@@ -628,7 +628,10 @@
             { id: 'kar98', name: "Kar98k", base: 'sniper', damage: 90, delay: 1300, color: 0x8b4513 },
             { id: 'm249', name: "M249", base: 'lmg', damage: 9, delay: 100, ammo: 100, color: 0x555555 },
             { id: 'negev', name: "Negev", base: 'lmg', damage: 6, delay: 50, ammo: 150, color: 0x444444 },
-            { id: 'minigun', name: "Minigun", base: 'lmg', damage: 5, delay: 30, ammo: 500, color: 0x222222 },
+            { id: 'minigun', name: "Minigun", base: 'lmg', damage: 5, delay: 30, ammo: 500, pierce: 1, color: 0x222222 },
+            { id: 'railgun', name: "Railgun", base: 'sniper', damage: 75, delay: 1300, ammo: 6, pierce: 5, color: 0x00ffff },
+            { id: 'penetrator', name: "Penetrator Rifle", base: 'rifle', damage: 11, delay: 170, ammo: 24, pierce: 2, color: 0xff44ff },
+            { id: 'piercer_smg', name: "Piercer SMG", base: 'smg', damage: 5, delay: 75, ammo: 40, pierce: 1, color: 0xff8800 },
             { id: 'spas12', name: "SPAS-12", base: 'shotgun', damage: 6, count: 9, delay: 900, color: 0x333333 },
             { id: 'sawedoff', name: "Sawed-Off", base: 'shotgun', damage: 8, count: 6, delay: 1000, color: 0x552200 },
             { id: 'nova', name: "Nova", base: 'shotgun', damage: 5, count: 10, delay: 1100, color: 0x888888 },
@@ -1435,6 +1438,12 @@
             const keys = Object.keys(WEAPONS);
             const randomWeaponKey = keys[Math.floor(Math.random() * keys.length)];
             let weaponData = WEAPONS[randomWeaponKey];
+
+            const minigunQuota = Math.floor(botCount / 10);
+            const currentMinigunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'minigun').length;
+            if (gameMode !== 'gungame' && currentMinigunBots < minigunQuota) {
+                weaponData = WEAPONS.minigun;
+            }
 
             if (gameMode === 'gungame') {
                 bot.userData = { gunGameIndex: 0 };
@@ -3426,6 +3435,8 @@
                 life: 60.0, damage: 40,
                 isKnife: true,
                 isPickup: false,
+                piercesRemaining: WEAPONS.knife.pierce || 0,
+                hitBotIds: [],
                 team: bot.userData.team
             };
             scene.add(p);
@@ -3456,7 +3467,9 @@
                 ownerId: "player", ownerName: "Player", 
                 life: isLowPowerMode ? 2.0 : 15.0, damage: totalDamage,
                 isKnife: true,
-                isPickup: false
+                isPickup: false,
+                piercesRemaining: WEAPONS.knife.pierce || 0,
+                hitBotIds: []
             };
             scene.add(p);
             projectiles.push(p);
@@ -3582,7 +3595,8 @@
                 
                 p.userData = { 
                     vel: dir.multiplyScalar(35), ownerId: ownerData.id, ownerName: ownerData.name, 
-                    life: isLowPowerMode ? 2.0 : 5.0, damage: weapon.damage, isKnife: true, isPickup: false, team: ownerData.team
+                    life: isLowPowerMode ? 2.0 : 5.0, damage: weapon.damage, isKnife: true, isPickup: false,
+                    piercesRemaining: weapon.pierce || 0, hitBotIds: [], team: ownerData.team
                 };
                 scene.add(p);
                 projectiles.push(p);
@@ -3599,37 +3613,40 @@
                     const botMeshes = bots.map(b => b.children[0]);
                     const intersects = raycaster.intersectObjects(botMeshes, true);
                     
-                    if (intersects.length > 0) {
-                        const hitObj = intersects[0].object;
-                        const botGroup = hitObj.parent;
-                        if (botGroup && botGroup.userData) {
-                            if (gameMode !== 'ffa' && botGroup.userData.team === 'blue') return;
+                    const hitBotGroups = [];
+                    const maxMeleeHits = 1 + (weapon.pierce || 0);
+                    for (const intersection of intersects) {
+                        const botGroup = intersection.object.parent;
+                        if (!botGroup || !botGroup.userData || hitBotGroups.includes(botGroup)) continue;
+                        if (gameMode !== 'ffa' && botGroup.userData.team === 'blue') continue;
+                        hitBotGroups.push(botGroup);
 
-                            botGroup.userData.hp -= weapon.damage;
-                            const hpPercent = Math.max(0, botGroup.userData.hp / 100);
-                            botGroup.userData.healthBar.scale.x = hpPercent;
-                            botGroup.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
-                            botGroup.userData.healthBar.material.color.setHex(0x00ff00);
-                            botGroup.userData.healthBarBackground.visible = hpPercent < 1;
-                            if (botGroup.userData.hp <= 0) {
-                                showHitMarker(false);
-                                logFeed(`${ownerData.name} knifed ${botGroup.userData.name}`);
-                                const killer = scores.find(s => s.name === ownerData.name);
-                                if(killer) killer.score += 100;
-                                if (gameMode === 'gungame') {
-                                    promotePlayer();
-                                    if (botGroup.userData.gunGameIndex > 0) botGroup.userData.gunGameIndex--;
-                                } else if (gameMode === 'tdm') {
-                                    teamScores.blue++;
-                                    updateTeamScores();
-                                }
-                                respawnEntity(botGroup, false);
-                            } else {
-                                showHitMarker(false);
-                                botGroup.children[0].material.emissive.setHex(0xff0000);
-                                setTimeout(() => { if(botGroup && botGroup.children[0]) botGroup.children[0].material.emissive.setHex(0x000000); }, 100);
+                        botGroup.userData.hp -= weapon.damage;
+                        const hpPercent = Math.max(0, botGroup.userData.hp / 100);
+                        botGroup.userData.healthBar.scale.x = hpPercent;
+                        botGroup.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
+                        botGroup.userData.healthBar.material.color.setHex(0x00ff00);
+                        botGroup.userData.healthBarBackground.visible = hpPercent < 1;
+                        if (botGroup.userData.hp <= 0) {
+                            showHitMarker(false);
+                            logFeed(`${ownerData.name} knifed ${botGroup.userData.name}`);
+                            const killer = scores.find(s => s.name === ownerData.name);
+                            if(killer) killer.score += 100;
+                            if (gameMode === 'gungame') {
+                                promotePlayer();
+                                if (botGroup.userData.gunGameIndex > 0) botGroup.userData.gunGameIndex--;
+                            } else if (gameMode === 'tdm') {
+                                teamScores.blue++;
+                                updateTeamScores();
                             }
+                            respawnEntity(botGroup, false);
+                        } else {
+                            showHitMarker(false);
+                            botGroup.children[0].material.emissive.setHex(0xff0000);
+                            setTimeout(() => { if(botGroup && botGroup.children[0]) botGroup.children[0].material.emissive.setHex(0x000000); }, 100);
                         }
+
+                        if (hitBotGroups.length >= maxMeleeHits) break;
                     }
                 } else {
                     const playerDx = source.position.x - camera.position.x;
@@ -3726,6 +3743,8 @@
                     ownerName: ownerData.name, 
                     life: isLowPowerMode ? 1.0 : 2.5,
                     damage: weapon.damage,
+                    piercesRemaining: weapon.pierce || 0,
+                    hitBotIds: [],
                     team: ownerData.team || (ownerData.id === 'player' ? 'blue' : 'red')
                 };
                 scene.add(p);
@@ -4409,6 +4428,7 @@
                 for(let bIdx = 0; bIdx < bots.length; bIdx++) {
                     const bot = bots[bIdx];
                     if (gameMode !== 'ffa' && p.userData.team === bot.userData.team) continue;
+                    if (p.userData.hitBotIds && p.userData.hitBotIds.includes(bot.userData.id)) continue;
 
                     if(p.userData.ownerId !== bot.userData.id && p.position.distanceTo(bot.position.clone().add(new THREE.Vector3(0,0.2,0))) < 1.0) {
                         const isHeadshot = p.position.y > bot.position.y + 0.4;
@@ -4457,7 +4477,13 @@
                             setTimeout(() => { if(bot && bot.children[0]) bot.children[0].material.emissive.setHex(0x000000); }, 100);
                         }
                         
-                        if (p.userData.isKnife) {
+                        if (p.userData.piercesRemaining > 0) {
+                            p.userData.piercesRemaining--;
+                            if (!p.userData.hitBotIds) p.userData.hitBotIds = [];
+                            p.userData.hitBotIds.push(bot.userData.id);
+                            hitBot = true;
+                            continue;
+                        } else if (p.userData.isKnife) {
                             p.userData.isPickup = true;
                             p.userData.vel.set(0,0,0);
                             p.position.copy(bot.position);
@@ -4494,5 +4520,5 @@
             });
         }
     </script>
-</body> 
+</body>
 </html>
