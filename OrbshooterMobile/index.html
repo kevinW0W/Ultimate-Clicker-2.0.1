@@ -516,6 +516,7 @@
         let isGameOver = false;
         let scores = [{name: "Player", score: 0, isBot: false}];
         let lastShotTime = 0;
+        let tryhardHoldStartTime = 0;
         let lastDamageTime = 0;
         let lastStepTime = 0;
         let recoil = 0;
@@ -629,6 +630,7 @@
             { id: 'm249', name: "M249", base: 'lmg', damage: 9, delay: 100, ammo: 100, color: 0x555555 },
             { id: 'negev', name: "Negev", base: 'lmg', damage: 6, delay: 50, ammo: 150, color: 0x444444 },
             { id: 'minigun', name: "Minigun", base: 'lmg', damage: 5, delay: 30, ammo: 500, pierce: 1, color: 0x222222 },
+            { id: 'tryhard', name: "Tryhard Gun", base: 'lmg', damage: 100, delay: 100, ammo: 8000, maxAmmo: 8000, reload: 20000, automatic: true, pierce: 1, isLaser: true, color: 0xff3300 },
             { id: 'railgun', name: "Railgun", base: 'sniper', damage: 75, delay: 1300, ammo: 6, pierce: 5, color: 0x00ffff },
             { id: 'penetrator', name: "Penetrator Rifle", base: 'rifle', damage: 11, delay: 170, ammo: 24, pierce: 2, color: 0xff44ff },
             { id: 'piercer_smg', name: "Piercer SMG", base: 'smg', damage: 5, delay: 75, ammo: 40, pierce: 1, color: 0xff8800 },
@@ -675,7 +677,7 @@
         let currentWeapon = WEAPONS.rifle;
 
         // Shared Resources for Performance
-        let projectileGeo, projectileMatPlayer, projectileMatEnemy, projectileMatRaygun;
+        let projectileGeo, projectileMatPlayer, projectileMatEnemy, projectileMatRaygun, projectileMatTryhard;
         let wallMat;
         let botBodyGeo, botHeadGeo;
         let lastKillerId = null;
@@ -856,6 +858,7 @@
             projectileMatPlayer = new THREE.MeshBasicMaterial({ color: 0x00ffff, fog: false });
             projectileMatEnemy = new THREE.MeshBasicMaterial({ color: 0xff00ff, fog: false });
             projectileMatRaygun = new THREE.MeshBasicMaterial({ color: 0x00ff36, fog: false });
+            projectileMatTryhard = new THREE.MeshBasicMaterial({ color: 0xff3300, fog: false });
             
             // Map textures directly to matching courtyard/garden colors
             const wallTex = createWallTexture();
@@ -1066,7 +1069,7 @@
                 barrel.rotation.x = Math.PI / 2;
                 barrel.position.z = 0.3;
                 group.add(body, barrel);
-            } else if (type.includes('Machine Gun') || type === 'M249' || type === 'Negev' || type === 'Minigun') {
+            } else if (type.includes('Machine Gun') || type === 'M249' || type === 'Negev' || type === 'Minigun' || type === 'Tryhard Gun') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.7), mat);
                 const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7), darkMat);
                 barrel.rotation.x = Math.PI / 2;
@@ -1441,13 +1444,16 @@
             let weaponData = WEAPONS[randomWeaponKey];
 
             const specialGunQuota = botCount >= 10 ? Math.max(1, Math.floor(botCount / 20)) : 0;
+            const tryhardQuota = botCount >= 20 ? Math.max(1, Math.floor(botCount / 40)) : 0;
             const currentRailgunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'railgun').length;
             const currentRaygunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'raygun').length;
+            const currentTryhardBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'tryhard').length;
             const minigunQuota = Math.floor(botCount / 10);
             const currentMinigunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'minigun').length;
             if (gameMode !== 'gungame') {
                 if (currentRailgunBots < specialGunQuota) weaponData = WEAPONS.railgun;
                 else if (currentRaygunBots < specialGunQuota) weaponData = WEAPONS.raygun;
+                else if (currentTryhardBots < tryhardQuota) weaponData = WEAPONS.tryhard;
                 else if (currentMinigunBots < minigunQuota) weaponData = WEAPONS.minigun;
             }
 
@@ -2631,6 +2637,7 @@
                 if (document.pointerLockElement || isMobile) {
                     if (e.button === 0) {
                         if (!currentWeapon.isMelee) {
+                            tryhardHoldStartTime = 0;
                             isFiring = true;
                             fireProjectile(camera, { name: "Player", id: "player" });
                         }
@@ -2718,6 +2725,7 @@
             fireBtn.addEventListener('touchstart', (e) => { 
                 if (isEditingLayout) return;
                 e.preventDefault(); 
+                tryhardHoldStartTime = 0;
                 isFiring = true;
                 if (isChargingKnife) {
                     throwKnife();
@@ -3309,6 +3317,7 @@
 
             const rightTriggerPressed = isButton('fire');
             if (rightTriggerPressed && !ctrlIsFiring) {
+                tryhardHoldStartTime = 0;
                 ctrlIsFiring = true;
                 fireProjectile(camera, { name: "Player", id: "player" });
             } else if (!rightTriggerPressed && ctrlIsFiring) {
@@ -3515,7 +3524,7 @@
             }, 100);
         }
 
-        function showRailgunBeam(source, ownerData) {
+        function showRailgunBeam(source, ownerData, beamColor = 0x00ffff) {
             const direction = source === camera
                 ? camera.getWorldDirection(new THREE.Vector3()).normalize()
                 : new THREE.Vector3(0, 0, 1).applyQuaternion(source.quaternion).normalize();
@@ -3536,7 +3545,7 @@
 
             const end = start.clone().add(direction.multiplyScalar(beamLength));
             const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
-            const material = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.95 });
+            const material = new THREE.LineBasicMaterial({ color: beamColor, transparent: true, opacity: 0.95 });
             const beam = new THREE.Line(geometry, material);
             beam.renderOrder = 5;
             scene.add(beam);
@@ -3597,12 +3606,23 @@
                 weapon = ownerData.weapon;
             }
 
+            let shotDelay = weapon.delay;
+            if (weapon.id === 'tryhard') {
+                if (ownerData.id === 'player') {
+                    const held = isFiring || ctrlIsFiring;
+                    if (!held) tryhardHoldStartTime = 0;
+                    else if (!tryhardHoldStartTime) tryhardHoldStartTime = Date.now();
+                    const holdSteps = held ? Math.floor((Date.now() - tryhardHoldStartTime) / 500) : 0;
+                    shotDelay = Math.max(20, 100 - holdSteps * 10);
+                }
+            }
+
             if (ownerData.id === "player") {
                 if (isReloading) return;
                 if (!invItem) return;
                 if (invItem.ammo <= 0 && !weapon.isMelee) { reload(); return; }
                 
-                if (Date.now() - lastShotTime < weapon.delay) return;
+                if (Date.now() - lastShotTime < shotDelay) return;
                 if (!weapon.isMelee) invItem.ammo--;
                 updateAmmoDisplay();
                 lastShotTime = Date.now();
@@ -3618,7 +3638,7 @@
                 playShootSound(weapon.name, source.position);
             }
 
-            if (weapon.id === 'railgun') showRailgunBeam(source, ownerData);
+            if (weapon.id === 'railgun' || weapon.isLaser) showRailgunBeam(source, ownerData, weapon.color);
 
             if (weapon.isThrown) {
                 const p = thrownKnifeMesh.clone();
@@ -3766,7 +3786,9 @@
                 const p = new THREE.Mesh(
                     projectileGeo,
                     weapon.id === 'raygun' ? projectileMatRaygun :
+                        (weapon.id === 'tryhard' ? projectileMatTryhard :
                         (ownerData.id === "player" ? projectileMatPlayer : projectileMatEnemy)
+                        )
                 );
                 if (weapon.id === 'raygun') p.scale.setScalar(1.8);
                 
