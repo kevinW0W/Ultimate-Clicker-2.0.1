@@ -26,6 +26,20 @@
         return (hash >>> 0).toString(36);
     }
 
+    function filterChatText(value) {
+        let text = String(value || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\ufeff]/g, ' ').slice(0, 240);
+        text = text.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '####');
+        text = text.replace(/\b(?:https?:\/\/|www\.)[^\s]+/gi, '####');
+        text = text.replace(/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:com|net|org|gg|io|co|app|dev|me|info|biz|xyz|tv|ly|ru|uk|ca|us|de|fr|jp|cn)(?:\/[^\s]*)?/gi, '####');
+        const blockedWords = ['fuck', 'shit', 'bitch', 'bastard', 'asshole', 'ass', 'dick', 'pussy', 'cunt', 'slut', 'whore', 'damn', 'hell', 'crap', 'nigger', 'nigga', 'faggot', 'retard', 'discord'];
+        const leet = { a: '[a4@]', e: '[e3]', i: '[i1!|]', o: '[o0]', s: '[s5$]', t: '[t7]', g: '[g69]' };
+        blockedWords.forEach(word => {
+            const pattern = word.split('').map(letter => leet[letter] || letter).join('[^a-z0-9]*');
+            text = text.replace(new RegExp(`(^|[^a-z0-9])(${pattern})(?=$|[^a-z0-9])`, 'gi'), '$1####');
+        });
+        return text.slice(0, 160);
+    }
+
     function makeRoomId(room) {
         return `orbroom${hashText(`orb-tosser-2|${String(room).trim().toLowerCase()}`)}`;
     }
@@ -171,7 +185,7 @@
             return;
         }
         if (message.type === 'chat') {
-            const text = String(message.text || '').trim().slice(0, 160);
+            const text = filterChatText(message.text).trim();
             if (!text) return;
             const chat = { type: 'chat', id: member.id, name: member.name, text };
             receive(chat);
@@ -219,7 +233,7 @@
                 }
                 receive({ type: 'hitConfirm', targetId });
             } else if (message.type === 'chat') {
-                const text = String(message.text || '').trim().slice(0, 160);
+                const text = filterChatText(message.text).trim();
                 if (!text) return false;
                 const chat = { type: 'chat', id: localId, name: localName, text };
                 broadcast(chat);
