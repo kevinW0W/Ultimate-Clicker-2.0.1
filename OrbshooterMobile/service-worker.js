@@ -1,7 +1,12 @@
-const CACHE_NAME = 'orb-tosser-v7';
+const CACHE_NAME = 'orb-tosser-v9';
 const APP_URL = new URL('./', self.registration.scope).href;
+const IOS12_PAGE_URL = new URL('./Orb-Tosser%20iOS12.html', self.registration.scope).href;
+const IOS12_MANIFEST_URL = new URL('./manifest-older.webmanifest', self.registration.scope).href;
 const APP_SHELL = [
     APP_URL,
+    IOS12_PAGE_URL,
+    IOS12_MANIFEST_URL,
+    new URL('./Engine%20Ai%20Bots.js', self.registration.scope).href,
     new URL('./manifest.webmanifest', self.registration.scope).href,
     new URL('./icon.ico', self.registration.scope).href,
     new URL('./icon.png', self.registration.scope).href,
@@ -44,14 +49,19 @@ self.addEventListener('fetch', (event) => {
                 if (shouldCache) await cache.put(request, response.clone());
             }
             if (request.mode === 'navigate' && !response.ok) {
-                const appShell = await cache.match(APP_URL);
+                const appShell = await cache.match(request) ||
+                    (new URL(request.url).pathname === new URL(IOS12_PAGE_URL).pathname
+                        ? await cache.match(IOS12_PAGE_URL)
+                        : await cache.match(APP_URL));
                 if (appShell) return appShell;
             }
             return response;
         } catch (error) {
             if (cachedResponse) return cachedResponse;
             if (request.mode === 'navigate') {
-                const appShell = await cache.match(APP_URL);
+                const appShell = new URL(request.url).pathname === new URL(IOS12_PAGE_URL).pathname
+                    ? await cache.match(IOS12_PAGE_URL)
+                    : await cache.match(APP_URL);
                 if (appShell) return appShell;
             }
             throw error;
