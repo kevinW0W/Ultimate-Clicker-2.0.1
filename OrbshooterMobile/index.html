@@ -653,7 +653,7 @@
             { id: 'bowie', name: "Bowie Knife", base: 'knife', damage: 60, delay: 700, color: 0x444444 },
             { id: 'daggers', name: "Shadow Daggers", base: 'knife', damage: 35, delay: 250, color: 0x111111 },
             { id: 'golden', name: "Golden Gun", base: 'revolver', damage: 100, delay: 1000, ammo: 1, maxAmmo: 1, color: 0xffd700 },
-            { id: 'raygun', name: "Ray Gun", base: 'pistol', damage: 80, delay: 400, ammo: 20, color: 0x00ff00 },
+            { id: 'raygun', name: "Ray Gun", base: 'pistol', damage: 80, delay: 400, ammo: 20, pierce: 3, color: 0x00ff00 },
             { id: 'blaster', name: "Blaster", base: 'rifle', damage: 25, delay: 200, ammo: 50, color: 0xff00ff },
             { id: 'musket', name: "Musket", base: 'sniper', damage: 120, delay: 3000, ammo: 1, color: 0x8b4513 },
             { id: 'kunai', name: "Kunai", base: 'throwing_knife', damage: 45, delay: 400, color: 0x222222 }
@@ -675,7 +675,7 @@
         let currentWeapon = WEAPONS.rifle;
 
         // Shared Resources for Performance
-        let projectileGeo, projectileMatPlayer, projectileMatEnemy;
+        let projectileGeo, projectileMatPlayer, projectileMatEnemy, projectileMatRaygun;
         let wallMat;
         let botBodyGeo, botHeadGeo;
         let lastKillerId = null;
@@ -855,6 +855,7 @@
             projectileGeo = new THREE.SphereGeometry(0.16, 8, 8);
             projectileMatPlayer = new THREE.MeshBasicMaterial({ color: 0x00ffff, fog: false });
             projectileMatEnemy = new THREE.MeshBasicMaterial({ color: 0xff00ff, fog: false });
+            projectileMatRaygun = new THREE.MeshBasicMaterial({ color: 0x00ff36, fog: false });
             
             // Map textures directly to matching courtyard/garden colors
             const wallTex = createWallTexture();
@@ -1439,10 +1440,15 @@
             const randomWeaponKey = keys[Math.floor(Math.random() * keys.length)];
             let weaponData = WEAPONS[randomWeaponKey];
 
+            const specialGunQuota = botCount >= 10 ? Math.max(1, Math.floor(botCount / 20)) : 0;
+            const currentRailgunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'railgun').length;
+            const currentRaygunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'raygun').length;
             const minigunQuota = Math.floor(botCount / 10);
             const currentMinigunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'minigun').length;
-            if (gameMode !== 'gungame' && currentMinigunBots < minigunQuota) {
-                weaponData = WEAPONS.minigun;
+            if (gameMode !== 'gungame') {
+                if (currentRailgunBots < specialGunQuota) weaponData = WEAPONS.railgun;
+                else if (currentRaygunBots < specialGunQuota) weaponData = WEAPONS.raygun;
+                else if (currentMinigunBots < minigunQuota) weaponData = WEAPONS.minigun;
             }
 
             if (gameMode === 'gungame') {
@@ -3509,6 +3515,38 @@
             }, 100);
         }
 
+        function showRailgunBeam(source, ownerData) {
+            const direction = source === camera
+                ? camera.getWorldDirection(new THREE.Vector3()).normalize()
+                : new THREE.Vector3(0, 0, 1).applyQuaternion(source.quaternion).normalize();
+            const start = source.position.clone();
+            if (source === camera) start.add(direction.clone().multiplyScalar(0.8));
+            else start.y += 0.2;
+
+            const raycaster = new THREE.Raycaster(start, direction, 0, 80);
+            let beamLength = 80;
+            const wallHit = raycaster.intersectObjects(worldColliders.map(c => c.mesh), false)[0];
+            if (wallHit) beamLength = wallHit.distance;
+
+            const enemyBots = bots.filter(bot => bot.userData.hp > 0 &&
+                (gameMode === 'ffa' || bot.userData.team !== (ownerData.team || 'blue')));
+            const botMeshes = enemyBots.map(bot => bot.children[0]);
+            const botHit = raycaster.intersectObjects(botMeshes, true)[0];
+            if (botHit && botHit.distance < beamLength) beamLength = botHit.distance;
+
+            const end = start.clone().add(direction.multiplyScalar(beamLength));
+            const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+            const material = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.95 });
+            const beam = new THREE.Line(geometry, material);
+            beam.renderOrder = 5;
+            scene.add(beam);
+            setTimeout(() => {
+                scene.remove(beam);
+                geometry.dispose();
+                material.dispose();
+            }, 110);
+        }
+
         function promotePlayer() {
             if (playerGunGameIndex < GUN_GAME_PROGRESSION.length - 1) {
                 playerGunGameIndex++;
@@ -3579,6 +3617,8 @@
             } else {
                 playShootSound(weapon.name, source.position);
             }
+
+            if (weapon.id === 'railgun') showRailgunBeam(source, ownerData);
 
             if (weapon.isThrown) {
                 const p = thrownKnifeMesh.clone();
@@ -3725,8 +3765,10 @@
             for (let i = 0; i < weapon.count; i++) {
                 const p = new THREE.Mesh(
                     projectileGeo,
-                    ownerData.id === "player" ? projectileMatPlayer : projectileMatEnemy
+                    weapon.id === 'raygun' ? projectileMatRaygun :
+                        (ownerData.id === "player" ? projectileMatPlayer : projectileMatEnemy)
                 );
+                if (weapon.id === 'raygun') p.scale.setScalar(1.8);
                 
                 const forwardZ = ownerData.id === "player" ? -1 : 1;
                 const dir = new THREE.Vector3(
