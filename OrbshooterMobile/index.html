@@ -485,7 +485,6 @@
         <div id="weapon-switch-btn" class="fire-button" style="position:absolute; bottom:150px; right:240px; width:70px; height:70px; z-index:20;">SWAP</div>
     </div>
     <div id="mobile-pause-btn" class="fire-button" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); width:50px; height:50px; font-size:12px; z-index:20; background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff;">PAUSE</div>
-    <button id="nuke-detonate-btn" class="fire-button" type="button" style="display:none; position:absolute; left:50%; bottom:190px; transform:translateX(-50%); width:120px; height:64px; background:rgba(180,0,0,0.85); border-color:#f44; z-index:35;">DETONATE NUKE</button>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
@@ -522,7 +521,6 @@
         let oneKillsMachineSpeed = 9000;
         let oneKillsMachineSpeedUpdatedAt = 0;
         let oneKillsMachineOverheatedUntil = 0;
-        let activeNukeProjectile = null;
         let lastDamageTime = 0;
         let lastStepTime = 0;
         let recoil = 0;
@@ -1057,7 +1055,16 @@
             const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.09, metalness: 0.8 });
             const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.09, metalness: 0.5 });
             
-            if (type === 'RPG' || type === 'Nuke Launcher') {
+            if (type === 'Nuke Launcher') {
+                const remoteBody = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.34, 0.16), darkMat);
+                const screen = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.012), new THREE.MeshBasicMaterial({ color: 0x22ff66 }));
+                screen.position.set(0, 0.08, -0.086);
+                const redButton = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.035, 12), new THREE.MeshStandardMaterial({ color: 0xff2200, emissive: 0x880000 }));
+                redButton.position.set(0, -0.07, -0.1);
+                const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.32, 6), darkMat);
+                antenna.position.set(0.08, 0.27, 0);
+                group.add(remoteBody, screen, redButton, antenna);
+            } else if (type === 'RPG') {
                 const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.9, 10), mat);
                 tube.rotation.x = Math.PI / 2;
                 const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.12, 10), darkMat);
@@ -1068,14 +1075,12 @@
                 const sight = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.12), darkMat);
                 sight.position.set(0, 0.11, -0.12);
                 group.add(tube, muzzle, grip, sight);
-                if (type === 'RPG') {
-                    const finMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.45 });
-                    for (let i = 0; i < 4; i++) {
-                        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.12), finMat);
-                        fin.position.z = -0.38;
-                        fin.rotation.z = i * Math.PI / 2;
-                        group.add(fin);
-                    }
+                const finMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.45 });
+                for (let i = 0; i < 4; i++) {
+                    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.12), finMat);
+                    fin.position.z = -0.38;
+                    fin.rotation.z = i * Math.PI / 2;
+                    group.add(fin);
                 }
             } else if (type.includes('Sniper') || type === 'AWP' || type === 'SSG 08' || type === 'Barrett .50' || type === 'Kar98k' || type === 'Musket') {
                 const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.6), mat);
@@ -1752,8 +1757,6 @@
         }
 
         function startGame(weaponType) {
-            activeNukeProjectile = null;
-            updateNukeRemoteButton();
             gameMode = document.getElementById('gamemode-select').value;
             teamScores = { red: 0, blue: 0 };
             availableBotNames = [...BASE_BOT_NAMES];
@@ -1859,7 +1862,6 @@
                 wand.add(gunMesh);
             }
             updateAmmoDisplay();
-            updateNukeRemoteButton();
             if (disablePostProcessing) applyPostProcessingSetting();
         }
 
@@ -1887,7 +1889,6 @@
             document.getElementById('ammo-display').innerText = currentAmmo === Infinity ? "∞" : `${currentAmmo} / ${max}`;
             document.getElementById('weapon-name').innerText = currentWeapon.name;
             updateMobileAimButtonState();
-            updateNukeRemoteButton();
         }
 
         function setControllerCursorVisibility(visible) {
@@ -2886,13 +2887,6 @@
                 document.getElementById('pause-menu').style.display = 'flex';
             });
 
-            const nukeDetonateBtn = document.getElementById('nuke-detonate-btn');
-            nukeDetonateBtn.addEventListener('click', detonateNuke);
-            nukeDetonateBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                detonateNuke();
-            }, { passive: false });
-
             // Joystick Logic
             const joystick = document.getElementById('move-stick');
             const knob = document.createElement('div');
@@ -3622,12 +3616,6 @@
             }, 100);
         }
 
-        function updateNukeRemoteButton() {
-            const button = document.getElementById('nuke-detonate-btn');
-            if (!button) return;
-            button.style.display = activeNukeProjectile ? 'flex' : 'none';
-        }
-
         function playExplosionSound(isNuke) {
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
@@ -3714,17 +3702,6 @@
             }
         }
 
-        function detonateNuke() {
-            const projectile = activeNukeProjectile;
-            if (!projectile) return;
-            const index = projectiles.indexOf(projectile);
-            if (index !== -1) projectiles.splice(index, 1);
-            activeNukeProjectile = null;
-            scene.remove(projectile);
-            explodeProjectile(projectile);
-            updateNukeRemoteButton();
-        }
-
         function showRailgunBeam(source, ownerData, beamColor = 0x00ffff) {
             const direction = source === camera
                 ? camera.getWorldDirection(new THREE.Vector3()).normalize()
@@ -3807,8 +3784,6 @@
                 weapon = ownerData.weapon;
             }
 
-            if (ownerData.id === 'player' && weapon.isNukeLauncher && activeNukeProjectile) return;
-
             let shotDelay = weapon.delay;
             if (weapon.id === 'tryhard') {
                 if (ownerData.id === 'player') {
@@ -3854,7 +3829,7 @@
                     return;
                 }
                 setOneKillsMachineHeatGlow(false);
-                shotDelay = 1000000 / oneKillsMachineSpeed;
+                shotDelay = 10000 / oneKillsMachineSpeed;
             }
 
             if (ownerData.id === "player") {
@@ -3884,34 +3859,45 @@
                 const direction = source === camera
                     ? camera.getWorldDirection(new THREE.Vector3()).normalize()
                     : new THREE.Vector3(0, 0, 1).applyQuaternion(source.quaternion).normalize();
+                const isNuke = !!weapon.isNukeLauncher;
                 const rocket = new THREE.Group();
                 const rocketMaterial = new THREE.MeshStandardMaterial({ color: weapon.color, emissive: weapon.color, emissiveIntensity: 0.25, metalness: 0.4, roughness: 0.35 });
                 const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.5, roughness: 0.5 });
-                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.8, 8), rocketMaterial);
-                body.rotation.x = Math.PI / 2;
-                const nose = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 8), rocketMaterial);
-                nose.rotation.x = -Math.PI / 2;
-                nose.position.z = -0.52;
-                const fins = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.22), darkMaterial);
-                fins.position.z = 0.32;
-                rocket.add(body, nose, fins);
-                rocket.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction);
-                rocket.position.copy(source.position).add(direction.clone().multiplyScalar(1));
-                rocket.userData = {
-                    vel: direction.multiplyScalar(weapon.isNukeLauncher ? 18 : 28),
+                if (isNuke) {
+                    const bombBody = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 10), rocketMaterial);
+                    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.9, 10), darkMaterial);
+                    nose.rotation.x = Math.PI / 2;
+                    nose.position.z = -0.85;
+                    const fins = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.38), darkMaterial);
+                    fins.position.z = 0.45;
+                    rocket.add(bombBody, nose, fins);
+                    const target = source.position.clone().add(direction.clone().multiplyScalar(24));
+                    target.x = Math.max(-32, Math.min(32, target.x));
+                    target.z = Math.max(-32, Math.min(32, target.z));
+                    rocket.position.set(target.x, 38, target.z);
+                    rocket.userData.vel = new THREE.Vector3(0, -35, 0);
+                } else {
+                    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.8, 8), rocketMaterial);
+                    body.rotation.x = Math.PI / 2;
+                    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 8), rocketMaterial);
+                    nose.rotation.x = -Math.PI / 2;
+                    nose.position.z = -0.52;
+                    const fins = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.06, 0.22), darkMaterial);
+                    fins.position.z = 0.32;
+                    rocket.add(body, nose, fins);
+                    rocket.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction);
+                    rocket.position.copy(source.position).add(direction.clone().multiplyScalar(1));
+                    rocket.userData.vel = direction.multiplyScalar(28);
+                }
+                Object.assign(rocket.userData, {
                     ownerId: ownerData.id, ownerName: ownerData.name,
                     team: ownerData.team || (ownerData.id === 'player' ? 'blue' : 'red'),
-                    life: weapon.isNukeLauncher ? 60 : 20,
+                    life: isNuke ? 8 : 20,
                     damage: weapon.damage, blastRadius: weapon.blastRadius || 8,
-                    color: weapon.color, isExplosive: true, isNuke: !!weapon.isNukeLauncher,
-                    isArmed: false
-                };
+                    color: weapon.color, isExplosive: true, isNuke
+                });
                 scene.add(rocket);
                 projectiles.push(rocket);
-                if (weapon.isNukeLauncher && ownerData.id === 'player') {
-                    activeNukeProjectile = rocket;
-                    updateNukeRemoteButton();
-                }
                 return;
             }
 
@@ -4211,8 +4197,6 @@
             bots = [];
             projectiles.forEach(p => scene.remove(p));
             projectiles = [];
-            activeNukeProjectile = null;
-            updateNukeRemoteButton();
             flags.forEach(f => scene.remove(f.mesh));
             flags = [];
             if (gameMode === 'ctf') {
@@ -4701,17 +4685,6 @@
             for(let i=projectiles.length-1; i>=0; i--) {
                 const p = projectiles[i];
 
-                if (p.userData.isNuke && p.userData.isArmed) {
-                    p.userData.life -= delta;
-                    if (p.userData.life <= 0) {
-                        if (activeNukeProjectile === p) activeNukeProjectile = null;
-                        scene.remove(p);
-                        projectiles.splice(i, 1);
-                        updateNukeRemoteButton();
-                    }
-                    continue;
-                }
-
                 if (p.userData.isPickup) {
                     p.rotation.y += 2 * delta;
                     if (p.position.distanceTo(camera.position) < 1.5) {
@@ -4738,20 +4711,15 @@
 
                 const nextPos = p.position.clone().add(p.userData.vel.clone().multiplyScalar(delta));
                 
-                if(checkProjectileWallHit(nextPos.x, nextPos.z) || nextPos.y < 0.1) {
+                if((!p.userData.isNuke && checkProjectileWallHit(nextPos.x, nextPos.z)) || nextPos.y < 0.1) {
                     if (p.userData.isKnife) {
                         p.userData.isPickup = true;
                         p.userData.vel.set(0,0,0);
                         if (nextPos.y < 0.1) p.position.y = 0.1;
                         continue;
-                    } else if (p.userData.isNuke) {
-                        p.position.copy(nextPos);
-                        p.userData.isArmed = true;
-                        p.userData.vel.set(0, 0, 0);
-                        updateNukeRemoteButton();
-                        continue;
                     } else if (p.userData.isExplosive) {
                         p.position.copy(nextPos);
+                        if (p.userData.isNuke) p.position.y = 0.1;
                         explodeProjectile(p);
                         scene.remove(p);
                         projectiles.splice(i, 1);
@@ -4764,16 +4732,10 @@
                 p.position.copy(nextPos);
                 p.userData.life -= delta;
 
-                if(p.userData.ownerId !== "player" && p.position.distanceTo(camera.position) < 0.8) {
+                if(!p.userData.isNuke && p.userData.ownerId !== "player" && p.position.distanceTo(camera.position) < 0.8) {
                     if (gameMode !== 'ffa' && p.userData.team === 'blue') {
                         // Friendly
                     } else {
-                        if (p.userData.isNuke) {
-                            p.userData.isArmed = true;
-                            p.userData.vel.set(0, 0, 0);
-                            updateNukeRemoteButton();
-                            continue;
-                        }
                         if (p.userData.isExplosive) {
                             explodeProjectile(p);
                             scene.remove(p); projectiles.splice(i, 1); continue;
@@ -4807,17 +4769,11 @@
                     if (gameMode !== 'ffa' && p.userData.team === bot.userData.team) continue;
                     if (p.userData.hitBotIds && p.userData.hitBotIds.includes(bot.userData.id)) continue;
 
-                    if(p.userData.ownerId !== bot.userData.id && p.position.distanceTo(bot.position.clone().add(new THREE.Vector3(0,0.2,0))) < 1.0) {
+                    if(!p.userData.isNuke && p.userData.ownerId !== bot.userData.id && p.position.distanceTo(bot.position.clone().add(new THREE.Vector3(0,0.2,0))) < 1.0) {
                         if (p.userData.isExplosive) {
-                            if (p.userData.isNuke) {
-                                p.userData.isArmed = true;
-                                p.userData.vel.set(0, 0, 0);
-                                updateNukeRemoteButton();
-                            } else {
-                                explodeProjectile(p);
-                                scene.remove(p);
-                                projectiles.splice(i, 1);
-                            }
+                            explodeProjectile(p);
+                            scene.remove(p);
+                            projectiles.splice(i, 1);
                             hitBot = true;
                             break;
                         }
