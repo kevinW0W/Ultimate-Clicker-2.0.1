@@ -1470,6 +1470,7 @@
                 speed: 6 + Math.random() * 5,
                 isCamping: false,
                 isFlagRunner: gameMode === 'ctf' && Math.random() < 0.4,
+                isFlagDefender: gameMode === 'ctf',
                 team: 'red',
                 campEndTime: 0,
                 needsPickup: false
@@ -1481,6 +1482,10 @@
                 bot.userData.team = blueCount > redCount ? 'red' : 'blue';
                 botMat.color.setHex(bot.userData.team === 'red' ? 0xff4444 : 0x4444ff);
             }
+            // Give each CTF team one dedicated runner. Randomly assigning every
+            // bot as a runner can send several bots to the same flag at once.
+            bot.userData.isFlagRunner = gameMode === 'ctf' &&
+                !bots.some(other => other.userData.team === bot.userData.team && other.userData.isFlagRunner);
 
             const label = createTextSprite(bot.userData.name);
             label.position.y = 1.2;
@@ -1520,6 +1525,74 @@
             const dx = targetX - bot.position.x;
             const dz = targetZ - bot.position.z;
             bot.rotation.y = Math.atan2(dx, dz);
+        }
+
+        function getBotFlagObjective(bot, enemyFlag, myFlag) {
+            if (gameMode !== 'ctf' || !enemyFlag || !myFlag) return null;
+
+            // A carrier must take the stolen flag back to its own home flag.
+            if (enemyFlag.carrier === bot) return myFlag.basePos;
+
+            // Give one nearby defender the recovery job so the whole team does
+            // not pile onto a dropped flag. Any teammate may still return it.
+            if (myFlag.dropped && !myFlag.carrier && bot.userData.isFlagDefender) {
+                const alreadyReturning = bots.some(other => other !== bot && other.userData.hp > 0 &&
+                    other.userData.team === bot.userData.team && other.userData.returningFlag === myFlag);
+                if (!alreadyReturning) {
+                    bot.userData.returningFlag = myFlag;
+                    return myFlag.mesh.position;
+                }
+            }
+            if (bot.userData.returningFlag === myFlag && (!myFlag.dropped || myFlag.carrier)) {
+                bot.userData.returningFlag = null;
+            }
+
+            // Defenders intercept enemies carrying their flag. A player carrier
+            // is represented by the string "player", so use the camera there.
+            if (bot.userData.isFlagDefender && myFlag.carrier && myFlag.carrier !== bot &&
+                (myFlag.carrier === 'player' || (myFlag.carrier.userData && myFlag.carrier.userData.team !== bot.userData.team))) {
+                const alreadyIntercepting = bots.some(other => other !== bot && other.userData.hp > 0 &&
+                    other.userData.team === bot.userData.team && other.userData.interceptingCarrier === myFlag.carrier);
+                if (!alreadyIntercepting) {
+                    bot.userData.interceptingCarrier = myFlag.carrier;
+                    return myFlag.carrier === 'player' ? camera.position : myFlag.carrier.position;
+                }
+            }
+            if (bot.userData.interceptingCarrier !== myFlag.carrier) bot.userData.interceptingCarrier = null;
+
+            // Runners advance toward the enemy flag only while it is available.
+            // If a teammate has it, let that teammate head home without a crowd.
+            if (bot.userData.isFlagRunner && !enemyFlag.carrier) return enemyFlag.mesh.position;
+            return null;
+        }
+
+        function moveBotTowardPosition(bot, targetPos, delta) {
+            const dx = targetPos.x - bot.position.x;
+            const dz = targetPos.z - bot.position.z;
+            if (Math.hypot(dx, dz) < 1.2) return true;
+
+            const desiredAngle = Math.atan2(dx, dz);
+            const stepDistance = bot.userData.speed * delta;
+            const turnOffsets = [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2,
+                Math.PI * 3 / 4, -Math.PI * 3 / 4, Math.PI];
+            let bestPosition = null;
+            let bestScore = Infinity;
+
+            for (const offset of turnOffsets) {
+                const angle = desiredAngle + offset;
+                const candidate = bot.position.clone().add(new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle)).multiplyScalar(stepDistance));
+                if (checkCollision(candidate.x, candidate.z)) continue;
+                if (bots.some(other => other !== bot && other.userData.hp > 0 && candidate.distanceTo(other.position) < 0.85)) continue;
+                const remaining = Math.hypot(targetPos.x - candidate.x, targetPos.z - candidate.z);
+                const score = remaining + Math.abs(offset) * 0.35;
+                if (score < bestScore) { bestScore = score; bestPosition = candidate; }
+            }
+
+            if (!bestPosition) return false;
+            bot.position.copy(bestPosition);
+            bot.position.y = 0.9;
+            setBotYawTowards(bot, targetPos);
+            return true;
         }
 
         function showLoadoutMenu() {
@@ -3878,7 +3951,7 @@
                         }
                         bots.forEach(bot => {
                             if (bot.userData.hp > 0 && bot.position.distanceTo(flag.mesh.position) < 2.5) {
-                                if (flag.team !== bot.userData.team) {
+                                if (flag.team !== bot.userData.team && bot.userData.isFlagRunner) {
                                     flag.carrier = bot;
                                     flag.isHome = false;
                                     flag.dropped = false;
@@ -4082,6 +4155,7 @@
                 
                 const enemyFlag = flags.find(f => f.team !== bot.userData.team);
                 const myFlag = flags.find(f => f.team === bot.userData.team);
+                const flagObjective = getBotFlagObjective(bot, enemyFlag, myFlag);
 
                 const canSee = (observer, targetObj) => {
                     const toTarget = targetObj.position.clone().sub(observer.position);
@@ -4115,17 +4189,8 @@
                 });
 
                 if (!target) {
-                    if (gameMode === 'ctf' && bot.userData.isFlagRunner && enemyFlag && myFlag) {
-                        let objectivePos = enemyFlag.mesh.position;
-                        if (enemyFlag.carrier === bot) objectivePos = myFlag.basePos;
-                        else if (enemyFlag.carrier && enemyFlag.carrier.userData.team === bot.userData.team) {
-                            objectivePos = enemyFlag.carrier.position;
-                        }
-
-                        setBotYawTowards(bot, objectivePos);
-                        const objectiveDir = new THREE.Vector3(0, 0, 1).applyQuaternion(bot.quaternion);
-                        const objectiveNextPos = bot.position.clone().add(objectiveDir.multiplyScalar(bot.userData.speed * delta));
-                        if (!checkCollision(objectiveNextPos.x, objectiveNextPos.z)) bot.position.copy(objectiveNextPos);
+                    if (flagObjective) {
+                        moveBotTowardPosition(bot, flagObjective, delta);
                         return;
                     }
 
@@ -4149,18 +4214,7 @@
                     return;
                 }
 
-                let moveTargetPos = target.position;
-                if (gameMode === 'ctf') {
-                    if (enemyFlag.carrier === bot) {
-                        moveTargetPos = myFlag.basePos;
-                    } else if (enemyFlag.carrier) {
-                        moveTargetPos = enemyFlag.carrier.position;
-                    } else {
-                        moveTargetPos = enemyFlag.isHome ? enemyFlag.basePos : enemyFlag.mesh.position;
-                    }
-                }
-
-                if (!bot.userData.isFlagRunner && !bot.userData.isCamping && Math.random() < 0.002) {
+                if (!flagObjective && !bot.userData.isFlagRunner && !bot.userData.isCamping && Math.random() < 0.002) {
                     bot.userData.isCamping = true;
                     bot.userData.campEndTime = Date.now() + 3000 + Math.random() * 4000;
                 }
@@ -4229,9 +4283,10 @@
                 const strafe = new THREE.Vector3(1, 0, 0).applyQuaternion(bot.quaternion).multiplyScalar(bot.userData.strafeDir * 0.5);
                 moveDir.add(strafe);
 
-                if (gameMode === 'ctf' && (bot.userData.isFlagRunner || enemyFlag.carrier === bot)) {
-                    const toObj = moveTargetPos.clone().sub(bot.position).normalize();
-                    moveDir = toObj;
+                if (flagObjective) {
+                    moveDir.copy(flagObjective).sub(bot.position);
+                    moveDir.y = 0;
+                    moveDir.normalize();
                 } else if (distToTarget < desiredDist) {
                     moveDir.sub(new THREE.Vector3(0,0,1).applyQuaternion(bot.quaternion));
                 }
@@ -4242,7 +4297,9 @@
 
                 const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
                 nextPos.y = 0.9;
-                if(!checkCollision(nextPos.x, nextPos.z)) {
+                if (flagObjective) {
+                    moveBotTowardPosition(bot, flagObjective, delta);
+                } else if(!checkCollision(nextPos.x, nextPos.z)) {
                     let botHit = false;
                     for(let other of bots) {
                         if(other !== bot && nextPos.distanceTo(other.position) < 0.8) { botHit = true; break; }
