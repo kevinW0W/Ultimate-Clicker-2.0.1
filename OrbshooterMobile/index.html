@@ -3,32 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Orb Tosser Mobile</title>
-    <meta name="description" content="Play Orb Tosser, a fast-paced mobile orb-throwing game.">
+    <title>Orb Tosser 2</title>
+    <meta name="description" content="Play Orb Tosser 2, a fast-paced mobile orb-throwing game.">
     <meta name="theme-color" content="#0033aa">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Orb Tosser">
+    <meta name="apple-mobile-web-app-title" content="Orb Tosser 2">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/x-icon" href="icon.ico" sizes="16x16 32x32 48x48 64x64 128x128 256x256">
     <link rel="icon" type="image/png" sizes="1254x1254" href="icon.png">
     <link rel="apple-touch-icon" sizes="1254x1254" href="touchicon.png">
     <link rel="manifest" href="manifest.webmanifest">
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Orb Tosser Mobile">
-    <meta property="og:description" content="Play Orb Tosser, a fast-paced mobile orb-throwing game.">
-    <meta property="og:site_name" content="Orb Tosser Mobile">
+    <meta property="og:title" content="Orb Tosser 2">
+    <meta property="og:description" content="Play Orb Tosser 2, a fast-paced mobile orb-throwing game.">
+    <meta property="og:site_name" content="Orb Tosser 2">
     <meta property="og:image" content="og-thumbnail.png">
     <meta property="og:image:secure_url" content="og-thumbnail.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1488">
     <meta property="og:image:height" content="793">
-    <meta property="og:image:alt" content="Orb Tosser Mobile game preview">
+    <meta property="og:image:alt" content="Orb Tosser 2 game preview">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Orb Tosser Mobile">
-    <meta name="twitter:description" content="Play Orb Tosser, a fast-paced mobile orb-throwing game.">
+    <meta name="twitter:title" content="Orb Tosser 2">
+    <meta name="twitter:description" content="Play Orb Tosser 2, a fast-paced mobile orb-throwing game.">
     <meta name="twitter:image" content="og-thumbnail.png">
-    <meta name="twitter:image:alt" content="Orb Tosser Mobile game preview">
+    <meta name="twitter:image:alt" content="Orb Tosser 2 game preview">
     <style>
         :root { --app-height: 100vh; }
         html, body { width: 100%; height: var(--app-height, 100vh); }
@@ -334,7 +334,7 @@
 <body>
     <div id="ios-status-bar-tint" aria-hidden="true"></div>
     <div id="overlay">
-        <h1 style="font-size: 48px; margin-bottom: 10px;">ORB TOSSER</h1>
+        <h1 style="font-size: 48px; margin-bottom: 10px;">ORB TOSSER 2</h1>
         <p style="margin-bottom: 20px;">SELECT A LOADOUT (PRESS SPACEBAR TO DEPLOY)</p>
         
         <select id="gamemode-select" style="margin-bottom: 20px; padding: 10px; font-size: 16px; background: #000; color: #0ff; border: 2px solid #0ff; border-radius: 5px;">
@@ -368,7 +368,7 @@
     </div>
     
     <div id="intro-screen" style="position:absolute; top:0; left:0; width:100%; height:var(--app-height, 100vh); background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:400; opacity:1; transition: opacity 1s ease;">
-        <h1 style="font-size: 60px; color: #0ff; animation: flicker 3s infinite alternate;">ORB TOSSER</h1>
+        <h1 style="font-size: 60px; color: #0ff; animation: flicker 3s infinite alternate;">ORB TOSSER 2</h1>
         <button id="play-intro-btn" class="btn" style="margin-top: 40px; opacity: 0; animation: fadeInBtn 1s 0.5s forwards; font-size: 30px; padding: 20px 60px; border: 2px solid #0ff; box-shadow: 0 0 20px #0ff;">START GAME</button>
         <div style="margin-top: 20px; color: #0ff; font-size: 16px; opacity: 0; animation: fadeInBtn 1s 1s forwards; text-shadow: 0 0 5px #0ff;">PRESS START / A / TAP</div>
         <a id="install-ios-btn" href="https://github.com/kevinW0W/Ultimate-Clicker-2.0.1/tree/main/OrbshooterMobile/Install%20iOS%20Profile" aria-label="Install from iOS"><img src="touchicon.png" alt="">Install from iOS</a>
@@ -376,7 +376,7 @@
 
     <div id="main-menu">
         <div class="menu-panel">
-            <h1 style="font-size: 48px; color: #0ff; margin-bottom: 10px; text-shadow: 0 0 20px #0ff;">ORB TOSSER</h1>
+            <h1 style="font-size: 48px; color: #0ff; margin-bottom: 10px; text-shadow: 0 0 20px #0ff;">ORB TOSSER 2</h1>
             <button class="btn" onclick="showLoadoutMenu()" style="font-size: 24px; padding: 15px 50px; width: 100%;">PLAY</button>
             <button class="btn" onclick="openSettings()" style="background: #555; width: 100%;">SETTINGS</button>
         </div>
@@ -403,7 +403,7 @@
         <div style="display:flex; justify-content:space-between;"><span>Sensitivity</span> <input type="range" id="sens-slider" min="0.1" max="5.0" step="0.1" value="1.2" oninput="updateSettings()"> <span id="sens-val">1.2</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Controller Sens</span> <input type="range" id="cont-sens-slider" min="1.0" max="50.0" step="1.0" value="23.0" oninput="updateSettings()"> <span id="cont-sens-val">23.0</span></div>
         <div style="display:flex; justify-content:space-between;"><span>FOV</span> <input type="range" id="fov-slider" min="60" max="120" step="1" value="75" oninput="updateSettings()"> <span id="fov-val">75</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="200" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Bot Count</span> <input type="range" id="bot-slider" min="1" max="500" step="1" value="5" oninput="updateSettings()"> <span id="bot-count-val">5</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Aim Snap</span> <input type="range" id="snap-slider" min="0" max="10" step="1" value="0" oninput="updateSettings()"> <span id="snap-val">0</span></div>
         <div style="display:flex; justify-content:space-between;"><span>Absolute Aim</span> <input type="checkbox" id="abs-aim-check" onchange="updateSettings()"></div>
         <div style="display:flex; justify-content:space-between;"><span>Control Map</span> <button class="btn" style="font-size:14px; padding:8px 12px; margin-left:10px;" onclick="openControlMap()">EDIT</button></div>
@@ -508,6 +508,8 @@
         let playerPosition = new THREE.Vector3(); // Isolated physics reference position
         let projectiles = [];
         let bots = [];
+        let botAiFrame = 0;
+        const textSpriteTextureCache = new Map();
         let worldColliders = [];
         let isMobile = false;
         let isAiming = false;
@@ -522,6 +524,8 @@
         const ONE_KILLS_MACHINE_MAX_SPEED = ONE_KILLS_MACHINE_BASE_SPEED * 300;
         let oneKillsMachineSpeed = ONE_KILLS_MACHINE_BASE_SPEED;
         let oneKillsMachineSpeedUpdatedAt = 0;
+        let oneKillsMachineShotAccumulator = 0;
+        let oneKillsMachineShotUpdateAt = 0;
         let reloadTimeout = null;
         let reloadGeneration = 0;
         let lastDamageTime = 0;
@@ -880,7 +884,7 @@
             scene = new THREE.Scene();
             // Default sky-blue fallback matches Park2 atmosphere perfectly
             scene.background = new THREE.Color(0x8fa9c4); 
-            scene.fog = new THREE.Fog(0x8fa9c4, 5, 45);
+            scene.fog = new THREE.Fog(0x8fa9c4, 45, 420);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, PLAYER_HEIGHT_STANDING, 0);
@@ -917,7 +921,7 @@
             overheadLight.position.set(0, 3.5, 0);
             scene.add(overheadLight);
 
-            const floorGeo = new THREE.PlaneGeometry(200, 200);
+            const floorGeo = new THREE.PlaneGeometry(600, 600);
             const floorTex = createFloorTexture();
             const floorMat = new THREE.MeshStandardMaterial({ 
                 map: floorTex,
@@ -1138,18 +1142,22 @@
         }
 
         function createTextSprite(message) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 256;
-            canvas.height = 64;
-            ctx.font = "Bold 40px Arial";
-            ctx.fillStyle = "white";
-            ctx.textAlign = "center";
-            ctx.strokeStyle = "black";
-            ctx.lineWidth = 4;
-            ctx.strokeText(message, 128, 40);
-            ctx.fillText(message, 128, 40);
-            const texture = new THREE.CanvasTexture(canvas);
+            let texture = textSpriteTextureCache.get(message);
+            if (!texture) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                ctx.font = "Bold 40px Arial";
+                ctx.fillStyle = "white";
+                ctx.textAlign = "center";
+                ctx.strokeStyle = "black";
+                ctx.lineWidth = 4;
+                ctx.strokeText(message, 128, 40);
+                ctx.fillText(message, 128, 40);
+                texture = new THREE.CanvasTexture(canvas);
+                textSpriteTextureCache.set(message, texture);
+            }
             const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
             sprite.scale.set(2, 0.5, 1);
             return sprite;
@@ -1472,27 +1480,97 @@
             osc.start(); osc.stop(t + 0.05);
         }
 
-        function createWall(x, z, w, d) {
-            const h = 3.5;
+        function createWall(x, z, w, d, h = 3.5, material = wallMat) {
             const geo = new THREE.BoxGeometry(w, h, d);
-            const wall = new THREE.Mesh(geo, wallMat);
+            const wall = new THREE.Mesh(geo, material);
             wall.position.set(x, h / 2, z);
             scene.add(wall);
             worldColliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, mesh: wall });
         }
 
         function buildMaze() {
-            for(let i=-20; i<=20; i+=10) {
-                for(let j=-20; j<=20; j+=10) {
-                    if (i === 0 && j === 0) continue;
-                    if(Math.random() > 0.4) createWall(i, j, 8, 1);
-                    if(Math.random() > 0.4) createWall(i, j, 1, 8);
+            const cityEdge = 240;
+            const roadStep = 48;
+            const roadWidth = 14;
+            const asphalt = new THREE.MeshStandardMaterial({ color: 0x30343a, roughness: 0.95, metalness: 0.02 });
+            const sidewalk = new THREE.MeshStandardMaterial({ color: 0xaaa99e, roughness: 0.9 });
+            const lanePaint = new THREE.MeshBasicMaterial({ color: 0xe5d99b });
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x57402b, roughness: 1 });
+            const leafMats = [0x285c36, 0x397746, 0x527f3c].map(color => new THREE.MeshStandardMaterial({ color, roughness: 1 }));
+            const facadeTextures = [];
+            for (let style = 0; style < 4; style++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256; canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                const bases = ['#777c82', '#a08d78', '#687b82', '#8e7776'];
+                ctx.fillStyle = bases[style]; ctx.fillRect(0, 0, 256, 256);
+                ctx.fillStyle = 'rgba(25,35,45,.75)';
+                for (let y = 12; y < 250; y += 30) for (let x = 10; x < 250; x += 28) {
+                    ctx.fillRect(x, y, 15, 19);
+                    ctx.fillStyle = 'rgba(150,220,235,.55)'; ctx.fillRect(x + 2, y + 2, 11, 13);
+                    ctx.fillStyle = 'rgba(25,35,45,.75)';
+                }
+                ctx.fillStyle = 'rgba(255,255,255,.15)';
+                for (let y = 0; y < 256; y += 64) ctx.fillRect(0, y, 256, 3);
+                if (style % 2 === 0) {
+                    ctx.fillStyle = style === 0 ? '#e33472' : '#20c9c7';
+                    ctx.fillRect(190, 18, 48, 96);
+                    ctx.fillStyle = '#fff4d1'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+                    ctx.fillText('東京', 214, 48); ctx.font = 'bold 11px sans-serif';
+                    ctx.fillText('NOODLE', 214, 70); ctx.fillText('24H', 214, 94);
+                }
+                const tex = new THREE.CanvasTexture(canvas); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                facadeTextures.push(tex);
+            }
+            const buildingMats = facadeTextures.map((map, i) => new THREE.MeshStandardMaterial({ map, color: [0xffffff, 0xd8d1c4, 0xd2e0e0, 0xe0cece][i], roughness: 0.82 }));
+            const addGroundSlab = (x, z, w, d, y, mat) => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), mat);
+                mesh.position.set(x, y, z); scene.add(mesh); return mesh;
+            };
+            // Long asphalt avenues, raised sidewalks, and repeating center dashes form a walkable city grid.
+            for (let lane = -5; lane <= 5; lane++) {
+                const offset = lane * roadStep;
+                addGroundSlab(offset, 0, roadWidth, cityEdge * 2, 0.02, asphalt);
+                addGroundSlab(0, offset, cityEdge * 2, roadWidth, 0.02, asphalt);
+                addGroundSlab(offset - roadWidth / 2 - 1.2, 0, 2.4, cityEdge * 2, 0.09, sidewalk);
+                addGroundSlab(offset + roadWidth / 2 + 1.2, 0, 2.4, cityEdge * 2, 0.09, sidewalk);
+                addGroundSlab(0, offset - roadWidth / 2 - 1.2, cityEdge * 2, 2.4, 0.09, sidewalk);
+                addGroundSlab(0, offset + roadWidth / 2 + 1.2, cityEdge * 2, 2.4, 0.09, sidewalk);
+                for (let p = -cityEdge + 8; p < cityEdge; p += 16) {
+                    addGroundSlab(offset, p, 0.22, 7, 0.095, lanePaint);
+                    addGroundSlab(p, offset, 7, 0.22, 0.095, lanePaint);
                 }
             }
-            createWall(0, -35, 70, 2);
-            createWall(0, 35, 70, 2);
-            createWall(-35, 0, 2, 70);
-            createWall(35, 0, 2, 70);
+            // Dense low and mid-rise blocks with varied heights and textured window facades.
+            for (let x = -216; x <= 216; x += roadStep) for (let z = -216; z <= 216; z += roadStep) {
+                if (Math.random() < 0.14) {
+                    // Small pocket parks add breathing room and tree cover between buildings.
+                    for (let t = 0; t < 5; t++) {
+                        const tx = x + (Math.random() - 0.5) * 23, tz = z + (Math.random() - 0.5) * 23;
+                        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.35, 3.2, 6), trunkMat);
+                        trunk.position.set(tx, 1.6, tz); scene.add(trunk);
+                        const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8 + Math.random() * 0.8, 1), leafMats[Math.floor(Math.random() * leafMats.length)]);
+                        crown.position.set(tx, 3.8, tz); scene.add(crown);
+                    }
+                    continue;
+                }
+                const width = 25 + Math.random() * 4, depth = 25 + Math.random() * 4;
+                const floors = 2 + Math.floor(Math.random() * 9), height = floors * 3.2;
+                const mat = buildingMats[Math.floor(Math.random() * buildingMats.length)];
+                createWall(x, z, width, depth, height, mat);
+                // Roof lip and compact rooftop machinery give the skyline a more finished silhouette.
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.45, depth + 0.8), sidewalk);
+                roof.position.set(x, height + 0.2, z); scene.add(roof);
+                if (floors > 5) {
+                    const unit = new THREE.Mesh(new THREE.BoxGeometry(3, 1.6, 2.4), asphalt);
+                    unit.position.set(x + width * 0.2, height + 1.2, z - depth * 0.15); scene.add(unit);
+                }
+            }
+            // Perimeter keeps the playable city bounded while leaving a much larger open-world footprint.
+            createWall(0, -cityEdge, cityEdge * 2, 3, 18);
+            createWall(0, cityEdge, cityEdge * 2, 3, 18);
+            createWall(-cityEdge, 0, 3, cityEdge * 2, 18);
+            createWall(cityEdge, 0, 3, cityEdge * 2, 18);
         }
 
         function createFlag(team, x, z) {
@@ -1537,6 +1615,7 @@
             const currentRailgunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'railgun').length;
             const currentRaygunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'raygun').length;
             const currentTryhardBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'tryhard').length;
+            const currentRpgBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'rpg').length;
             const minigunQuota = Math.floor(botCount / 10);
             const currentMinigunBots = bots.filter(existing => existing.userData.weapon && existing.userData.weapon.id === 'minigun').length;
             if (gameMode !== 'gungame') {
@@ -1546,7 +1625,7 @@
                 else if (currentMinigunBots < minigunQuota) weaponData = WEAPONS.minigun;
                 const rareWeaponRoll = Math.random();
                 if (rareWeaponRoll < 0.01) weaponData = WEAPONS.one_kills_machine;
-                else if (rareWeaponRoll < 0.03) weaponData = WEAPONS.rpg;
+                else if (rareWeaponRoll < 0.03 && currentRpgBots < 2) weaponData = WEAPONS.rpg;
             }
 
             if (gameMode === 'gungame') {
@@ -1600,7 +1679,7 @@
             bot.userData.isFlagRunner = gameMode === 'ctf' &&
                 !bots.some(other => other.userData.team === bot.userData.team && other.userData.isFlagRunner);
 
-            const label = createTextSprite(bot.userData.name);
+            const label = createTextSprite(botCount > 100 ? 'BOT' : bot.userData.name);
             label.position.y = 1.2;
             bot.add(label);
 
@@ -1618,8 +1697,8 @@
             
             let bx, bz;
             do {
-                bx = (Math.random()-0.5)*50;
-                bz = (Math.random()-0.5)*50;
+                bx = (Math.random()-0.5)*440;
+                bz = (Math.random()-0.5)*440;
             } while (checkCollision(bx, bz));
             
             bot.position.set(bx, 0.9, bz);
@@ -1791,8 +1870,8 @@
             flags.forEach(f => scene.remove(f.mesh));
             flags = [];
             if (gameMode === 'ctf') {
-                flags.push(createFlag('blue', 0, -30));
-                flags.push(createFlag('red', 0, 30));
+                flags.push(createFlag('blue', 0, -220));
+                flags.push(createFlag('red', 0, 220));
             }
 
             if (gameMode !== 'ffa') {
@@ -3801,7 +3880,7 @@
             }
         }
 
-        function fireProjectile(source, ownerData) {
+        function fireProjectile(source, ownerData, forceRateShot = false) {
             if(isGameOver) return;
             
             let weapon, invItem;
@@ -3854,7 +3933,7 @@
                 if (!invItem) return;
                 if (invItem.ammo <= 0 && !weapon.isMelee) { reload(); return; }
                 
-                if (Date.now() - lastShotTime < shotDelay) return;
+                if (!forceRateShot && Date.now() - lastShotTime < shotDelay) return;
                 if (!weapon.isMelee) invItem.ammo--;
                 updateAmmoDisplay();
                 lastShotTime = Date.now();
@@ -4155,6 +4234,8 @@
                 tryhardHoldStartTime = 0;
                 oneKillsMachineSpeed = ONE_KILLS_MACHINE_BASE_SPEED;
                 oneKillsMachineSpeedUpdatedAt = 0;
+                oneKillsMachineShotAccumulator = 0;
+                oneKillsMachineShotUpdateAt = 0;
                 playerInventory.forEach(item => {
                     if (item && item.def) item.ammo = item.def.maxAmmo;
                 });
@@ -4167,8 +4248,8 @@
                 // Keep team-mode respawns spread across the arena instead of
                 // sending bots back to the same team base every time.
                 do {
-                    rx = (Math.random() - 0.5) * 50;
-                    rz = (Math.random() - 0.5) * 50;
+                    rx = (Math.random() - 0.5) * 440;
+                    rz = (Math.random() - 0.5) * 440;
                 } while (checkCollision(rx, rz));
             } else if (gameMode !== 'ffa') {
                 const zOffset = team === 'blue' ? -30 : 30;
@@ -4177,7 +4258,7 @@
                     rz = zOffset + (Math.random()-0.5)*10; 
                 } while(checkCollision(rx, rz));
             } else {
-                do { rx = (Math.random()-0.5)*40; rz = (Math.random()-0.5)*40; } while(checkCollision(rx, rz));
+                do { rx = (Math.random()-0.5)*440; rz = (Math.random()-0.5)*440; } while(checkCollision(rx, rz));
             }
             
             if(isPlayer) {
@@ -4232,8 +4313,8 @@
             flags.forEach(f => scene.remove(f.mesh));
             flags = [];
             if (gameMode === 'ctf') {
-                flags.push(createFlag('blue', 0, -30));
-                flags.push(createFlag('red', 0, 30));
+                flags.push(createFlag('blue', 0, -220));
+                flags.push(createFlag('red', 0, 220));
             }
             for(let i=0; i<botCount; i++) spawnBot();
             respawnEntity(null, true);
@@ -4346,7 +4427,27 @@
             }
 
             if ((isFiring || ctrlIsFiring) && currentWeapon.automatic) {
-                fireProjectile(camera, { name: "Player", id: "player" });
+                if (currentWeapon.id === 'one_kills_machine') {
+                    const shotNow = timestamp || performance.now();
+                    if (!oneKillsMachineShotUpdateAt) oneKillsMachineShotUpdateAt = shotNow;
+                    const elapsed = Math.min(shotNow - oneKillsMachineShotUpdateAt, 100);
+                    oneKillsMachineShotUpdateAt = shotNow;
+                    const baseRoundsPerSecond = currentWeapon.delay > 0 ? 1000 / currentWeapon.delay : 10;
+                    oneKillsMachineShotAccumulator += elapsed * baseRoundsPerSecond * 300 / 1000;
+                    let shotsThisFrame = Math.min(150, Math.floor(oneKillsMachineShotAccumulator));
+                    while (shotsThisFrame-- > 0 && !isReloading && playerInventory[activeSlot].ammo > 0) {
+                        fireProjectile(camera, { name: "Player", id: "player" }, true);
+                        oneKillsMachineShotAccumulator -= 1;
+                    }
+                    if (playerInventory[activeSlot].ammo <= 0) {
+                        oneKillsMachineShotAccumulator = 0;
+                        reload();
+                    }
+                } else {
+                    oneKillsMachineShotAccumulator = 0;
+                    oneKillsMachineShotUpdateAt = 0;
+                    fireProjectile(camera, { name: "Player", id: "player" });
+                }
             }
 
             if (audioCtx && audioCtx.listener) {
@@ -4528,7 +4629,16 @@
             wand.position.lerp(basePos, 15 * delta);
             recoil = Math.max(0, recoil - delta * 5);
 
-            bots.forEach(bot => {
+            botAiFrame++;
+            const botDelta = Math.min(delta * 5, 0.25);
+            bots.forEach((bot, botIndex) => {
+                // Spread bot thinking across frames so large matches avoid a 500-bot AI spike.
+                if (botIndex % 5 !== botAiFrame % 5) return;
+                const botDistanceSq = bot.position.distanceToSquared(camera.position);
+                // Bots past the visible combat area keep simulating but skip their draw calls.
+                bot.visible = botDistanceSq < 180 * 180;
+                if (bot.children[4]) bot.children[4].visible = botDistanceSq < 90 * 90;
+                if (bot.children[5]) bot.children[5].visible = botDistanceSq < 90 * 90;
                 let target = null;
                 let minDist = Infinity;
                 
@@ -4569,7 +4679,7 @@
 
                 if (!target) {
                     if (flagObjective) {
-                        moveBotTowardPosition(bot, flagObjective, delta);
+                        moveBotTowardPosition(bot, flagObjective, botDelta);
                         return;
                     }
 
@@ -4583,7 +4693,7 @@
                     
                     setBotYawTowards(bot, bot.userData.roamTarget);
                     const moveDir = new THREE.Vector3(0, 0, 1).applyQuaternion(bot.quaternion);
-                    const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
+                    const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * botDelta));
                     
                     if(!checkCollision(nextPos.x, nextPos.z)) {
                         bot.position.copy(nextPos);
@@ -4615,7 +4725,7 @@
                     if (closestPickup) {
                         setBotYawTowards(bot, closestPickup.position);
                         const moveDir = new THREE.Vector3(0,0,1).applyQuaternion(bot.quaternion);
-                        const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
+                        const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * botDelta));
                         if(!checkCollision(nextPos.x, nextPos.z)) bot.position.copy(nextPos);
                         
                         if (minPickupDist < 1.5) {
@@ -4674,10 +4784,10 @@
                 moveDir.y = 0;
                 moveDir.normalize();
 
-                const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * delta));
+                const nextPos = bot.position.clone().add(moveDir.multiplyScalar(bot.userData.speed * botDelta));
                 nextPos.y = 0.9;
                 if (flagObjective) {
-                    moveBotTowardPosition(bot, flagObjective, delta);
+                    moveBotTowardPosition(bot, flagObjective, botDelta);
                 } else if(!checkCollision(nextPos.x, nextPos.z)) {
                     let botHit = false;
                     for(let other of bots) {
