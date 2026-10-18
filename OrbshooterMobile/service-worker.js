@@ -1,10 +1,11 @@
 const CACHE_NAME = 'orb-tosser-v22';
 const APP_URL = new URL('./', self.registration.scope).href;
-const IOS12_PAGE_URL = new URL('./Orb-Tosser%20iOS12.html', self.registration.scope).href;
-const IOS12_MANIFEST_URL = new URL('./manifest-older.webmanifest', self.registration.scope).href;
+const APP_PAGE_URL = new URL('./index.html', self.registration.scope).href;
+const APP_MANIFEST_URL = new URL('./manifest.webmanifest', self.registration.scope).href;
 const APP_SHELL = [
-    IOS12_PAGE_URL,
-    IOS12_MANIFEST_URL,
+    APP_URL,
+    APP_PAGE_URL,
+    APP_MANIFEST_URL,
     new URL('./Engine%20Ai%20Bots.js', self.registration.scope).href,
     new URL('./manifest.webmanifest', self.registration.scope).href,
     new URL('./icon.ico', self.registration.scope).href,
@@ -39,13 +40,6 @@ self.addEventListener('fetch', (event) => {
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(request);
 
-        // The root can serve an older build on static hosting. Send root visits
-        // directly to the game page instead of rendering that older entry page.
-        if (request.mode === 'navigate' && isSameOrigin &&
-            new URL(request.url).pathname === new URL(APP_URL).pathname) {
-            return Response.redirect(IOS12_PAGE_URL, 302);
-        }
-
         if (isSameOrigin && cachedResponse && request.mode !== 'navigate') return cachedResponse;
 
         try {
@@ -56,18 +50,18 @@ self.addEventListener('fetch', (event) => {
             }
             if (request.mode === 'navigate' && !response.ok) {
                 const appShell = await cache.match(request) ||
-                    (new URL(request.url).pathname === new URL(IOS12_PAGE_URL).pathname
-                        ? await cache.match(IOS12_PAGE_URL)
-                        : await cache.match(IOS12_PAGE_URL) || await cache.match(APP_URL));
+                    (new URL(request.url).pathname === new URL(APP_PAGE_URL).pathname
+                        ? await cache.match(APP_PAGE_URL)
+                        : await cache.match(APP_URL) || await cache.match(APP_PAGE_URL));
                 if (appShell) return appShell;
             }
             return response;
         } catch (error) {
             if (cachedResponse) return cachedResponse;
             if (request.mode === 'navigate') {
-                const appShell = new URL(request.url).pathname === new URL(IOS12_PAGE_URL).pathname
-                    ? await cache.match(IOS12_PAGE_URL)
-                    : await cache.match(IOS12_PAGE_URL) || await cache.match(APP_URL);
+                const appShell = new URL(request.url).pathname === new URL(APP_PAGE_URL).pathname
+                    ? await cache.match(APP_PAGE_URL)
+                    : await cache.match(APP_URL) || await cache.match(APP_PAGE_URL);
                 if (appShell) return appShell;
             }
             throw error;
