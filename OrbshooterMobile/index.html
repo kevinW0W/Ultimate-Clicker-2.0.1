@@ -53,7 +53,8 @@
             text-align: right;
             color: #fff;
             pointer-events: none;
-            z-index: 10;
+            /* Keep the scrollable leaderboard above the full-screen mobile look zone. */
+            z-index: 25;
         }
         #timer { font-size: 32px; font-weight: bold; color: #ff0; text-shadow: 2px 2px 0 #000; }
         #leaderboard {
