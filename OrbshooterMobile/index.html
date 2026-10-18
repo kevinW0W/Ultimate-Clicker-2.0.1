@@ -3821,7 +3821,7 @@
 
         function detonateRocket(projectile, projectileIndex, position) {
             const data = projectile.userData;
-            const radius = 6.5;
+            const radius = 9;
             const blast = new THREE.Mesh(
                 new THREE.SphereGeometry(1, 12, 10),
                 new THREE.MeshBasicMaterial({ color: 0xff7a22, transparent: true, opacity: 0.78, depthWrite: false })
@@ -3837,15 +3837,17 @@
             bots.slice().forEach(bot => {
                 if (bot.userData.hp <= 0 || bot.userData.id === data.ownerId) return;
                 if (gameMode !== 'ffa' && bot.userData.team === data.team) return;
-                const center = bot.position.clone().add(new THREE.Vector3(0, 0.35, 0));
-                const distance = center.distanceTo(position);
+                // Splash radius is measured across the arena floor so the
+                // launch height cannot make a nearby bot immune to the blast.
+                const distance = Math.hypot(bot.position.x - position.x, bot.position.z - position.z);
                 if (distance >= radius) return;
-                const damage = Math.max(1, Math.round(data.damage * (1 - distance / radius)));
+                const damage = Math.max(1, Math.round(data.damage * 1.8 * (1 - distance / radius)));
                 bot.userData.hp -= damage;
                 const hpPercent = Math.max(0, bot.userData.hp / 100);
                 bot.userData.healthBar.scale.x = hpPercent;
                 bot.userData.healthBar.position.x = -0.4 * (1 - hpPercent);
                 bot.userData.healthBarBackground.visible = hpPercent < 1;
+                if (data.ownerId === 'player') showHitMarker(false);
                 bot.userData.aggroTarget = data.ownerId === 'player' ? 'player' : bot.userData.aggroTarget;
                 if (bot.userData.hp <= 0) {
                     if (data.ownerId === 'player') {
@@ -3872,9 +3874,9 @@
             });
 
             if (data.ownerId !== 'player' && !(gameMode !== 'ffa' && data.team === 'blue') && playerHealth > 0) {
-                const distance = camera.position.distanceTo(position);
+                const distance = Math.hypot(camera.position.x - position.x, camera.position.z - position.z);
                 if (distance < radius) {
-                    playerHealth -= Math.max(1, Math.round(data.damage * (1 - distance / radius)));
+                    playerHealth -= Math.max(1, Math.round(data.damage * 1.8 * (1 - distance / radius)));
                     lastKillerId = data.ownerId;
                     lastDamageTime = Date.now();
                     document.getElementById('health-display').innerText = "✚ " + Math.max(0, Math.ceil(playerHealth));
@@ -4729,7 +4731,11 @@
                         } else {
                             fireProjectile(bot, bot.userData);
                         }
-                        bot.userData.nextShot = Date.now() + bot.userData.weapon.delay + Math.random() * 500;
+                        const botWeapon = bot.userData.weapon;
+                        const shotCadence = botWeapon.isTryhard ? 8 : botWeapon.delay;
+                        bot.userData.nextShot = Date.now() + (botWeapon.automatic || botWeapon.isTryhard
+                            ? shotCadence
+                            : shotCadence + Math.random() * 500);
                     }
                 }
             });
