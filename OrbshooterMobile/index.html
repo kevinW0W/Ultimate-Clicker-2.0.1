@@ -175,6 +175,7 @@
         #chat-unread-badge { display:none; position:absolute; top:-9px; right:-9px; min-width:20px; height:20px; padding:0 4px; box-sizing:border-box; align-items:center; justify-content:center; border:2px solid #000; border-radius:999px; background:#f33; color:#fff; font: bold 11px/1 sans-serif; text-shadow:none; }
         #chat-panel { display:none; position:fixed; top:144px; left:20px; z-index:115; width:min(320px, calc(100vw - 40px)); max-height:38vh; box-sizing:border-box; padding:10px; border:1px solid #0ff; border-radius:8px; background:rgba(0,0,0,.9); color:#fff; pointer-events:auto; touch-action:pan-y; }
         #chat-panel h2 { margin:0 0 8px; color:#0ff; font-size:16px; }
+        #chat-connection-status { margin:-3px 0 7px; color:#aaa; font-size:11px; }
         #chat-log { height:min(220px, 24vh); min-height:80px; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y; overflow-wrap:anywhere; font-size:13px; line-height:1.4; }
         #chat-form { display:flex; gap:6px; margin-top:8px; }
         #chat-input { min-width:0; flex:1; padding:9px; border:1px solid #777; border-radius:4px; background:#fff; color:#111; font:16px sans-serif; -webkit-user-select:text; user-select:text; touch-action:auto; }
@@ -477,6 +478,7 @@
     <button id="chat-toggle-btn" type="button" aria-label="Open chat" onclick="toggleChat()"><span id="chat-toggle-label">CHAT (T)</span><span id="chat-unread-badge" aria-live="polite"></span></button>
     <section id="chat-panel" aria-label="Game chat" aria-hidden="true">
         <h2>CHAT</h2>
+        <div id="chat-connection-status" role="status">Not connected</div>
         <div id="chat-log" aria-live="polite"></div>
         <form id="chat-form" autocomplete="off">
             <input id="chat-input" type="text" maxlength="160" placeholder="Type a message…" aria-label="Chat message">
@@ -1952,6 +1954,9 @@
             gameMode = document.getElementById('gamemode-select').value;
             teamScores = { red: 0, blue: 0 };
             availableBotNames = [...BASE_BOT_NAMES];
+            document.getElementById('chat-log').innerHTML = '';
+            unreadChatCount = 0;
+            updateUnreadChatBadge();
 
             gameHasStarted = true;
             if (isSoloMode) {
@@ -1959,6 +1964,7 @@
                 multiplayerConnected = false;
                 clearRemotePlayers();
                 document.getElementById('mp-status').innerText = 'Solo game with bots. Multiplayer is not connected.';
+                document.getElementById('chat-connection-status').innerText = 'Solo game · messages are local only';
             } else {
                 connectToMainServer();
             }
@@ -2885,7 +2891,9 @@
 
             window.addEventListener('keydown', (e) => {
                 if (isChatOpen) {
-                    if (e.code === 'Escape' || (e.code === 'KeyT' && !e.repeat)) {
+                    // Leave ordinary keys alone so T and other characters can
+                    // be typed into the focused chat field. Escape closes chat.
+                    if (e.code === 'Escape') {
                         e.preventDefault();
                         e.stopImmediatePropagation();
                         closeChat(true);
@@ -4490,7 +4498,7 @@
             }
         }
 
-        function appendChatMessage(name, text, isLocal = false) {
+        function appendChatMessage(name, text, isLocal = false, isHistory = false) {
             const log = document.getElementById('chat-log');
             const row = document.createElement('div');
             const sender = document.createElement('strong');
@@ -4501,7 +4509,7 @@
             log.appendChild(row);
             while (log.children.length > 40) log.removeChild(log.firstChild);
             log.scrollTop = log.scrollHeight;
-            if (!isLocal && !isChatOpen) {
+            if (!isLocal && !isHistory && !isChatOpen) {
                 unreadChatCount++;
                 updateUnreadChatBadge();
             }
@@ -4523,7 +4531,11 @@
             if (!text) return;
             input.value = '';
             appendChatMessage(multiplayerName, text, true);
-            if (multiplayerConnected) MultiplayerTransport.send({ type: 'chat', text });
+            if (!isSoloMode && gameHasStarted && window.MultiplayerTransport) {
+                const queued = MultiplayerTransport.send({ type: 'chat', text });
+                if (!queued) document.getElementById('chat-connection-status').innerText = 'Offline · message could not be queued';
+                else if (!multiplayerConnected) document.getElementById('chat-connection-status').innerText = 'Reconnecting · message queued';
+            }
             input.focus();
         }
 
@@ -4572,12 +4584,16 @@
             nameInput.value = multiplayerName;
             const started = MultiplayerTransport.connect('main', multiplayerName, handleMultiplayerMessage, status => {
                 document.getElementById('mp-status').innerText = status;
-                if (status === 'Disconnected') {
+                document.getElementById('chat-connection-status').innerText = status;
+                if (/^(Connected as main room host|Connected ·|Room open)/.test(status)) {
+                    multiplayerConnected = true;
+                } else if (/^(Disconnected|Lost connection|Peer connection error)/.test(status)) {
                     multiplayerConnected = false;
-                    clearRemotePlayers();
+                    if (status === 'Disconnected' || status.startsWith('Lost connection')) clearRemotePlayers();
                 }
             });
-            multiplayerConnected = started;
+            multiplayerConnected = false;
+            if (!started) document.getElementById('mp-status').innerText = 'Could not start multiplayer.';
         }
 
         function clearRemotePlayers() {
@@ -4613,8 +4629,15 @@
             if (message.type === 'chat') {
                 appendChatMessage(message.name, message.text, false);
             } else if (message.type === 'welcome') {
+                multiplayerConnected = true;
                 (message.players || []).forEach(player => addRemotePlayer(player.id, player.name));
-                document.getElementById('mp-status').innerText = `Connected to room (${(message.players || []).length + 1} player${message.players && message.players.length === 0 ? '' : 's'}).`;
+                document.getElementById('chat-log').innerHTML = '';
+                unreadChatCount = 0;
+                updateUnreadChatBadge();
+                (message.chatHistory || []).forEach(chat => appendChatMessage(chat.name, chat.text, false, true));
+                const roomStatus = `Connected to room (${(message.players || []).length + 1} player${message.players && message.players.length === 0 ? '' : 's'}).`;
+                document.getElementById('mp-status').innerText = roomStatus;
+                document.getElementById('chat-connection-status').innerText = roomStatus;
             } else if (message.type === 'playerJoined') {
                 addRemotePlayer(message.id, message.name);
             } else if (message.type === 'playerLeft') {
@@ -4808,7 +4831,10 @@
             }
 
             const loadoutOpen = window.getComputedStyle(document.getElementById('overlay')).display !== 'none';
-            const isPaused = (!document.pointerLockElement && !isMobile) ||
+            // Chat releases desktop pointer lock so the text field can receive
+            // input. Keep the simulation running while that intentional unlock
+            // is active; real pause/menu states are still handled below.
+            const isPaused = (!document.pointerLockElement && !isMobile && !isChatOpen) ||
                 document.getElementById('pause-menu').style.display === 'flex' ||
                 document.getElementById('settings-menu').style.display === 'flex' ||
                 loadoutOpen || playerHealth <= 0;
