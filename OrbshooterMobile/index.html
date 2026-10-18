@@ -1602,6 +1602,12 @@
         }
 
         function buildMaze() {
+            // Keep the procedural city identical on every client in the shared room.
+            let mapSeed = 0x4f524232;
+            const mapRandom = () => {
+                mapSeed = (mapSeed * 1664525 + 1013904223) >>> 0;
+                return mapSeed / 0x100000000;
+            };
             const cityEdge = 240;
             const roadStep = 48;
             const roadWidth = 14;
@@ -1655,20 +1661,20 @@
             }
             // Dense low and mid-rise blocks with varied heights and textured window facades.
             for (let x = -216; x <= 216; x += roadStep) for (let z = -216; z <= 216; z += roadStep) {
-                if (Math.random() < 0.14) {
+                if (mapRandom() < 0.14) {
                     // Small pocket parks add breathing room and tree cover between buildings.
                     for (let t = 0; t < 5; t++) {
-                        const tx = x + (Math.random() - 0.5) * 23, tz = z + (Math.random() - 0.5) * 23;
+                        const tx = x + (mapRandom() - 0.5) * 23, tz = z + (mapRandom() - 0.5) * 23;
                         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.35, 3.2, 6), trunkMat);
                         trunk.position.set(tx, 1.6, tz); scene.add(trunk); cityRenderObjects.push(trunk);
-                        const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8 + Math.random() * 0.8, 1), leafMats[Math.floor(Math.random() * leafMats.length)]);
+                        const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8 + mapRandom() * 0.8, 1), leafMats[Math.floor(mapRandom() * leafMats.length)]);
                         crown.position.set(tx, 3.8, tz); scene.add(crown); cityRenderObjects.push(crown);
                     }
                     continue;
                 }
-                const width = 25 + Math.random() * 4, depth = 25 + Math.random() * 4;
-                const floors = 2 + Math.floor(Math.random() * 9), height = floors * 3.2;
-                const mat = buildingMats[Math.floor(Math.random() * buildingMats.length)];
+                const width = 25 + mapRandom() * 4, depth = 25 + mapRandom() * 4;
+                const floors = 2 + Math.floor(mapRandom() * 9), height = floors * 3.2;
+                const mat = buildingMats[Math.floor(mapRandom() * buildingMats.length)];
                 const building = createWall(x, z, width, depth, height, mat);
                 // Keep collision/raycast data while skipping distant facade draw calls.
                 cityRenderObjects.push(building);
@@ -4568,10 +4574,10 @@
             if (!multiplayerConnected || !gameHasStarted || timestamp - multiplayerLastSend < 50) return;
             multiplayerLastSend = timestamp;
             const localScore = scores.find(entry => entry.isLocal);
-            MultiplayerTransport.send({ type: 'state', player: {
+            MultiplayerTransport.send({ type: 'state',
                 x: camera.position.x, y: camera.position.y, z: camera.position.z,
                 yaw, pitch, health: playerHealth, score: localScore ? localScore.score : 0
-            } });
+            });
         }
 
         function connectToMainServer() {
@@ -4660,10 +4666,14 @@
                 addRemotePlayer(message.id, message.name);
                 const remote = remotePlayers.get(message.id);
                 if (!remote) return;
-                remote.mesh.position.set(message.x, message.y, message.z);
-                remote.mesh.rotation.set(-message.pitch, message.yaw + Math.PI, 0, 'YXZ');
-                remote.mesh.visible = message.health > 0;
-                remote.score = message.score || 0;
+                // Accept the nested payload used by earlier builds as well as the flat protocol.
+                const state = message.player || message;
+                const x = Number(state.x), y = Number(state.y), z = Number(state.z);
+                if (![x, y, z].every(Number.isFinite)) return;
+                remote.mesh.position.set(x, y, z);
+                remote.mesh.rotation.set(-Number(state.pitch || 0), Number(state.yaw || 0) + Math.PI, 0, 'YXZ');
+                remote.mesh.visible = Number(state.health) > 0;
+                remote.score = Number(state.score) || 0;
                 const row = scores.find(s => s.id === message.id);
                 if (row) row.score = remote.score;
                 updateLeaderboard();
