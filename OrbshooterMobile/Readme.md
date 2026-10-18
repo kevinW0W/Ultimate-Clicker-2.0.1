@@ -1,5 +1,7 @@
 # Orb Tosser 2
 
+![Orb Tosser 2 banner](og-thumbnail.png)
+
 Orb Tosser 2 is a browser based, first person arena shooter built with HTML, CSS, JavaScript, and Three.js. It is designed primarily for phones and tablets, with mobile touch controls and controller support. Play against bots on your own, or join the shared public multiplayer room.
 
 ## Contents
