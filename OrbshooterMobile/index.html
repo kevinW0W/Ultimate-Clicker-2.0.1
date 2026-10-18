@@ -1889,6 +1889,12 @@
         function showLoadoutMenu(solo = false) {
             isSelectingRespawnLoadout = false;
             isSoloMode = solo;
+            const botSlider = document.getElementById('bot-slider');
+            botSlider.max = solo ? '500' : '10';
+            if (!solo && Number(botSlider.value) > 10) {
+                botSlider.value = '10';
+                updateSettings();
+            }
             document.getElementById('main-menu').style.display = 'none';
             const overlay = document.getElementById('overlay');
             overlay.style.display = 'flex';
@@ -1955,6 +1961,13 @@
 
         function startGame(weaponType, solo = false) {
             isSoloMode = !!solo;
+            if (!isSoloMode) {
+                const botSlider = document.getElementById('bot-slider');
+                botSlider.max = '10';
+                botCount = Math.min(botCount, 10);
+                botSlider.value = String(botCount);
+                document.getElementById('bot-count-val').innerText = botSlider.value;
+            }
             gameMode = document.getElementById('gamemode-select').value;
             teamScores = { red: 0, blue: 0 };
             availableBotNames = [...BASE_BOT_NAMES];
@@ -2296,6 +2309,7 @@
             cancelReload();
             closeChat(false);
             gameHasStarted = false;
+            document.getElementById('bot-slider').max = '500';
             updateGameTheme();
             onWindowResize();
             updateDesktopDebugMenu();
