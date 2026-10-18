@@ -1,8 +1,8 @@
 {
   "id": "./",
   "name": "Orb Tosser Mobile",
-  "short_name": "Orb Tosser",
-  "description": "Play Orb Tosser, a fast-paced mobile orb-throwing game.",
+  "short_name": "Orb Tosser 2",
+  "description": "Play Orb Tosser 2, a fast-paced mobile orb-throwing game.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
